@@ -9,8 +9,6 @@ require (
 	github.com/stretchr/testify v1.11.1
 )
 
-replace github.com/soundprediction/go-embedeverything => ../go-embedeverything
-
 require (
 	github.com/LadybugDB/go-ladybug v0.12.2-patch2
 	github.com/dgraph-io/badger/v4 v4.9.0
