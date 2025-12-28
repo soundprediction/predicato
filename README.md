@@ -1,31 +1,31 @@
 # go-predicato
 
-A production-ready Temporal Knowledge Graph library for Go, designed for extracting, organizing, and querying predicate logic.
+A temporal knowledge graph library for Go that extracts, organizes, and queries predicate logic from unstructured content.
 
-## Core Advancements
+## Key Capabilities
 
-* **Universal LLM Support**: Native support for any OpenAI-compatible provider (OpenAI, Anthropic, Together AI, Ollama, vLLM).
-* **Cost & Budgeting**: Built-in real-time cost tracking with serverless pricing models (Together AI, OpenAI) and granular token usage analytics.
-* **Resiliency**: Advanced routing capabilities with provider fallback, circuit breaking, and usage-based routing rules (e.g., routing HIPAA compliant requests to specific providers).
-* **High Performance**: 
-    * **Embedded Database**: Native ladybugDB support for zero-setup, high-performance graph storage.
-    * **Caching**: BadgerDB-based caching layer for embeddings and LLM responses to reduce latency and costs.
-    * **Protocol Buffers**: TSV-based prompting reduces token usage by 30-50% compared to JSON.
-* **Observability**: Comprehensive error tracking and telemetry with DuckDB persistence.
+* **LLM Integration**: Supports OpenAI-compatible APIs including OpenAI, Anthropic, Gemini, Together AI, Ollama, and vLLM.
+* **Cost Tracking**: Token usage tracking and cost calculation with serverless pricing models.
+* **Routing**: Provider fallback, circuit breaking, and configurable routing rules.
+* **Storage Options**:
+    * Embedded ladybugDB for in-process graph storage
+    * BadgerDB caching layer for embeddings and LLM responses
+    * TSV-based prompting format
+* **Telemetry**: Error tracking with DuckDB persistence.
 
 
 
 ## Features
 
-- **Temporal Knowledge Graphs**: Bi-temporal data model with explicit tracking of event occurrence times
+- **Temporal Knowledge Graphs**: Bi-temporal data model tracking when data was recorded and when it is valid
 - **Hybrid Search**: Combines semantic embeddings, keyword search (BM25), and graph traversal
-- **Multiple Graph Backends**: Primary support for embedded ladybug database, also supports Memgraph and Neo4j
-- **Flexible LLM Integration**: Works with any OpenAI-compatible API (OpenAI, Ollama, LocalAI, vLLM, etc.)
-- **No Vendor Lock-in**: No required dependencies on specific services - use local or cloud providers
-- **CLI Tool**: Command-line interface for running servers and managing the knowledge graph
-- **HTTP Server**: REST API server for web applications and services
-- **MCP Protocol**: Model Context Protocol support for integration with Claude Desktop and other MCP clients
-- **Cross-Encoder Reranking**: Advanced reranking with multiple backends (Jina API, embedding similarity, LLM-based)
+- **Graph Database Support**: Embedded ladybugDB, Memgraph, and Neo4j
+- **LLM Compatibility**: Works with OpenAI-compatible APIs (OpenAI, Anthropic, Gemini, Ollama, LocalAI, vLLM)
+- **Optional Dependencies**: Can run with embedded database and without LLM features
+- **CLI Tool**: Command-line interface for server management and graph operations
+- **HTTP Server**: REST API endpoints for integration
+- **MCP Protocol**: Model Context Protocol support for Claude Desktop and MCP clients
+- **Cross-Encoder Reranking**: Multiple reranking implementations (Jina API, embedding similarity, LLM-based)
 
 
 ## Installation
@@ -314,42 +314,40 @@ The library is structured into several key packages:
 - **EpisodicEdge**: Episodic relationships
 - **CommunityEdge**: Community relationships
 
-## Current Status
+## Implementation Status
 
-🚧 **Work in Progress**: Key features implementation status:
+Implemented features:
 
-- [x] Entity and relationship extraction
-- [x] Node and edge deduplication  
-- [x] Embedding generation and storage
-- [x] Hybrid search implementation
-- [x] Community detection
-- [x] Temporal operations
-- [x] Bulk operations
-- [x] Error Tracking & Telemetry
-- [x] Cost Calculation Service
-- [x] Advanced Router & Provider Fallback
-- [x] Caching Layer (BadgerDB)
-- [x] Circuit Breaker & Email Alerts
+- Entity and relationship extraction
+- Node and edge deduplication
+- Embedding generation and storage
+- Hybrid search
+- Community detection
+- Temporal operations
+- Bulk operations
+- Error tracking and telemetry
+- Cost calculation
+- Router with provider fallback
+- Caching layer (BadgerDB)
+- Circuit breaker and email alerts
 
 ## Documentation
 
-📚 **Documentation**:
-- **[Getting Started](docs/GETTING_STARTED.md)**: Setup guide and first steps
-- **[Examples](docs/EXAMPLES.md)**: Practical usage examples
-- **[ladybug Setup Guide](docs/ladybug_SETUP.md)**: Using the embedded ladybug graph database
-- **[FAQ](docs/FAQ.md)**: Common questions and troubleshooting
-- **[Python to Go Mapping](docs/PYTHON_TO_GO_MAPPING.md)**: Port status tracking
+- [Getting Started](docs/GETTING_STARTED.md): Setup guide and first steps
+- [Examples](docs/EXAMPLES.md): Usage examples
+- [ladybug Setup Guide](docs/ladybug_SETUP.md): Embedded ladybug graph database configuration
+- [FAQ](docs/FAQ.md): Common questions and troubleshooting
 
 ## Examples
 
-See the `examples/` directory for complete usage examples:
+See the `examples/` directory for usage examples:
 
 - `examples/basic/`: Minimal setup with ladybug embedded database
-- `examples/ladybug_ollama/`: Local setup with ladybug + Ollama (maximum privacy)
-- `examples/openai_compatible/`: Using various OpenAI-compatible services
-- `examples/chat/`: Chat interface example
-- `examples/prompts/`: Prompt engineering examples
-- More examples in [docs/EXAMPLES.md](docs/EXAMPLES.md)
+- `examples/ladybug_ollama/`: Local setup with ladybug and Ollama
+- `examples/openai_compatible/`: OpenAI-compatible service integration
+- `examples/chat/`: Chat interface implementation
+- `examples/prompts/`: Prompt engineering
+- Additional examples in [docs/EXAMPLES.md](docs/EXAMPLES.md)
 
 ## Development
 
