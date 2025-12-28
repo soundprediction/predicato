@@ -92,6 +92,50 @@ func TestEmptyPassages(t *testing.T) {
 	}
 }
 
+func TestEmbedEverythingClient(t *testing.T) {
+	// This test requires model downloads from Hugging Face and may fail if:
+	// 1. No internet connection
+	// 2. Model URL is not accessible
+	// 3. Model format is not compatible
+	// Skip if client creation fails
+	config := &EmbedEverythingConfig{
+		Config: &Config{
+			Model: "BAAI/bge-reranker-base",
+		},
+	}
+
+	client, err := NewEmbedEverythingClient(config)
+	if err != nil {
+		t.Skipf("Skipping EmbedEverything test: %v", err)
+		return
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	query := "machine learning algorithms"
+	passages := []string{
+		"Machine learning algorithms are used in data science",
+		"Cooking recipes for dinner tonight",
+		"Neural networks and deep learning",
+	}
+
+	results, err := client.Rank(ctx, query, passages)
+	if err != nil {
+		t.Fatalf("Expected no error during ranking, got: %v", err)
+	}
+
+	if len(results) != len(passages) {
+		t.Fatalf("Expected %d results, got %d", len(passages), len(results))
+	}
+
+	// Verify results are sorted by score (descending)
+	for i := 1; i < len(results); i++ {
+		if results[i-1].Score < results[i].Score {
+			t.Errorf("Results not sorted by score: %f < %f", results[i-1].Score, results[i].Score)
+		}
+	}
+}
+
 func TestNewClient(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -125,6 +169,8 @@ func TestNewClient(t *testing.T) {
 			},
 			expectError: true,
 		},
+		// Note: embedeverything provider test is skipped here as it requires model downloads
+		// See TestEmbedEverythingClient for a dedicated test with skip logic
 		{
 			name: "unknown provider",
 			config: ClientConfig{
@@ -185,6 +231,14 @@ func TestDefaultConfig(t *testing.T) {
 			provider: ProviderMock,
 			expected: Config{
 				BatchSize: 100,
+			},
+		},
+		{
+			provider: ProviderEmbedEverything,
+			expected: Config{
+				Model:          "BAAI/bge-reranker-base",
+				BatchSize:      100,
+				MaxConcurrency: 1,
 			},
 		},
 	}
