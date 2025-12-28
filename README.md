@@ -5,6 +5,7 @@ A temporal knowledge graph library for Go that extracts, organizes, and queries 
 ## Key Capabilities
 
 * **LLM Integration**: Supports OpenAI-compatible APIs including OpenAI, Anthropic, Gemini, Together AI, Ollama, and vLLM.
+* **Internal Embedding & Reranking**: CPU-based embedding and reranking using go-embedeverything (Go bindings for the Rust embedanything package). Suitable for small models without requiring external API calls.
 * **Cost Tracking**: Token usage tracking and cost calculation with serverless pricing models.
 * **Routing**: Provider fallback, circuit breaking, and configurable routing rules.
 * **Storage Options**:
@@ -21,11 +22,12 @@ A temporal knowledge graph library for Go that extracts, organizes, and queries 
 - **Hybrid Search**: Combines semantic embeddings, keyword search (BM25), and graph traversal
 - **Graph Database Support**: Embedded ladybugDB, Memgraph, and Neo4j
 - **LLM Compatibility**: Works with OpenAI-compatible APIs (OpenAI, Anthropic, Gemini, Ollama, LocalAI, vLLM)
+- **Flexible Embedding Options**: API-based (OpenAI, Gemini, Voyage) or internal CPU-based embedding via go-embedeverything
 - **Optional Dependencies**: Can run with embedded database and without LLM features
 - **CLI Tool**: Command-line interface for server management and graph operations
 - **HTTP Server**: REST API endpoints for integration
 - **MCP Protocol**: Model Context Protocol support for Claude Desktop and MCP clients
-- **Cross-Encoder Reranking**: Multiple reranking implementations (Jina API, embedding similarity, LLM-based)
+- **Cross-Encoder Reranking**: Multiple implementations (API-based, internal CPU-based, embedding similarity, LLM-based)
 
 
 ## Installation
@@ -213,6 +215,109 @@ func main() {
     log.Printf("Found %d nodes", len(results.Nodes))
 }
 ```
+
+**With Internal Embedding & Reranking (CPU-based):**
+
+Go-Predicato can run embedding and reranking models internally using `go-embedeverything`, which provides Go bindings for the Rust `embedanything` package. This eliminates the need for external API calls.
+
+**Important**: Internal embedding/reranking runs on CPU and is suitable only for small models (e.g., `BAAI/bge-small-en-v1.5`, `jinaai/jina-embeddings-v2-small-en`). For larger models or production workloads, use API-based embedders (OpenAI, Gemini, etc.).
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    "time"
+
+    "github.com/soundprediction/go-predicato"
+    "github.com/soundprediction/go-predicato/pkg/crossencoder"
+    "github.com/soundprediction/go-predicato/pkg/driver"
+    "github.com/soundprediction/go-predicato/pkg/embedder"
+)
+
+func main() {
+    ctx := context.Background()
+
+    // Create ladybug driver
+    ladybugDriver, err := driver.NewLadybugDriver("./ladybug_db")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer ladybugDriver.Close(ctx)
+
+    // Create internal embedder (runs on CPU)
+    // Recommended small models: "BAAI/bge-small-en-v1.5", "sentence-transformers/all-MiniLM-L6-v2"
+    embedderConfig := &embedder.EmbedEverythingConfig{
+        Config: &embedder.Config{
+            Model:      "BAAI/bge-small-en-v1.5",
+            Dimensions: 384, // Must match model's output dimensions
+        },
+    }
+    embedderClient, err := embedder.NewEmbedEverythingClient(embedderConfig)
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer embedderClient.Close()
+
+    // Optional: Create internal reranker (runs on CPU)
+    // Recommended small models: "BAAI/bge-reranker-base", "jinaai/jina-reranker-v1-tiny-en"
+    rerankerConfig := &crossencoder.EmbedEverythingConfig{
+        Config: &crossencoder.Config{
+            Model: "BAAI/bge-reranker-base",
+        },
+    }
+    rerankerClient, err := crossencoder.NewEmbedEverythingClient(rerankerConfig)
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer rerankerClient.Close()
+
+    // Create Predicato client
+    config := &predicato.Config{
+        GroupID:  "my-group",
+        TimeZone: time.UTC,
+        // Optional: configure reranker
+        // Reranker: rerankerClient,
+    }
+    client := predicato.NewClient(ladybugDriver, nil, embedderClient, config)
+    defer client.Close(ctx)
+
+    // Add and search episodes as usual
+    episodes := []predicato.Episode{
+        {
+            ID:        "meeting-1",
+            Name:      "Team Meeting",
+            Content:   "Discussed project timeline and resource allocation",
+            Reference: time.Now(),
+            CreatedAt: time.Now(),
+            GroupID:   "my-group",
+        },
+    }
+
+    err = client.Add(ctx, episodes)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Search with internal embeddings (no API calls)
+    results, err := client.Search(ctx, "project timeline", nil)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    log.Printf("Found %d nodes using internal embeddings", len(results.Nodes))
+}
+```
+
+**Performance Considerations**:
+- Internal embedders run on CPU and are **significantly slower** than GPU-accelerated API services
+- Best suited for:
+  - Development and testing
+  - Low-volume workloads
+  - Privacy-sensitive applications that cannot use external APIs
+  - Small embedding models (< 100M parameters)
+- For production or high-volume use cases, prefer API-based embedders (OpenAI, Gemini, Voyage)
 
 ## CLI Tool
 
