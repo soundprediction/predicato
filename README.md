@@ -5,15 +5,14 @@ A temporal knowledge graph library for Go that extracts, organizes, and queries 
 ## Key Capabilities
 
 * **LLM Integration**: Supports OpenAI-compatible APIs including OpenAI, Anthropic, Gemini, Together AI, Ollama, and vLLM.
+* TSV-based prompting format
 * **Internal Embedding & Reranking**: CPU-based embedding and reranking using go-embedeverything (Go bindings for the Rust embedanything package). Suitable for small models without requiring external API calls.
 * **Cost Tracking**: Token usage tracking and cost calculation with serverless pricing models.
 * **Routing**: Provider fallback, circuit breaking, and configurable routing rules.
 * **Storage Options**:
     * Embedded ladybugDB for in-process graph storage
     * BadgerDB caching layer for embeddings and LLM responses
-    * TSV-based prompting format
-* **Telemetry**: Error tracking with DuckDB persistence.
-
+* **Telemetry**: Error tracking with DB persistence
 
 
 ## Features
@@ -21,7 +20,6 @@ A temporal knowledge graph library for Go that extracts, organizes, and queries 
 - **Temporal Knowledge Graphs**: Bi-temporal data model tracking when data was recorded and when it is valid
 - **Hybrid Search**: Combines semantic embeddings, keyword search (BM25), and graph traversal
 - **Graph Database Support**: Embedded ladybugDB, Memgraph, and Neo4j
-- **LLM Compatibility**: Works with OpenAI-compatible APIs (OpenAI, Anthropic, Gemini, Ollama, LocalAI, vLLM)
 - **Flexible Embedding Options**: API-based (OpenAI, Gemini, Voyage) or internal CPU-based embedding via go-embedeverything
 - **Optional Dependencies**: Can run with embedded database and without LLM features
 - **CLI Tool**: Command-line interface for server management and graph operations
@@ -494,5 +492,5 @@ Apache 2.0
 
 ## Acknowledgments
 
-- This package takes inspiration from the original [Graphiti](https://github.com/getzep/graphiti) Python library by Zep
+- This package takes inspiration from the  [Graphiti](https://github.com/getzep/graphiti) Python library by Zep
 
