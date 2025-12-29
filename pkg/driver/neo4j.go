@@ -1414,18 +1414,32 @@ func (n *Neo4jDriver) SearchNodes(ctx context.Context, query, groupID string, op
 	defer session.Close(ctx)
 
 	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
-		// Basic text search using CONTAINS
-		searchQuery := `
-			MATCH (n {group_id: $groupID})
-			WHERE n.name CONTAINS $query OR n.summary CONTAINS $query OR n.content CONTAINS $query
-			RETURN n
-			LIMIT $limit
-		`
-		res, err := tx.Run(ctx, searchQuery, map[string]any{
+		var searchQuery string
+		queryParams := map[string]any{
 			"groupID": groupID,
 			"query":   query,
 			"limit":   limit,
-		})
+		}
+
+		if options != nil && options.ExactMatch {
+			// Exact match query
+			searchQuery = `
+				MATCH (n {group_id: $groupID})
+				WHERE n.name = $query
+				RETURN n
+				LIMIT $limit
+			`
+		} else {
+			// Basic text search using CONTAINS
+			searchQuery = `
+				MATCH (n {group_id: $groupID})
+				WHERE n.name CONTAINS $query OR n.summary CONTAINS $query OR n.content CONTAINS $query
+				RETURN n
+				LIMIT $limit
+			`
+		}
+
+		res, err := tx.Run(ctx, searchQuery, queryParams)
 		if err != nil {
 			return nil, err
 		}

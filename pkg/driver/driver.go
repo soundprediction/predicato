@@ -126,6 +126,7 @@ type QueryOptions struct {
 type SearchOptions struct {
 	Limit       int              `json:"limit"`
 	UseFullText bool             `json:"use_fulltext"`
+	ExactMatch  bool             `json:"exact_match"`
 	NodeTypes   []types.NodeType `json:"node_types,omitempty"`
 	EdgeTypes   []types.EdgeType `json:"edge_types,omitempty"`
 	TimeRange   *types.TimeRange `json:"time_range,omitempty"`

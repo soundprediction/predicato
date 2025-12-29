@@ -1473,6 +1473,7 @@ func (c *Client) getOrCreateSourceNode(ctx context.Context, sourceName string, g
 		Limit:       1,
 		NodeTypes:   []types.NodeType{types.SourceNodeType},
 		UseFullText: false,
+		ExactMatch:  true,
 	})
 	if err != nil {
 		c.logger.Warn("Failed to search for existing source node", "source", sourceName, "error", err)
