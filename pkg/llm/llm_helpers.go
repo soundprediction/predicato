@@ -15,11 +15,11 @@ import (
 )
 
 // calculateProgressiveTimeout returns a timeout duration that increases with each attempt.
-// Starts at 60s, increases by 30s per attempt, with ±20% jitter.
-// Examples: attempt 0: 48-72s, attempt 1: 72-108s, attempt 2: 96-144s
+// Starts at 90s, increases by 45s per attempt, with ±20% jitter.
+// Examples: attempt 0: 72-108s, attempt 1: 108-162s, attempt 2: 144-216s, attempt 8: 432-648s
 func calculateProgressiveTimeout(attempt int) time.Duration {
-	// Base timeout: 60s + (attempt * 30s)
-	baseTimeout := time.Duration(60+attempt*30) * time.Second
+	// Base timeout: 90s + (attempt * 45s)
+	baseTimeout := time.Duration(90+attempt*45) * time.Second
 
 	// Add ±20% jitter
 	jitterPercent := 0.2
