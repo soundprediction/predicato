@@ -600,7 +600,13 @@ func (k *LadybugDriver) Close() error {
 		}
 	}
 
-	// Do not explicitly close the connection, instead rely on GC (matching Python comment)
+	// Explicitly close connection and database to ensure lock is released
+	if k.client != nil {
+		k.client.Close()
+	}
+	if k.db != nil {
+		k.db.Close()
+	}
 	return nil
 }
 
