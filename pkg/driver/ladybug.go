@@ -330,35 +330,70 @@ func NewLadybugDriverWithConfig(config *LadybugDriverConfig) (*LadybugDriver, er
 
 	// Try to open the database with our custom config
 	database, err := ladybug.OpenDatabase(db, systemConfig)
-	if err != nil && isLockError(err) && db != ":memory:" {
-		// Database is locked, try to copy it to a temp location
-		log.Printf("Database at %s is locked, attempting to create temporary copy...", db)
+	if err != nil {
+		// Check if it's a lock error first
+		if isLockError(err) && db != ":memory:" {
+			// Database is locked, try to copy it to a temp location
+			log.Printf("Database at %s is locked, attempting to create temporary copy...", db)
 
-		// Create temp directory
-		tempDir, err := os.MkdirTemp("", "ladybug_readonly_*")
-		if err != nil {
-			return nil, fmt.Errorf("failed to create temp directory: %w", err)
+			// Create temp directory
+			tempDir, err := os.MkdirTemp("", "ladybug_readonly_*")
+			if err != nil {
+				return nil, fmt.Errorf("failed to create temp directory: %w", err)
+			}
+
+			// Copy database to temp location
+			tempDbPath = filepath.Join(tempDir, filepath.Base(db))
+			if err := copyDir(db, tempDbPath); err != nil {
+				os.RemoveAll(tempDir)
+				return nil, fmt.Errorf("failed to copy database to temp location: %w", err)
+			}
+
+			log.Printf("Successfully copied database to temporary location: %s", tempDbPath)
+
+			// Try to open the temp copy with the same config
+			database, err = ladybug.OpenDatabase(tempDbPath, systemConfig)
+			if err != nil {
+				os.RemoveAll(tempDir)
+				return nil, fmt.Errorf("failed to open temporary database copy: %w", err)
+			}
+
+			db = tempDbPath // Use temp path for the rest of initialization
+		} else if db != ":memory:" {
+			// Not a lock error, might be WAL corruption. Try to recover.
+			log.Printf("Failed to open database: %v. Checking for WAL corruption...", err)
+
+			// Check for 'wal' file inside the database directory (common Kuzu/Ladybug pattern)
+			walPath := filepath.Join(db, "wal")
+			if _, err := os.Stat(walPath); os.IsNotExist(err) {
+				// Try adjacent .wal file as fallback
+				walPath = db + ".wal"
+			}
+
+			if _, err := os.Stat(walPath); err == nil {
+				// WAL exists, move it to backup
+				backupPath := fmt.Sprintf("%s.%d.corrupt", walPath, time.Now().UnixNano())
+				log.Printf("Found WAL file at %s. Moving to %s to attempt recovery.", walPath, backupPath)
+
+				if moveErr := os.Rename(walPath, backupPath); moveErr != nil {
+					log.Printf("Failed to move WAL file: %v. Recovery failed.", moveErr)
+					return nil, fmt.Errorf("failed to open ladybug database and failed to move WAL: %v (orig err: %w)", moveErr, err)
+				}
+
+				// Retry opening the database
+				log.Printf("WAL moved. Retrying OpenDatabase...")
+				database, err = ladybug.OpenDatabase(db, systemConfig)
+				if err != nil {
+					return nil, fmt.Errorf("failed to open ladybug database after WAL recovery attempt: %w", err)
+				}
+				log.Printf("Successfully recovered database by moving corrupt WAL.")
+			} else {
+				// No WAL found, return original error
+				return nil, fmt.Errorf("failed to open ladybug database: %w", err)
+			}
+		} else {
+			return nil, fmt.Errorf("failed to open ladybug database: %w", err)
 		}
-
-		// Copy database to temp location
-		tempDbPath = filepath.Join(tempDir, filepath.Base(db))
-		if err := copyDir(db, tempDbPath); err != nil {
-			os.RemoveAll(tempDir)
-			return nil, fmt.Errorf("failed to copy database to temp location: %w", err)
-		}
-
-		log.Printf("Successfully copied database to temporary location: %s", tempDbPath)
-
-		// Try to open the temp copy with the same config
-		database, err = ladybug.OpenDatabase(tempDbPath, systemConfig)
-		if err != nil {
-			os.RemoveAll(tempDir)
-			return nil, fmt.Errorf("failed to open temporary database copy: %w", err)
-		}
-
-		db = tempDbPath // Use temp path for the rest of initialization
-	} else if err != nil {
-		return nil, fmt.Errorf("failed to open ladybug database: %w", err)
 	}
 
 	driver := &LadybugDriver{
