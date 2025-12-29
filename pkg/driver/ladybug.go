@@ -459,8 +459,8 @@ func (k *LadybugDriver) ExecuteQuery(cypherQuery string, kwargs map[string]inter
 			// Wait for result
 			result := <-resultCh
 			return result.result, result.cols, result.meta, result.err
-		case <-time.After(30 * time.Second):
-			return nil, nil, nil, fmt.Errorf("write queue timeout after 30s")
+		case <-time.After(5 * time.Minute):
+			return nil, nil, nil, fmt.Errorf("write queue timeout after 5m")
 		}
 	}
 
