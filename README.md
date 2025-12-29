@@ -434,9 +434,18 @@ Implemented features:
 - Caching layer (BadgerDB)
 - Circuit breaker and email alerts
 
+## Robustness & Reliability
+
+`go-predicato` is built for production reliability with specific features to handle failure modes:
+
+*   **Automatic WAL Recovery**: When using the embedded ladybug database, the driver automatically detects WAL (Write-Ahead Log) corruption that can occur after hard crashes (e.g., OOM kills, power loss). It moves the corrupt WAL file to a backup location and self-heals the database, ensuring your application restarts successfully without manual intervention.
+*   **Concurrency Safety**: The internal driver architecture enforces serial access to the embedded database, guaranteeing thread safety even when hundreds of workers are accessing the same client instance. Write operations are queued and processed asynchronously to prevent lock contention.
+
+
 ## Documentation
 
 - [Getting Started](docs/GETTING_STARTED.md): Setup guide and first steps
+- [API Reference](docs/API_REFERENCE.md): Detailed API documentation including advanced search and configuration
 - [Examples](docs/EXAMPLES.md): Usage examples
 - [ladybug Setup Guide](docs/ladybug_SETUP.md): Embedded ladybug graph database configuration
 - [FAQ](docs/FAQ.md): Common questions and troubleshooting
