@@ -1447,18 +1447,32 @@ func (k *LadybugDriver) SearchNodes(ctx context.Context, query, groupID string, 
 	// BM25 fulltext search using QUERY_FTS_INDEX (matching Python implementation)
 	// From graph_queries.py get_nodes_query() and search_utils.py node_fulltext_search()
 	// For ladybug: CALL QUERY_FTS_INDEX('Entity', 'node_name_and_summary', query, TOP := limit)
-	searchQuery := `
-		CALL QUERY_FTS_INDEX('Entity', 'node_name_and_summary', cast($query AS STRING), TOP := $limit)
-		WITH node AS n, score
-		WHERE n.group_id = $group_id
-		RETURN n.*, score
-		ORDER BY score DESC
-	`
 
+	var searchQuery string
 	params := map[string]interface{}{
 		"query":    query,
 		"group_id": groupID,
-		"limit":    int64(limit),
+		"limit":    limit,
+	}
+
+	if options != nil && options.ExactMatch {
+		// Exact match query
+		searchQuery = `
+			MATCH (n:Entity)
+			WHERE n.name = $query AND n.group_id = $group_id
+			RETURN n.*
+			LIMIT $limit
+		`
+	} else {
+		// BM25 fulltext search
+		// Note: The CAST($query AS STRING) is important for Ladybug FTS
+		searchQuery = `
+			CALL QUERY_FTS_INDEX('Entity', 'node_name_and_summary', cast($query AS STRING), TOP := $limit)
+			WITH node AS n, score
+			WHERE n.group_id = $group_id
+			RETURN n.*, score
+			ORDER BY score DESC
+		`
 	}
 
 	result, _, _, err := k.ExecuteQuery(searchQuery, params)
