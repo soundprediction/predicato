@@ -5,7 +5,7 @@ go 1.25.2
 require (
 	github.com/neo4j/neo4j-go-driver/v5 v5.28.4
 	github.com/sashabaranov/go-openai v1.41.2
-	github.com/soundprediction/go-embedeverything v0.2.0
+	github.com/soundprediction/go-embedeverything v0.7.0
 	github.com/stretchr/testify v1.11.1
 )
 
