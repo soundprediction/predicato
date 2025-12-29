@@ -164,7 +164,7 @@ func (eo *EdgeOperations) ExtractEdges(ctx context.Context, episode *types.Node,
 		eo.logger,
 		messages,
 		csvParser,
-		3, // maxRetries
+		0, // maxRetries (use default of 8)
 	)
 
 	if err != nil {
@@ -592,7 +592,7 @@ func (eo *EdgeOperations) resolveExtractedEdge(ctx context.Context, extractedEdg
 		eo.logger,
 		messages,
 		csvParser,
-		3, // maxRetries
+		0, // maxRetries (use default of 8)
 	)
 
 	if err != nil {

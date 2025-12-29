@@ -129,7 +129,7 @@ func (no *NodeOperations) ExtractNodes(ctx context.Context, episode *types.Node,
 			no.logger,
 			messages,
 			csvParser,
-			3, // maxRetries
+			0, // maxRetries (use default of 8)
 		)
 
 		if err != nil {
@@ -262,7 +262,7 @@ func (no *NodeOperations) extractNodesReflexion(ctx context.Context, episode *ty
 
 	// Use GenerateCSVResponse for robust CSV parsing with retries
 	missedEntitiesSlice, badResp, err := llm.GenerateCSVResponse[prompts.MissedEntitiesTSV](
-		ctx, no.llm, no.logger, messages, csvParser, 3,
+		ctx, no.llm, no.logger, messages, csvParser, 0, // maxRetries (use default of 8)
 	)
 	if err != nil {
 		if badResp != nil {
@@ -396,7 +396,7 @@ func (no *NodeOperations) ResolveExtractedNodes(ctx context.Context, extractedNo
 		no.logger,
 		messages,
 		csvParser,
-		3, // maxRetries
+		0, // maxRetries (use default of 8)
 	)
 
 	if err != nil {
@@ -537,7 +537,7 @@ func (no *NodeOperations) ExtractAttributesFromNodes(ctx context.Context, nodes 
 			no.logger,
 			messages,
 			csvParser,
-			3, // maxRetries
+			0, // maxRetries (use default of 8)
 		)
 
 		if err != nil {
