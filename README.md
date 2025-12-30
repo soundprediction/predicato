@@ -4,6 +4,8 @@ A temporal knowledge graph library for Go that extracts, organizes, and queries 
 
 ## Key Capabilities
 
+* **Self-Contained**: No external service dependencies required (except for optional standalone graph database and LLM and embedding services)
+* **GLiNER Integration**: Supports GLiNER for entity and relation extraction, which is much more efficient than using an LLM
 * **LLM Integration**: Supports OpenAI-compatible APIs including OpenAI, Anthropic, Gemini, Together AI, Ollama, and vLLM.
 * TSV-based prompting format
 * **Internal Embedding & Reranking**: CPU-based embedding and reranking using go-embedeverything (Go bindings for the Rust embedanything package). Suitable for small models without requiring external API calls.

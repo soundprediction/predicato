@@ -11,9 +11,9 @@ import (
 var (
 	cfgFile string
 	rootCmd = &cobra.Command{
-		Use:   "predicato",
-		Short: "Go-Predicato: Knowledge Graph Tool",
-		Long: `Go-Predicato is a Go implementation of the Predicato knowledge graph framework.
+		Use:   "pregnancy",
+		Short: "Pregnancy: Knowledge Graph Tool",
+		Long: `Pregnancy is a Go implementation of the Predicato knowledge graph framework.
 It provides tools for building temporally-aware knowledge graphs with real-time 
 incremental updates.
 
@@ -34,7 +34,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	// Global flags
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.predicato.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.pregnancy.yaml)")
 	rootCmd.PersistentFlags().String("log-level", "info", "log level (debug, info, warn, error)")
 
 	// Bind flags to viper
@@ -51,11 +51,11 @@ func initConfig() {
 		home, err := os.UserHomeDir()
 		cobra.CheckErr(err)
 
-		// Search config in home directory with name ".predicato" (without extension).
+		// Search config in home directory with name ".pregnancy" (without extension).
 		viper.AddConfigPath(home)
 		viper.AddConfigPath(".")
 		viper.SetConfigType("yaml")
-		viper.SetConfigName(".predicato")
+		viper.SetConfigName(".pregnancy")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
