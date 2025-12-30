@@ -115,7 +115,10 @@ func main() {
 		TimeZone: time.UTC,
 	}
 
-	client := predicato.NewClient(neo4jDriver, llmClient, embedderClient, config)
+	client, err := predicato.NewClient(neo4jDriver, llmClient, embedderClient, config, nil)
+	if err != nil {
+		log.Fatalf("Failed to create Predicato client: %v", err)
+	}
 	defer client.Close(ctx)
 	fmt.Printf("   ✅ Predicato client created (group: %s)\n", config.GroupID)
 

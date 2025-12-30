@@ -280,7 +280,10 @@ func runPredicatoIntegrationExample() error {
 	logger := slog.New(predicatoLogger.NewColorHandler(os.Stderr, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
-	predicatoClient := predicato.NewClient(neo4jDriver, llmClient, embedderClient, config, logger)
+	predicatoClient, err := predicato.NewClient(neo4jDriver, llmClient, embedderClient, config, logger)
+	if err != nil {
+		return fmt.Errorf("failed to create Predicato client: %w", err)
+	}
 	defer predicatoClient.Close(context.Background())
 
 	// Add some sample data

@@ -1,6 +1,6 @@
 module github.com/soundprediction/go-predicato
 
-go 1.25.2
+go 1.25.5
 
 require (
 	github.com/neo4j/neo4j-go-driver/v5 v5.28.4
@@ -18,6 +18,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/kaptinlin/jsonrepair v0.2.4
 	github.com/sony/gobreaker v1.0.0
+	github.com/soundprediction/go-gline-rs v0.0.1
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 )

@@ -104,7 +104,10 @@ func main() {
 		TimeZone: time.UTC,
 	}
 
-	client := predicato.NewClient(ladybugDriver, ollama, embedderClient, predicatoConfig, nil)
+	client, err := predicato.NewClient(ladybugDriver, ollama, embedderClient, predicatoConfig, nil)
+	if err != nil {
+		log.Fatalf("Failed to create Predicato client: %v", err)
+	}
 	defer func() {
 		if err := client.Close(ctx); err != nil {
 			log.Printf("Error closing Predicato client: %v", err)

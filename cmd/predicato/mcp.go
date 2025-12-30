@@ -465,7 +465,10 @@ func NewMCPServer(config *MCPConfig) (*MCPServer, error) {
 		TimeZone: time.UTC,
 	}
 
-	client := predicato.NewClient(graphDriver, llmClient, embedderClient, predicatoConfig, logger)
+	client, err := predicato.NewClient(graphDriver, llmClient, embedderClient, predicatoConfig, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Predicato client: %w", err)
+	}
 
 	return &MCPServer{
 		config: config,
