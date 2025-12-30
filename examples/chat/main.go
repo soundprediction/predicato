@@ -57,8 +57,8 @@ type Message struct {
 type ChatClients struct {
 	GlobalPredicato *predicato.Client // Global knowledge base (can be nil)
 	UserPredicato   *predicato.Client // User-specific episodic memory
-	LLM            llm.Client
-	Context        context.Context
+	LLM             llm.Client
+	Context         context.Context
 }
 
 func main() {
@@ -136,8 +136,13 @@ func initializeClients(apiKey, userID, globalDBPath, userDBDir string, skipGloba
 					GroupID:  "global-knowledge",
 					TimeZone: time.UTC,
 				}
-				globalPredicatoClient = predicato.NewClient(ladybugDriver, llmClient, embedderClient, globalConfig, nil)
-				fmt.Printf("   ✅ Global knowledge base loaded from %s\n", globalDBPath)
+				globalPredicatoClient, err = predicato.NewClient(ladybugDriver, llmClient, embedderClient, globalConfig, nil)
+				if err != nil {
+					fmt.Printf("   ⚠️  Failed to create global client: %v\n", err)
+					globalPredicatoClient = nil
+				} else {
+					fmt.Printf("   ✅ Global knowledge base loaded from %s\n", globalDBPath)
+				}
 			}
 		} else {
 			fmt.Printf("   ℹ️  Global knowledge base not found at %s\n", globalDBPath)
@@ -162,14 +167,17 @@ func initializeClients(apiKey, userID, globalDBPath, userDBDir string, skipGloba
 		GroupID:  fmt.Sprintf("user-%s-chat", userID),
 		TimeZone: time.UTC,
 	}
-	userPredicatoClient := predicato.NewClient(userLadybugDriver, llmClient, embedderClient, userConfig, nil)
+	userPredicatoClient, err := predicato.NewClient(userLadybugDriver, llmClient, embedderClient, userConfig, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user client: %w", err)
+	}
 	fmt.Printf("   ✅ User database initialized at %s\n", userDBPath)
 
 	return &ChatClients{
 		GlobalPredicato: globalPredicatoClient,
 		UserPredicato:   userPredicatoClient,
-		LLM:            llmClient,
-		Context:        ctx,
+		LLM:             llmClient,
+		Context:         ctx,
 	}, nil
 }
 

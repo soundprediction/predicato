@@ -331,7 +331,10 @@ func initializePredicato(cfg *config.Config) (predicato.Predicato, error) {
 	}
 
 	// Create and return Predicato client
-	client := predicato.NewClient(graphDriver, llmClient, embedderClient, predicatoConfig, logger)
+	client, err := predicato.NewClient(graphDriver, llmClient, embedderClient, predicatoConfig, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Predicato client: %w", err)
+	}
 
 	fmt.Printf("Predicato initialized successfully with driver: %s\n", cfg.Database.Driver)
 	if llmClient != nil {

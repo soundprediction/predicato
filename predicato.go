@@ -3,12 +3,14 @@ package predicato
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/soundprediction/go-predicato/pkg/community"
 	"github.com/soundprediction/go-predicato/pkg/driver"
 	"github.com/soundprediction/go-predicato/pkg/embedder"
+	"github.com/soundprediction/go-predicato/pkg/gliner"
 	"github.com/soundprediction/go-predicato/pkg/llm"
 	"github.com/soundprediction/go-predicato/pkg/search"
 	"github.com/soundprediction/go-predicato/pkg/types"
@@ -117,7 +119,10 @@ type Config struct {
 	// DefaultEntityTypes defines the default entity types to use when AddEpisodeOptions.EntityTypes is nil
 	EntityTypes map[string]interface{}
 	EdgeTypes   map[string]interface{}
-	EdgeMap     map[string]map[string][]interface{}
+
+	EdgeMap map[string]map[string][]interface{}
+	// GlinerModel is the model path or ID for GLiNER operations (optional)
+	GlinerModel string
 }
 
 // AddEpisodeOptions holds options for adding a single episode.
@@ -141,7 +146,7 @@ type AddEpisodeOptions struct {
 }
 
 // NewClient creates a new Predicato client with the provided configuration.
-func NewClient(driver driver.GraphDriver, llmClient llm.Client, embedderClient embedder.Client, config *Config, logger *slog.Logger) *Client {
+func NewClient(driver driver.GraphDriver, llmClient llm.Client, embedderClient embedder.Client, config *Config, logger *slog.Logger) (*Client, error) {
 	if config == nil {
 		config = &Config{
 			GroupID:  "default",
@@ -155,6 +160,15 @@ func NewClient(driver driver.GraphDriver, llmClient llm.Client, embedderClient e
 		logger = slog.Default()
 	}
 
+	// efficient GLiNER extraction support
+	if config.GlinerModel != "" {
+		glinerClient, err := gliner.NewClient(config.GlinerModel)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create GLiNER client: %w", err)
+		}
+		llmClient = gliner.NewLLMAdapter(glinerClient, llmClient)
+	}
+
 	searcher := search.NewSearcher(driver, embedderClient, llmClient)
 	communityBuilder := community.NewBuilder(driver, llmClient, embedderClient)
 
@@ -166,7 +180,7 @@ func NewClient(driver driver.GraphDriver, llmClient llm.Client, embedderClient e
 		community: communityBuilder,
 		config:    config,
 		logger:    logger,
-	}
+	}, nil
 }
 
 // GetDriver returns the underlying graph driver

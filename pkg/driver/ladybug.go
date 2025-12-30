@@ -1952,7 +1952,7 @@ func (k *LadybugDriver) GetCommunities(ctx context.Context, groupID string, leve
 // For production use with LLM-based community summarization, use the
 // community.Builder through the Client:
 //
-//	client := predicato.NewClient(driver, llmClient, embedderClient, config)
+//	client, _ := predicato.NewClient(driver, llmClient, embedderClient, config, nil)
 //	result, err := client.Add(ctx, episodes)
 //
 // Or use the community.Builder directly:
