@@ -5,7 +5,7 @@ go 1.25.5
 require (
 	github.com/neo4j/neo4j-go-driver/v5 v5.28.4
 	github.com/sashabaranov/go-openai v1.41.2
-	github.com/soundprediction/go-embedeverything v0.7.0
+	github.com/soundprediction/go-embedeverything v0.7.1-0.20251230214014-73c71bb50aeb
 	github.com/stretchr/testify v1.11.1
 )
 
@@ -18,7 +18,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/kaptinlin/jsonrepair v0.2.4
 	github.com/sony/gobreaker v1.0.0
-	github.com/soundprediction/go-gline-rs v0.0.1
+	github.com/soundprediction/go-gline-rs v0.0.3
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 )
@@ -46,6 +46,7 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.10 // indirect
 	github.com/gin-contrib/sse v1.1.0 // indirect
+	github.com/go-chi/chi/v5 v5.2.3 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
@@ -99,7 +100,7 @@ require (
 	golang.org/x/mod v0.29.0 // indirect
 	golang.org/x/net v0.46.0 // indirect
 	golang.org/x/sync v0.17.0 // indirect
-	golang.org/x/sys v0.37.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/telemetry v0.0.0-20251028164327-d7a2859f34e8 // indirect
 	golang.org/x/text v0.30.0 // indirect
 	golang.org/x/tools v0.38.0 // indirect
