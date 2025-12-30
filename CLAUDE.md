@@ -6,10 +6,6 @@ The `go-predicato` package is a knowledge graph framework designed for building 
 
 ## Context and Background
 
-When working on this project, you should:
-
-1. **Update Documentation**: When you make modifications to the source tree, update the `PYTHON_TO_GO_MAPPING.md` file accordingly to reflect the current implementation status.
-
 ### Technical Considerations
 
 - **Type Safety**: Leverage Go's type system to provide compile-time safety.
