@@ -127,6 +127,10 @@ func copyDir(src, dst string) error {
 		return err
 	}
 
+	if !srcInfo.IsDir() {
+		return copyFile(src, dst)
+	}
+
 	// Create destination directory
 	if err := os.MkdirAll(dst, srcInfo.Mode()); err != nil {
 		return err
@@ -364,11 +368,7 @@ func NewLadybugDriverWithConfig(config *LadybugDriverConfig) (*LadybugDriver, er
 			log.Printf("Failed to open database: %v. Checking for WAL corruption...", err)
 
 			// Check for 'wal' file inside the database directory (common Kuzu/Ladybug pattern)
-			walPath := filepath.Join(db, "wal")
-			if _, err := os.Stat(walPath); os.IsNotExist(err) {
-				// Try adjacent .wal file as fallback
-				walPath = db + ".wal"
-			}
+			walPath := db + ".wal"
 
 			if _, err := os.Stat(walPath); err == nil {
 				// WAL exists, move it to backup
