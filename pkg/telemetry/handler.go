@@ -2,63 +2,66 @@ package telemetry
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"runtime"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/parquet-go/parquet-go"
 	"github.com/soundprediction/go-predicato/pkg/types"
 )
 
-// DuckDBHandler is a slog.Handler that writes error logs to DuckDB
-type DuckDBHandler struct {
-	next slog.Handler
-	db   *sql.DB
+// LogRecord represents a single log entry for Parquet storage
+type LogRecord struct {
+	ID            string    `parquet:"id"`
+	Timestamp     time.Time `parquet:"timestamp"`
+	Level         string    `parquet:"level"`
+	Message       string    `parquet:"message"`
+	UserID        string    `parquet:"user_id"`
+	SessionID     string    `parquet:"session_id"`
+	RequestSource string    `parquet:"request_source"`
+	SourceFile    string    `parquet:"source_file"`
+	LineNumber    int       `parquet:"line_number"`
+	Attributes    string    `parquet:"attributes"` // JSON string
 }
 
-// NewDuckDBHandler creates a new DuckDBHandler
-func NewDuckDBHandler(next slog.Handler, db *sql.DB) (*DuckDBHandler, error) {
-	h := &DuckDBHandler{
-		next: next,
-		db:   db,
+// ParquetHandler is a slog.Handler that writes error logs to Parquet files
+type ParquetHandler struct {
+	next      slog.Handler
+	outputDir string
+	mu        sync.Mutex
+	buffer    []LogRecord
+	batchSize int
+}
+
+// NewParquetHandler creates a new ParquetHandler
+func NewParquetHandler(next slog.Handler, outputDir string) (*ParquetHandler, error) {
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create telemetry directory: %w", err)
 	}
 
-	if err := h.initSchema(); err != nil {
-		return nil, fmt.Errorf("failed to initialize schema: %w", err)
+	h := &ParquetHandler{
+		next:      next,
+		outputDir: outputDir,
+		batchSize: 100, // Flush every 100 logs or on close (not implemented yet for close)
+		buffer:    make([]LogRecord, 0, 100),
 	}
 
 	return h, nil
 }
 
-// initSchema creates the execution_errors table
-func (h *DuckDBHandler) initSchema() error {
-	query := `
-	CREATE TABLE IF NOT EXISTS execution_errors (
-		id VARCHAR,
-		timestamp TIMESTAMP,
-		level VARCHAR,
-		message VARCHAR,
-		user_id VARCHAR,
-		session_id VARCHAR,
-		request_source VARCHAR,
-		source_file VARCHAR,
-		line_number INTEGER,
-		attributes JSON
-	);
-	`
-	_, err := h.db.Exec(query)
-	return err
-}
-
 // Enabled implements slog.Handler
-func (h *DuckDBHandler) Enabled(ctx context.Context, level slog.Level) bool {
+func (h *ParquetHandler) Enabled(ctx context.Context, level slog.Level) bool {
 	return h.next.Enabled(ctx, level)
 }
 
 // Handle implements slog.Handler
-func (h *DuckDBHandler) Handle(ctx context.Context, r slog.Record) error {
+func (h *ParquetHandler) Handle(ctx context.Context, r slog.Record) error {
 	// Always pass to next handler first
 	if err := h.next.Handle(ctx, r); err != nil {
 		return err
@@ -88,9 +91,6 @@ func (h *DuckDBHandler) Handle(ctx context.Context, r slog.Record) error {
 		return true
 	})
 
-	// Add error from record if present (standard key "error" or just msg)
-	// slog often puts the error in the message or attributes.
-
 	attrsJson, _ := json.Marshal(attrs)
 
 	// Get source info
@@ -99,50 +99,72 @@ func (h *DuckDBHandler) Handle(ctx context.Context, r slog.Record) error {
 	sourceFile := f.File
 	line := f.Line
 
-	// Insert into DB
-	id := uuid.New().String()
-	timestamp := r.Time.UTC()
-	level := r.Level.String()
-	msg := r.Message
+	record := LogRecord{
+		ID:            uuid.New().String(),
+		Timestamp:     r.Time.UTC(),
+		Level:         r.Level.String(),
+		Message:       r.Message,
+		UserID:        userID,
+		SessionID:     sessionID,
+		RequestSource: requestSource,
+		SourceFile:    sourceFile,
+		LineNumber:    line,
+		Attributes:    string(attrsJson),
+	}
 
-	query := `
-	INSERT INTO execution_errors (
-		id, timestamp, level, message, 
-		user_id, session_id, request_source,
-		source_file, line_number, attributes
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-	`
+	h.mu.Lock()
+	defer h.mu.Unlock()
 
-	// Fire and forget - don't block heavily on DB (though Scan is blocking, we hope it's fast)
-	// For production, this might want to be a buffered channel worker.
-	// For now, simple direct write.
-	go func() {
-		_, err := h.db.Exec(query,
-			id, timestamp, level, msg,
-			userID, sessionID, requestSource,
-			sourceFile, line, string(attrsJson),
-		)
-		if err != nil {
-			// Fallback: print to stderr if DB logging fails
-			fmt.Printf("Failed to log error to DuckDB: %v\n", err)
-		}
-	}()
+	h.buffer = append(h.buffer, record)
+
+	if len(h.buffer) >= h.batchSize {
+		return h.flush()
+	}
 
 	return nil
 }
 
+// flush writes the current buffer to a new Parquet file
+// Caller must hold the lock
+func (h *ParquetHandler) flush() error {
+	if len(h.buffer) == 0 {
+		return nil
+	}
+
+	filename := fmt.Sprintf("execution_errors_%s_%d.parquet", time.Now().Format("20060102_150405"), time.Now().UnixNano())
+	filepath := filepath.Join(h.outputDir, filename)
+
+	err := parquet.WriteFile(filepath, h.buffer)
+	if err != nil {
+		// Log to stderr if file write fails, but don't crash
+		fmt.Printf("Failed to write telemetry parquet file: %v\n", err)
+		return err
+	}
+
+	// Clear buffer
+	h.buffer = h.buffer[:0]
+	return nil
+}
+
 // WithAttrs implements slog.Handler
-func (h *DuckDBHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return &DuckDBHandler{
-		next: h.next.WithAttrs(attrs),
-		db:   h.db,
+func (h *ParquetHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &ParquetHandler{
+		next:      h.next.WithAttrs(attrs),
+		outputDir: h.outputDir,
+		batchSize: h.batchSize,
+		// Note: buffer is shared or new? Sharing buffer for clones is complex.
+		// For simplicity in this refactor, we just create a new handler with empty buffer.
+		// This means child loggers have their own batching.
+		buffer: make([]LogRecord, 0, h.batchSize),
 	}
 }
 
 // WithGroup implements slog.Handler
-func (h *DuckDBHandler) WithGroup(name string) slog.Handler {
-	return &DuckDBHandler{
-		next: h.next.WithGroup(name),
-		db:   h.db,
+func (h *ParquetHandler) WithGroup(name string) slog.Handler {
+	return &ParquetHandler{
+		next:      h.next.WithGroup(name),
+		outputDir: h.outputDir,
+		batchSize: h.batchSize,
+		buffer:    make([]LogRecord, 0, h.batchSize),
 	}
 }

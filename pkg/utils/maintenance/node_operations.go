@@ -119,7 +119,7 @@ func (no *NodeOperations) ExtractNodes(ctx context.Context, episode *types.Node,
 
 		// Create CSV parser function for ExtractedEntity
 		csvParser := func(csvContent string) ([]*prompts.ExtractedEntity, error) {
-			return utils.DuckDbUnmarshalCSV[prompts.ExtractedEntity](csvContent, '\t')
+			return utils.UnmarshalCSV[prompts.ExtractedEntity](csvContent, '\t')
 		}
 
 		// Use GenerateCSVResponse for robust CSV parsing with retries
@@ -257,7 +257,7 @@ func (no *NodeOperations) extractNodesReflexion(ctx context.Context, episode *ty
 
 	// Create CSV parser function for MissedEntitiesTSV
 	csvParser := func(csvContent string) ([]*prompts.MissedEntitiesTSV, error) {
-		return utils.DuckDbUnmarshalCSV[prompts.MissedEntitiesTSV](csvContent, '\t')
+		return utils.UnmarshalCSV[prompts.MissedEntitiesTSV](csvContent, '\t')
 	}
 
 	// Use GenerateCSVResponse for robust CSV parsing with retries
@@ -386,7 +386,7 @@ func (no *NodeOperations) ResolveExtractedNodes(ctx context.Context, extractedNo
 
 	// Create CSV parser function for NodeDuplicate
 	csvParser := func(csvContent string) ([]*prompts.NodeDuplicate, error) {
-		return utils.DuckDbUnmarshalCSV[prompts.NodeDuplicate](csvContent, '\t')
+		return utils.UnmarshalCSV[prompts.NodeDuplicate](csvContent, '\t')
 	}
 
 	// Use GenerateCSVResponse for robust CSV parsing with retries
@@ -527,7 +527,7 @@ func (no *NodeOperations) ExtractAttributesFromNodes(ctx context.Context, nodes 
 
 		// Create CSV parser function for ExtractedNodeAttributes
 		csvParser := func(csvContent string) ([]*prompts.ExtractedNodeAttributes, error) {
-			return utils.DuckDbUnmarshalCSV[prompts.ExtractedNodeAttributes](csvContent, '\t')
+			return utils.UnmarshalCSV[prompts.ExtractedNodeAttributes](csvContent, '\t')
 		}
 
 		// Use GenerateCSVResponse for robust CSV parsing with retries

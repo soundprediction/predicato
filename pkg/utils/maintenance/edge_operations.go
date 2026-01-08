@@ -154,7 +154,7 @@ func (eo *EdgeOperations) ExtractEdges(ctx context.Context, episode *types.Node,
 
 	// Create CSV parser function for ExtractedEdge
 	csvParser := func(csvContent string) ([]*prompts.ExtractedEdge, error) {
-		return utils.DuckDbUnmarshalCSV[prompts.ExtractedEdge](csvContent, '\t')
+		return utils.UnmarshalCSV[prompts.ExtractedEdge](csvContent, '\t')
 	}
 
 	// Use GenerateCSVResponse for robust CSV parsing with retries
@@ -582,7 +582,7 @@ func (eo *EdgeOperations) resolveExtractedEdge(ctx context.Context, extractedEdg
 
 	// Create CSV parser function for EdgeDuplicateTSV
 	csvParser := func(csvContent string) ([]*prompts.EdgeDuplicateTSV, error) {
-		return utils.DuckDbUnmarshalCSV[prompts.EdgeDuplicateTSV](csvContent, '\t')
+		return utils.UnmarshalCSV[prompts.EdgeDuplicateTSV](csvContent, '\t')
 	}
 
 	// Use GenerateCSVResponse for robust CSV parsing with retries

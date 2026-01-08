@@ -2,82 +2,61 @@ package llm
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
 	"time"
 
-	_ "github.com/duckdb/duckdb-go/v2"
 	"github.com/google/uuid"
+	"github.com/parquet-go/parquet-go"
 	"github.com/soundprediction/go-predicato/pkg/cost"
 	"github.com/soundprediction/go-predicato/pkg/types"
 )
 
 // TokenUsageRecord represents a single log entry for token usage
 type TokenUsageRecord struct {
-	ID               string
-	Timestamp        time.Time
-	Model            string
-	TotalTokens      int
-	PromptTokens     int
-	CompletionTokens int
-	EstimatedCost    float64
-	UserID           string
-	SessionID        string
-	RequestSource    string
-	IngestionSource  string
-	IsSystemCall     bool
+	ID               string    `parquet:"id"`
+	Timestamp        time.Time `parquet:"timestamp"`
+	Model            string    `parquet:"model"`
+	TotalTokens      int       `parquet:"total_tokens"`
+	PromptTokens     int       `parquet:"prompt_tokens"`
+	CompletionTokens int       `parquet:"completion_tokens"`
+	EstimatedCost    float64   `parquet:"estimated_cost"`
+	UserID           string    `parquet:"user_id"`
+	SessionID        string    `parquet:"session_id"`
+	RequestSource    string    `parquet:"request_source"`
+	IngestionSource  string    `parquet:"ingestion_source"`
+	IsSystemCall     bool      `parquet:"is_system_call"`
 }
 
-// TokenTracker handles persistence of token usage stats
-type TokenTracker struct {
-	db             *sql.DB
+// ParquetTokenTracker handles persistence of token usage stats to Parquet files
+type ParquetTokenTracker struct {
+	outputDir      string
 	costCalculator *cost.CostCalculator
-	Model          string // Default model fallback
+	mu             sync.Mutex
+	buffer         []TokenUsageRecord
+	batchSize      int
 }
 
-// NewTokenTracker creates a new token tracker using an existing DuckDB connection
-func NewTokenTracker(db *sql.DB) (*TokenTracker, error) {
-	tracker := &TokenTracker{
-		db:             db,
-		costCalculator: cost.NewCostCalculator(),
+// NewTokenTracker creates a new token tracker writing to a directory
+func NewTokenTracker(outputDir string) (*ParquetTokenTracker, error) {
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create token tracking directory: %w", err)
 	}
 
-	if err := tracker.initSchema(); err != nil {
-		return nil, fmt.Errorf("failed to initialize schema: %w", err)
+	tracker := &ParquetTokenTracker{
+		outputDir:      outputDir,
+		costCalculator: cost.NewCostCalculator(),
+		buffer:         make([]TokenUsageRecord, 0, 100),
+		batchSize:      100,
 	}
 
 	return tracker, nil
 }
 
-// initSchema creates the necessary table if it doesn't exist
-func (t *TokenTracker) initSchema() error {
-	query := `
-	CREATE TABLE IF NOT EXISTS token_usage (
-		id VARCHAR,
-		timestamp TIMESTAMP,
-		model VARCHAR,
-		total_tokens INTEGER,
-		prompt_tokens INTEGER,
-		completion_tokens INTEGER,
-		cost_usd DOUBLE,
-		user_id VARCHAR,
-		session_id VARCHAR,
-		request_source VARCHAR,
-		ingestion_source VARCHAR,
-		is_system_call BOOLEAN
-	);
-	`
-	_, err := t.db.Exec(query)
-	// Check if cost_usd column exists (migration)
-	// DuckDB allows ADD COLUMN IF NOT EXISTS in newer versions, or we can catch error
-	// Simple approach: try to add column, ignore error if exists
-	t.db.Exec("ALTER TABLE token_usage ADD COLUMN IF NOT EXISTS cost_usd DOUBLE")
-
-	return err
-}
-
 // AddUsage adds usage to the tracker
-func (t *TokenTracker) AddUsage(ctx context.Context, usage *types.TokenUsage, model string) error {
+func (t *ParquetTokenTracker) AddUsage(ctx context.Context, usage *types.TokenUsage, model string) error {
 	if usage == nil {
 		return nil
 	}
@@ -111,40 +90,47 @@ func (t *TokenTracker) AddUsage(ctx context.Context, usage *types.TokenUsage, mo
 		record.IsSystemCall = v
 	}
 
-	query := `
-	INSERT INTO token_usage (
-		id, timestamp, model, total_tokens, prompt_tokens, completion_tokens, cost_usd,
-		user_id, session_id, request_source, ingestion_source, is_system_call
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-	`
+	t.mu.Lock()
+	defer t.mu.Unlock()
 
-	_, err := t.db.Exec(query,
-		record.ID,
-		record.Timestamp,
-		record.Model,
-		record.TotalTokens,
-		record.PromptTokens,
-		record.CompletionTokens,
-		record.EstimatedCost,
-		record.UserID,
-		record.SessionID,
-		record.RequestSource,
-		record.IngestionSource,
-		record.IsSystemCall,
-	)
+	t.buffer = append(t.buffer, record)
 
-	return err
+	if len(t.buffer) >= t.batchSize {
+		return t.flush()
+	}
+
+	return nil
+}
+
+// flush writes the current buffer to a new Parquet file
+// Caller must hold the lock
+func (t *ParquetTokenTracker) flush() error {
+	if len(t.buffer) == 0 {
+		return nil
+	}
+
+	filename := fmt.Sprintf("token_usage_%s_%d.parquet", time.Now().Format("20060102_150405"), time.Now().UnixNano())
+	filepath := filepath.Join(t.outputDir, filename)
+
+	err := parquet.WriteFile(filepath, t.buffer)
+	if err != nil {
+		fmt.Printf("Failed to write token usage parquet file: %v\n", err)
+		return err
+	}
+
+	// Clear buffer
+	t.buffer = t.buffer[:0]
+	return nil
 }
 
 // TokenTrackingClient wraps a Client to track usage
 type TokenTrackingClient struct {
 	client  Client
-	tracker *TokenTracker
-	// We might store config reference to get default model if needed
+	tracker *ParquetTokenTracker
 }
 
 // NewTokenTrackingClient creates a wrapper client
-func NewTokenTrackingClient(client Client, tracker *TokenTracker) *TokenTrackingClient {
+func NewTokenTrackingClient(client Client, tracker *ParquetTokenTracker) *TokenTrackingClient {
 	return &TokenTrackingClient{
 		client:  client,
 		tracker: tracker,
