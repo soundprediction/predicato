@@ -2,12 +2,10 @@ package predicato
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
@@ -73,7 +71,7 @@ func init() {
 	serverCmd.Flags().String("embedding-base-url", "", "Embedding base URL")
 
 	// Telemetry flags
-	serverCmd.Flags().String("telemetry-duckdb-path", "", "Path to DuckDB file for telemetry (errors and token usage)")
+	serverCmd.Flags().String("telemetry-parquet-path", "", "Path to directory for telemetry (errors and token usage)")
 }
 
 func runServer(cmd *cobra.Command, args []string) error {
@@ -203,8 +201,8 @@ func overrideConfigWithFlags(cmd *cobra.Command, cfg *config.Config) {
 	}
 
 	// Telemetry flags
-	if cmd.Flags().Changed("telemetry-duckdb-path") {
-		cfg.Telemetry.DuckDBPath, _ = cmd.Flags().GetString("telemetry-duckdb-path")
+	if cmd.Flags().Changed("telemetry-parquet-path") {
+		cfg.Telemetry.ParquetPath, _ = cmd.Flags().GetString("telemetry-parquet-path")
 	}
 }
 
@@ -257,52 +255,43 @@ func initializePredicato(cfg *config.Config) (predicato.Predicato, error) {
 			// Wrap with retry client for automatic retry on errors
 			retryClient := llm.NewRetryClient(baseLLMClient, llm.DefaultRetryConfig())
 
-			// Open DuckDB connection for telemetry (shared between token tracking and error logging)
-			trackingPath := cfg.Telemetry.DuckDBPath
+			// Telemetry using Parquet
+			trackingPath := cfg.Telemetry.ParquetPath
 			if trackingPath == "" {
 				homeDir, err := os.UserHomeDir()
 				if err != nil {
 					return nil, fmt.Errorf("failed to get user home directory: %w", err)
 				}
-				trackingPath = fmt.Sprintf("%s/.predicato/token_usage.duckdb", homeDir)
+				trackingPath = fmt.Sprintf("%s/.predicato/telemetry", homeDir)
 			}
 
 			// Ensure directory exists
-			dir := filepath.Dir(trackingPath)
-			if err := os.MkdirAll(dir, 0755); err != nil {
-				return nil, fmt.Errorf("failed to create directory: %w", err)
+			if err := os.MkdirAll(trackingPath, 0755); err != nil {
+				return nil, fmt.Errorf("failed to create telemetry directory: %w", err)
 			}
 
-			telemetryDB, err := sql.Open("duckdb", trackingPath)
+			// Initialize Token Tracker
+			tracker, err := llm.NewTokenTracker(trackingPath)
 			if err != nil {
-				fmt.Printf("Warning: Failed to open telemetry DB: %v\n", err)
-				// Proceed without telemetry
+				fmt.Printf("Warning: Failed to initialize token tracker: %v\n", err)
 				llmClient = retryClient
 			} else {
-				// Initialize Token Tracker
-				tracker, err := llm.NewTokenTracker(telemetryDB)
-				if err != nil {
-					fmt.Printf("Warning: Failed to initialize token tracker: %v\n", err)
-					llmClient = retryClient
-				} else {
-					llmClient = llm.NewTokenTrackingClient(retryClient, tracker)
-					fmt.Printf("Token tracking enabled at: %s\n", trackingPath)
-				}
+				llmClient = llm.NewTokenTrackingClient(retryClient, tracker)
+				fmt.Printf("Token tracking enabled at: %s\n", trackingPath)
+			}
 
-				// Initialize Error Tracking Logger
-				// We wrap the existing color handler with our DuckDB handler
-				colorHandler := predicatoLogger.NewColorHandler(os.Stderr, &slog.HandlerOptions{
-					Level: slog.LevelInfo,
-				})
+			// Initialize Error Tracking Logger
+			colorHandler := predicatoLogger.NewColorHandler(os.Stderr, &slog.HandlerOptions{
+				Level: slog.LevelInfo,
+			})
 
-				duckHandler, err := telemetry.NewDuckDBHandler(colorHandler, telemetryDB)
-				if err != nil {
-					fmt.Printf("Warning: Failed to initialize error tracking: %v\n", err)
-				} else {
-					// Update the global logger to use our new handler
-					logger = slog.New(duckHandler)
-					fmt.Printf("Error tracking enabled\n")
-				}
+			parquetHandler, err := telemetry.NewParquetHandler(colorHandler, trackingPath)
+			if err != nil {
+				fmt.Printf("Warning: Failed to initialize error tracking: %v\n", err)
+			} else {
+				// Update the global logger to use our new handler
+				logger = slog.New(parquetHandler)
+				fmt.Printf("Error tracking enabled\n")
 			}
 		default:
 			return nil, fmt.Errorf("unsupported LLM provider: %s", cfg.LLM.Provider)

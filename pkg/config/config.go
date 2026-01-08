@@ -56,7 +56,7 @@ type CircuitBreakerConfig struct {
 
 // TelemetryConfig holds telemetry configuration
 type TelemetryConfig struct {
-	DuckDBPath string `mapstructure:"duckdb_path"`
+	ParquetPath string `mapstructure:"parquet_path"`
 }
 
 // LogConfig holds logging configuration
@@ -174,8 +174,8 @@ func setDefaults() {
 	// Telemetry defaults
 	home, err := os.UserHomeDir()
 	if err == nil {
-		defaultPath := fmt.Sprintf("%s/.predicato/token_usage.duckdb", home)
-		viper.SetDefault("telemetry.duckdb_path", defaultPath)
+		defaultPath := fmt.Sprintf("%s/.predicato/telemetry", home)
+		viper.SetDefault("telemetry.parquet_path", defaultPath)
 	}
 }
 
@@ -223,7 +223,7 @@ func overrideWithEnv(config *Config) {
 	}
 
 	// Telemetry settings
-	if path := os.Getenv("TELEMETRY_DUCKDB_PATH"); path != "" {
-		config.Telemetry.DuckDBPath = path
+	if path := os.Getenv("TELEMETRY_PARQUET_PATH"); path != "" {
+		config.Telemetry.ParquetPath = path
 	}
 }

@@ -57,7 +57,7 @@ func (to *TemporalOperations) ExtractEdgeDates(ctx context.Context, edge *types.
 
 	// Create CSV parser function for EdgeDatesTSV
 	csvParser := func(csvContent string) ([]*prompts.EdgeDatesTSV, error) {
-		return utils.DuckDbUnmarshalCSV[prompts.EdgeDatesTSV](csvContent, '\t')
+		return utils.UnmarshalCSV[prompts.EdgeDatesTSV](csvContent, '\t')
 	}
 
 	// Use GenerateCSVResponse for robust CSV parsing with retries
@@ -149,7 +149,7 @@ func (to *TemporalOperations) GetEdgeContradictions(ctx context.Context, newEdge
 
 	// Create CSV parser function for InvalidatedEdgesTSV
 	csvParser := func(csvContent string) ([]*prompts.InvalidatedEdgesTSV, error) {
-		return utils.DuckDbUnmarshalCSV[prompts.InvalidatedEdgesTSV](csvContent, '\t')
+		return utils.UnmarshalCSV[prompts.InvalidatedEdgesTSV](csvContent, '\t')
 	}
 
 	// Use GenerateCSVResponse for robust CSV parsing with retries

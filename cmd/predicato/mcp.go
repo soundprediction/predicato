@@ -2,13 +2,11 @@ package predicato
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
@@ -117,7 +115,7 @@ func init() {
 	mcpCmd.Flags().String("embedding-base-url", "", "Embedding base URL")
 
 	// Telemetry flags
-	mcpCmd.Flags().String("telemetry-duckdb-path", "", "Path to DuckDB file for telemetry (errors and token usage)")
+	mcpCmd.Flags().String("telemetry-parquet-path", "", "Path to directory for telemetry (errors and token usage)")
 
 	// Bind flags to viper for configuration
 	viper.BindPFlag("mcp.group_id", mcpCmd.Flags().Lookup("group-id"))
@@ -147,7 +145,7 @@ func init() {
 	viper.BindPFlag("embedder.base_url", mcpCmd.Flags().Lookup("embedding-base-url"))
 
 	// Telemetry configuration
-	viper.BindPFlag("telemetry.duckdb_path", mcpCmd.Flags().Lookup("telemetry-duckdb-path"))
+	viper.BindPFlag("telemetry.parquet_path", mcpCmd.Flags().Lookup("telemetry-parquet-path"))
 }
 
 // MCPConfig holds all configuration for the MCP server
@@ -183,7 +181,7 @@ type MCPConfig struct {
 	SemaphoreLimit int
 
 	// Telemetry Configuration
-	TelemetryDuckDBPath string
+	TelemetryParquetPath string
 }
 
 // MCPServer wraps the Predicato client for MCP operations
@@ -295,7 +293,7 @@ func runMCPServer(cmd *cobra.Command, args []string) error {
 		EmbeddingBaseURL: viper.GetString("embedder.base_url"),
 
 		// Telemetry configuration
-		TelemetryDuckDBPath: viper.GetString("telemetry.duckdb_path"),
+		TelemetryParquetPath: viper.GetString("telemetry.parquet_path"),
 	}
 
 	// Use LLM API key for embeddings if embedding API key not provided
@@ -395,48 +393,40 @@ func NewMCPServer(config *MCPConfig) (*MCPServer, error) {
 		// Wrap with retry client for automatic retry on errors
 		retryClient := llm.NewRetryClient(baseLLMClient, llm.DefaultRetryConfig())
 
-		// Open DuckDB connection for telemetry (shared between token tracking and error logging)
-		trackingPath := config.TelemetryDuckDBPath
+		// Telemetry using Parquet
+		trackingPath := config.TelemetryParquetPath
 		if trackingPath == "" {
 			homeDir, err := os.UserHomeDir()
 			if err != nil {
 				return nil, fmt.Errorf("failed to get user home directory: %w", err)
 			}
-			trackingPath = fmt.Sprintf("%s/.predicato/token_usage.duckdb", homeDir)
+			trackingPath = fmt.Sprintf("%s/.predicato/telemetry", homeDir)
 		}
 
 		// Ensure directory exists
-		dir := filepath.Dir(trackingPath)
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create directory: %w", err)
+		if err := os.MkdirAll(trackingPath, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create telemetry directory: %w", err)
 		}
 
-		telemetryDB, err := sql.Open("duckdb", trackingPath)
+		// Initialize Token Tracker
+		tracker, err := llm.NewTokenTracker(trackingPath)
 		if err != nil {
-			logger.Warn("Failed to open telemetry DB", "error", err)
+			logger.Warn("Failed to initialize token tracker", "error", err)
 			llmClient = retryClient
 		} else {
-			// Initialize Token Tracker
-			tracker, err := llm.NewTokenTracker(telemetryDB)
-			if err != nil {
-				logger.Warn("Failed to initialize token tracker", "error", err)
-				llmClient = retryClient
-			} else {
-				llmClient = llm.NewTokenTrackingClient(retryClient, tracker)
-				logger.Info("Token tracking enabled", "path", trackingPath)
-			}
+			llmClient = llm.NewTokenTrackingClient(retryClient, tracker)
+			logger.Info("Token tracking enabled", "path", trackingPath)
+		}
 
-			// Initialize Error Tracking Logger
-			// We wrap the existing logger's handler with our DuckDB handler
-			// Note: Logger was already initialized with color handler at start of func
-			duckHandler, err := telemetry.NewDuckDBHandler(logger.Handler(), telemetryDB)
-			if err != nil {
-				logger.Warn("Failed to initialize error tracking", "error", err)
-			} else {
-				// Update the logger to use our new handler
-				logger = slog.New(duckHandler)
-				logger.Info("Error tracking enabled")
-			}
+		// Initialize Error Tracking Logger
+		// We wrap the existing logger's handler with our Parquet handler
+		parquetHandler, err := telemetry.NewParquetHandler(logger.Handler(), trackingPath)
+		if err != nil {
+			logger.Warn("Failed to initialize error tracking", "error", err)
+		} else {
+			// Update the logger to use our new handler
+			logger = slog.New(parquetHandler)
+			logger.Info("Error tracking enabled")
 		}
 	} else {
 		logger.Warn("No LLM configuration provided - LLM functionality will be disabled")

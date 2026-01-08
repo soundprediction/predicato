@@ -46,25 +46,25 @@ type EpisodeCheckpoint struct {
 	LastErrorStack string    `json:"last_error_stack,omitempty"`
 
 	// Original episode data
-	Episode        types.Episode       `json:"episode"`
-	Options        *AddEpisodeOptions  `json:"options,omitempty"`
-	MaxCharacters  int                 `json:"max_characters"`
+	Episode       types.Episode      `json:"episode"`
+	Options       *AddEpisodeOptions `json:"options,omitempty"`
+	MaxCharacters int                `json:"max_characters"`
 
 	// STEP 1-2: Preparation data
-	Chunks           []string       `json:"chunks,omitempty"`
-	PreviousEpisodes []*types.Node  `json:"previous_episodes,omitempty"`
+	Chunks           []string      `json:"chunks,omitempty"`
+	PreviousEpisodes []*types.Node `json:"previous_episodes,omitempty"`
 
 	// STEP 3: Chunk structures
-	ChunkEpisodeNodes []*types.Node      `json:"chunk_episode_nodes,omitempty"`
-	MainEpisodeNode   *types.Node        `json:"main_episode_node,omitempty"`
+	ChunkEpisodeNodes []*types.Node        `json:"chunk_episode_nodes,omitempty"`
+	MainEpisodeNode   *types.Node          `json:"main_episode_node,omitempty"`
 	EpisodeTuples     []utils.EpisodeTuple `json:"episode_tuples,omitempty"`
 
 	// STEP 5: Extracted entities
 	ExtractedNodesByChunk [][]*types.Node `json:"extracted_nodes_by_chunk,omitempty"`
 
 	// STEP 6: Deduplicated entities
-	DedupeChunkIndices    []int          `json:"dedupe_chunk_indices,omitempty"`
-	AllResolvedNodes      []*types.Node  `json:"all_resolved_nodes,omitempty"`
+	DedupeChunkIndices []int         `json:"dedupe_chunk_indices,omitempty"`
+	AllResolvedNodes   []*types.Node `json:"all_resolved_nodes,omitempty"`
 
 	// STEP 7: Extracted edges
 	AllExtractedEdges []*types.Edge `json:"all_extracted_edges,omitempty"`
@@ -86,16 +86,15 @@ type EpisodeCheckpoint struct {
 
 // AddEpisodeOptions is a copy of the predicato.AddEpisodeOptions for checkpoint serialization
 type AddEpisodeOptions struct {
-	EntityTypes          map[string]interface{}            `json:"entity_types,omitempty"`
-	ExcludedEntityTypes  []string                          `json:"excluded_entity_types,omitempty"`
-	PreviousEpisodeUUIDs []string                          `json:"previous_episode_uuids,omitempty"`
-	EdgeTypes            map[string]interface{}            `json:"edge_types,omitempty"`
+	EntityTypes          map[string]interface{}              `json:"entity_types,omitempty"`
+	ExcludedEntityTypes  []string                            `json:"excluded_entity_types,omitempty"`
+	PreviousEpisodeUUIDs []string                            `json:"previous_episode_uuids,omitempty"`
+	EdgeTypes            map[string]interface{}              `json:"edge_types,omitempty"`
 	EdgeTypeMap          map[string]map[string][]interface{} `json:"edge_type_map,omitempty"`
-	OverwriteExisting    bool                              `json:"overwrite_existing"`
-	GenerateEmbeddings   bool                              `json:"generate_embeddings"`
-	MaxCharacters        int                               `json:"max_characters"`
-	DeferGraphIngestion  bool                              `json:"defer_graph_ingestion"`
-	DuckDBPath           string                            `json:"duckdb_path,omitempty"`
+	OverwriteExisting    bool                                `json:"overwrite_existing"`
+	GenerateEmbeddings   bool                                `json:"generate_embeddings"`
+	MaxCharacters        int                                 `json:"max_characters"`
+	DeferGraphIngestion  bool                                `json:"defer_graph_ingestion"`
 }
 
 // CheckpointManager manages episode checkpoints

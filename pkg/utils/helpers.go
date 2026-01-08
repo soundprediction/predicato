@@ -1,20 +1,18 @@
 package utils
 
 import (
-	"context"
-	"database/sql"
+	"encoding/csv"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"os"
-	"path/filepath"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	_ "github.com/duckdb/duckdb-go/v2"
 	"github.com/google/uuid"
 	"github.com/soundprediction/go-predicato/pkg/driver"
 )
@@ -264,138 +262,111 @@ func RemoveLastLine(s string) string {
 	return s[:lastNewline]
 }
 
-// DuckDbUnmarshalCSV parses a CSV string and unmarshals it into a slice of structs.
-// It uses an in-memory DuckDB instance for robust CSV parsing.
-//
-// Parameters:
-//   - T: The target struct type. The function will create a slice of *T.
-//   - csvString: The raw string data of the CSV.
-//   - delimiter: The delimiter character (e.g., ',', '\t').
-//
-// Returns:
-//   - A slice of pointers to the populated structs ([]*T).
-//   - An error if a fatal issue occurs (e.g., database connection, reflection error).
-//
-// Features:
-//   - Ignores errors in individual CSV rows.
-//   - Handles lazy quoting automatically.
-//   - Maps CSV header columns to struct fields by name (case-insensitive).
-//   - Caches struct field mapping for performance.
-func DuckDbUnmarshalCSV[T any](csvString string, delimiter rune) ([]*T, error) {
-	// Create a temporary file to store the CSV data
-	tmpFile, err := os.CreateTemp("", "duckdb_csv_*.csv")
+// UnmarshalCSV parses a CSV string and unmarshals it into a slice of structs.
+// It uses standard encoding/csv with error recovery.
+func UnmarshalCSV[T any](csvString string, delimiter rune) ([]*T, error) {
+	reader := csv.NewReader(strings.NewReader(csvString))
+	reader.Comma = delimiter
+	reader.LazyQuotes = true
+
+	// Read header
+	header, err := reader.Read()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create temp file: %w", err)
-	}
-	tmpPath := tmpFile.Name()
-	defer os.Remove(tmpPath)
-
-	// Write CSV string to the temp file
-	if _, err := tmpFile.WriteString(csvString); err != nil {
-		tmpFile.Close()
-		return nil, fmt.Errorf("failed to write to temp file: %w", err)
-	}
-	if err := tmpFile.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close temp file: %w", err)
+		return nil, fmt.Errorf("failed to read CSV header: %w", err)
 	}
 
-	// Open an in-memory DuckDB database
-	db, err := sql.Open("duckdb", "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to open duckdb: %w", err)
-	}
-	defer db.Close()
-
-	// Construct the query to read the CSV.
-	// - header=true: Uses the first row as column names.
-	// - ignore_errors=true: Skips rows that have parsing errors.
-	// - all_varchar=true: Simplifies scanning by treating all columns as text.
-	// Note: DuckDB uses absolute paths, so we need to ensure the path is properly formatted
-	absPath, err := filepath.Abs(tmpPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get absolute path: %w", err)
-	}
-
-	query := fmt.Sprintf(
-		"SELECT * FROM read_csv('%s', delim='%c', header=true, ignore_errors=true, all_varchar=true)",
-		strings.ReplaceAll(absPath, "'", "''"), // Escape single quotes in path
-		delimiter,
-	)
-
-	rows, err := db.QueryContext(context.Background(), query)
-	if err != nil {
-		return nil, fmt.Errorf("duckdb query failed: %w", err)
-	}
-	defer rows.Close()
-
-	columns, err := rows.Columns()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get columns: %w", err)
-	}
-
-	var results []*T
+	results := make([]*T, 0)
 	structType := reflect.TypeOf(new(T)).Elem()
 
-	// Build a mapping from CSV column names to struct field indices
-	// This mapping uses csv tags if present, otherwise falls back to field names
+	// Map headers to fields
 	fieldMap := make(map[string]int)
 	for i := 0; i < structType.NumField(); i++ {
 		field := structType.Field(i)
-
-		// Check for csv tag
 		csvTag := field.Tag.Get("csv")
 		if csvTag != "" && csvTag != "-" {
 			fieldMap[csvTag] = i
 		} else {
-			// Fall back to field name (case-insensitive matching handled later)
 			fieldMap[strings.ToLower(field.Name)] = i
 		}
 	}
 
-	for rows.Next() {
-		// For each row, scan all values as nullable strings.
-		scannedValues := make([]sql.NullString, len(columns))
-		scanArgs := make([]interface{}, len(columns))
-		for i := range scannedValues {
-			scanArgs[i] = &scannedValues[i]
+	// Read all records
+	records, err := reader.ReadAll()
+	if err != nil {
+		// encoding/csv often returns partial results and an error with ParseError
+		// But if we want "ignore_errors" behavior like DuckDB, we might need to read row by row.
+		// For now, let's assume we want to fail on bad CSVs unless we implement row-by-row skipping.
+		// Let's retry row-by-row to skip bad ones.
+		reader = csv.NewReader(strings.NewReader(csvString))
+		reader.Comma = delimiter
+		reader.LazyQuotes = true
+		_, _ = reader.Read() // skip header again
+	} else {
+		// Process pre-read records
+		for _, record := range records {
+			if len(record) != len(header) {
+				continue
+			}
+			newStruct, err := mapRowToStruct[T](record, header, fieldMap, structType)
+			if err != nil {
+				fmt.Printf("Warning: failed to map row: %v\n", err)
+				continue
+			}
+			results = append(results, newStruct)
 		}
+		return results, nil
+	}
 
-		if err := rows.Scan(scanArgs...); err != nil {
-			// This might happen on rare occasions despite ignore_errors, so we log and skip.
-			fmt.Printf("Warning: failed to scan row: %v\n", err)
+	// Row-by-row fallback
+	reader = csv.NewReader(strings.NewReader(csvString))
+	reader.Comma = delimiter
+	reader.LazyQuotes = true
+	_, _ = reader.Read() // skip header
+
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			fmt.Printf("Warning: skipping bad CSV row: %v\n", err)
 			continue
 		}
 
-		// Create a new instance of our target struct T
-		newStructPtr := reflect.New(structType)
-		newStruct := newStructPtr.Elem()
-
-		// Map scanned string values to the corresponding struct fields.
-		for i, colName := range columns {
-			if !scannedValues[i].Valid {
-				continue // Skip NULL values
-			}
-			val := scannedValues[i].String
-
-			// First try exact match with csv tag
-			if fieldIdx, ok := fieldMap[colName]; ok {
-				if err := setField(newStruct.Field(fieldIdx), val); err != nil {
-					fmt.Printf("Warning: could not set field at index %d with value '%s': %v\n", fieldIdx, val, err)
-				}
-				continue
-			}
-
-			// Fall back to case-insensitive match by field name
-			if fieldIdx, ok := fieldMap[strings.ToLower(colName)]; ok {
-				if err := setField(newStruct.Field(fieldIdx), val); err != nil {
-					fmt.Printf("Warning: could not set field at index %d with value '%s': %v\n", fieldIdx, val, err)
-				}
-			}
+		newStruct, err := mapRowToStruct[T](record, header, fieldMap, structType)
+		if err != nil {
+			fmt.Printf("Warning: failed to map row: %v\n", err)
+			continue
 		}
-		results = append(results, newStructPtr.Interface().(*T))
+		results = append(results, newStruct)
 	}
 
-	return results, rows.Err()
+	return results, nil
+}
+
+func mapRowToStruct[T any](record []string, header []string, fieldMap map[string]int, structType reflect.Type) (*T, error) {
+	newStructPtr := reflect.New(structType)
+	newStruct := newStructPtr.Elem()
+
+	for i, colName := range header {
+		if i >= len(record) {
+			break
+		}
+		val := record[i]
+
+		if fieldIdx, ok := fieldMap[colName]; ok {
+			if err := setField(newStruct.Field(fieldIdx), val); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		if fieldIdx, ok := fieldMap[strings.ToLower(colName)]; ok {
+			if err := setField(newStruct.Field(fieldIdx), val); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return newStructPtr.Interface().(*T), nil
 }
 
 // setField is a helper that converts a string value and sets it on a reflect.Value field.

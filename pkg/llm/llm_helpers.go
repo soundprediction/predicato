@@ -395,7 +395,7 @@ type CSVParserFunc[T any] func(csvContent string) ([]*T, error)
 //
 //	// Create a parser function
 //	parser := func(csvContent string) ([]*Entity, error) {
-//	    return utils.DuckDbUnmarshalCSV[Entity](csvContent, '\t')
+//	    return utils.UnmarshalCSV[Entity](csvContent, '\t')
 //	}
 //
 //	entities, badResp, err := GenerateCSVResponse[Entity](
