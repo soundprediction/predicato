@@ -28,6 +28,20 @@ type NodeOperations struct {
 	embedder embedder.Client
 	prompts  prompts.Library
 	logger   *slog.Logger
+
+	// Specialized LLM clients for different steps
+	ExtractionLLM llm.Client
+	ReflexionLLM  llm.Client
+	ResolutionLLM llm.Client
+	AttributeLLM  llm.Client
+
+	// Skip flags
+	SkipReflexion  bool
+	SkipResolution bool
+	SkipAttributes bool
+
+	// Format flags
+	UseYAML bool
 }
 
 // NewNodeOperations creates a new NodeOperations instance
@@ -44,6 +58,35 @@ func NewNodeOperations(driver driver.GraphDriver, llm llm.Client, embedder embed
 // SetLogger sets a custom logger for the NodeOperations
 func (no *NodeOperations) SetLogger(logger *slog.Logger) {
 	no.logger = logger
+}
+
+// Helper methods to get the appropriate LLM client with fallback to default
+func (no *NodeOperations) getExtractionLLM() llm.Client {
+	if no.ExtractionLLM != nil {
+		return no.ExtractionLLM
+	}
+	return no.llm
+}
+
+func (no *NodeOperations) getReflexionLLM() llm.Client {
+	if no.ReflexionLLM != nil {
+		return no.ReflexionLLM
+	}
+	return no.llm
+}
+
+func (no *NodeOperations) getResolutionLLM() llm.Client {
+	if no.ResolutionLLM != nil {
+		return no.ResolutionLLM
+	}
+	return no.llm
+}
+
+func (no *NodeOperations) getAttributeLLM() llm.Client {
+	if no.AttributeLLM != nil {
+		return no.AttributeLLM
+	}
+	return no.llm
 }
 
 // ExtractNodes extracts entity nodes from episode content using LLM
@@ -88,6 +131,7 @@ func (no *NodeOperations) ExtractNodes(ctx context.Context, episode *types.Node,
 		"source_description": string(episode.EpisodeType),
 		"ensure_ascii":       true,
 		"logger":             no.logger,
+		"use_yaml":           no.UseYAML,
 	}
 
 	// Extract entities with reflexion
@@ -117,20 +161,40 @@ func (no *NodeOperations) ExtractNodes(ctx context.Context, episode *types.Node,
 			return nil, fmt.Errorf("failed to create extraction prompt: %w", err)
 		}
 
-		// Create CSV parser function for ExtractedEntity
-		csvParser := func(csvContent string) ([]*prompts.ExtractedEntity, error) {
-			return utils.UnmarshalCSV[prompts.ExtractedEntity](csvContent, '\t')
-		}
+		var extractedEntitySlice []prompts.ExtractedEntity
+		var badResp *types.BadLlmCsvResponse
 
-		// Use GenerateCSVResponse for robust CSV parsing with retries
-		extractedEntitySlice, badResp, err := llm.GenerateCSVResponse[prompts.ExtractedEntity](
-			ctx,
-			no.llm,
-			no.logger,
-			messages,
-			csvParser,
-			3, // maxRetries
-		)
+		if no.UseYAML {
+			// Create YAML parser function for ExtractedEntity
+			yamlParser := func(yamlContent string) ([]*prompts.ExtractedEntity, error) {
+				return utils.UnmarshalYAML[prompts.ExtractedEntity](yamlContent)
+			}
+
+			// Use GenerateYAMLResponse
+			extractedEntitySlice, badResp, err = llm.GenerateYAMLResponse[prompts.ExtractedEntity](
+				ctx,
+				no.getExtractionLLM(),
+				no.logger,
+				messages,
+				yamlParser,
+				3, // maxRetries
+			)
+		} else {
+			// Create CSV parser function for ExtractedEntity
+			csvParser := func(csvContent string) ([]*prompts.ExtractedEntity, error) {
+				return utils.UnmarshalCSV[prompts.ExtractedEntity](csvContent, '\t')
+			}
+
+			// Use GenerateCSVResponse for robust CSV parsing with retries
+			extractedEntitySlice, badResp, err = llm.GenerateCSVResponse[prompts.ExtractedEntity](
+				ctx,
+				no.getExtractionLLM(),
+				no.logger,
+				messages,
+				csvParser,
+				3, // maxRetries
+			)
+		}
 
 		if err != nil {
 			// Log detailed error information
@@ -150,7 +214,7 @@ func (no *NodeOperations) ExtractNodes(ctx context.Context, episode *types.Node,
 		extractedEntities.ExtractedEntities = extractedEntitySlice
 
 		reflexionIterations++
-		if reflexionIterations < maxReflexionIterations {
+		if !no.SkipReflexion && reflexionIterations < maxReflexionIterations {
 			// Run reflexion to check for missed entities
 			missedEntities, err := no.extractNodesReflexion(ctx, episode, previousEpisodes, extractedEntities)
 			if err != nil {
@@ -262,7 +326,7 @@ func (no *NodeOperations) extractNodesReflexion(ctx context.Context, episode *ty
 
 	// Use GenerateCSVResponse for robust CSV parsing with retries
 	missedEntitiesSlice, badResp, err := llm.GenerateCSVResponse[prompts.MissedEntitiesTSV](
-		ctx, no.llm, no.logger, messages, csvParser, 3,
+		ctx, no.getReflexionLLM(), no.logger, messages, csvParser, 3,
 	)
 	if err != nil {
 		if badResp != nil {
@@ -379,6 +443,11 @@ func (no *NodeOperations) ResolveExtractedNodes(ctx context.Context, extractedNo
 	}
 
 	// Use LLM to resolve duplicates
+	if no.SkipResolution {
+		no.logger.Info("Skipping node resolution (deduplication) as requested")
+		return bypassResolveExtractedNodes(ctx, extractedNodes)
+	}
+
 	messages, err := no.prompts.DedupeNodes().Nodes().Call(promptContext)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to create dedupe prompt: %w", err)
@@ -392,7 +461,7 @@ func (no *NodeOperations) ResolveExtractedNodes(ctx context.Context, extractedNo
 	// Use GenerateCSVResponse for robust CSV parsing with retries
 	nodeDuplicateSlice, badResp, err := llm.GenerateCSVResponse[prompts.NodeDuplicate](
 		ctx,
-		no.llm,
+		no.getResolutionLLM(),
 		no.logger,
 		messages,
 		csvParser,
@@ -457,6 +526,7 @@ func (no *NodeOperations) ResolveExtractedNodes(ctx context.Context, extractedNo
 
 	// Filter duplicates using edge operations to remove those that already have IS_DUPLICATE_OF edges
 	edgeOps := NewEdgeOperations(no.driver, no.llm, no.embedder, no.prompts)
+	edgeOps.ResolutionLLM = no.getResolutionLLM()
 	filteredDuplicates, err := edgeOps.FilterExistingDuplicateOfEdges(ctx, nodeDuplicates)
 	if err != nil {
 		log.Printf("Warning: failed to filter existing duplicate edges: %v", err)
@@ -467,8 +537,11 @@ func (no *NodeOperations) ResolveExtractedNodes(ctx context.Context, extractedNo
 }
 
 func bypassResolveExtractedNodes(ctx context.Context, nodes []*types.Node) ([]*types.Node, map[string]string, []NodePair, error) {
-	return nodes, make(map[string]string), []NodePair{}, nil
-
+	uuidMap := make(map[string]string)
+	for _, node := range nodes {
+		uuidMap[node.Uuid] = node.Uuid
+	}
+	return nodes, uuidMap, []NodePair{}, nil
 }
 
 // ExtractAttributesFromNodes extracts and updates attributes for nodes using LLM in batches
@@ -519,26 +592,36 @@ func (no *NodeOperations) ExtractAttributesFromNodes(ctx context.Context, nodes 
 			"logger":            no.logger,
 		}
 
-		// Call batch extraction prompt
-		messages, err := no.prompts.ExtractNodes().ExtractAttributesBatch().Call(promptContext)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create batch extraction prompt: %w", err)
-		}
+		var extractedAttributesSlice []prompts.ExtractedNodeAttributes
+		var badResp *types.BadLlmCsvResponse
+		var err error
 
-		// Create CSV parser function for ExtractedNodeAttributes
-		csvParser := func(csvContent string) ([]*prompts.ExtractedNodeAttributes, error) {
-			return utils.UnmarshalCSV[prompts.ExtractedNodeAttributes](csvContent, '\t')
-		}
+		if no.SkipAttributes {
+			no.logger.Info("Skipping attribute extraction as requested")
+			// Skip LLM call, simulated empty result
+			extractedAttributesSlice = []prompts.ExtractedNodeAttributes{}
+		} else {
+			// Call batch extraction prompt
+			messages, err := no.prompts.ExtractNodes().ExtractAttributesBatch().Call(promptContext)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create batch extraction prompt: %w", err)
+			}
 
-		// Use GenerateCSVResponse for robust CSV parsing with retries
-		extractedAttributesSlice, badResp, err := llm.GenerateCSVResponse[prompts.ExtractedNodeAttributes](
-			ctx,
-			no.llm,
-			no.logger,
-			messages,
-			csvParser,
-			3, // maxRetries
-		)
+			// Create CSV parser function for ExtractedNodeAttributes
+			csvParser := func(csvContent string) ([]*prompts.ExtractedNodeAttributes, error) {
+				return utils.UnmarshalCSV[prompts.ExtractedNodeAttributes](csvContent, '\t')
+			}
+
+			// Use GenerateCSVResponse for robust CSV parsing with retries
+			extractedAttributesSlice, badResp, err = llm.GenerateCSVResponse[prompts.ExtractedNodeAttributes](
+				ctx,
+				no.getAttributeLLM(),
+				no.logger,
+				messages,
+				csvParser,
+				3, // maxRetries
+			)
+		}
 
 		if err != nil {
 			// Log detailed error information
