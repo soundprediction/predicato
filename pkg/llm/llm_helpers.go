@@ -518,3 +518,134 @@ func GenerateCSVResponse[T any](
 
 	return nil, badResponse, fmt.Errorf("failed to generate valid CSV after %d attempts", maxRetries+1)
 }
+
+// YAMLParserFunc is a function type for parsing YAML strings into a slice of type T.
+type YAMLParserFunc[T any] func(yamlContent string) ([]*T, error)
+
+// GenerateYAMLResponse generates a YAML response from an LLM and parses it into a slice of type T.
+// It handles retries with continuation prompts when parsing fails.
+func GenerateYAMLResponse[T any](
+	ctx context.Context,
+	llmClient Client,
+	logger *slog.Logger,
+	messages []types.Message,
+	yamlParser YAMLParserFunc[T],
+	maxRetries int,
+) ([]T, *types.BadLlmCsvResponse, error) {
+	if maxRetries <= 0 {
+		maxRetries = 3
+	}
+
+	// Make a copy of messages to avoid modifying the original slice
+	workingMessages := make([]types.Message, len(messages))
+	copy(workingMessages, messages)
+
+	var lastResponse *types.Response
+	var lastError error
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		// Make LLM call
+		response, err := llmClient.Chat(ctx, workingMessages)
+		if err != nil {
+			lastError = fmt.Errorf("LLM call failed on attempt %d: %w", attempt+1, err)
+			lastResponse = response
+
+			// Add continuation prompt for next attempt
+			if attempt < maxRetries {
+				workingMessages = append(workingMessages, types.Message{
+					Role:    RoleAssistant,
+					Content: "",
+				})
+				workingMessages = append(workingMessages, types.Message{
+					Role:    RoleUser,
+					Content: "The previous response failed. Please try again with valid YAML format:",
+				})
+			}
+			continue
+		}
+
+		if response == nil || response.Content == "" {
+			lastError = fmt.Errorf("empty response from LLM on attempt %d", attempt+1)
+			lastResponse = response
+
+			// Add continuation prompt for next attempt
+			if attempt < maxRetries {
+				workingMessages = append(workingMessages, types.Message{
+					Role:    RoleAssistant,
+					Content: "",
+				})
+				workingMessages = append(workingMessages, types.Message{
+					Role:    RoleUser,
+					Content: "No response received. Please provide the YAML data:",
+				})
+			}
+			continue
+		}
+
+		lastResponse = response
+
+		// Clean up the response (remove code blocks)
+		cleanedResponse := response.Content
+		
+		// Remove markdown code blocks if present
+		if strings.Contains(cleanedResponse, "```") {
+			cleanedResponse = ExtractJSONFromResponse(cleanedResponse) // Reusing this helper as it strips backticks well enough or we can make a specific one
+		}
+		
+		// Also strip HTML tags just in case
+		cleanedResponse = StripHtmlTags(cleanedResponse)
+
+		// Try to parse using the provided parser
+		resultPtrs, err := yamlParser(cleanedResponse)
+		if err != nil {
+			lastError = fmt.Errorf("failed to parse YAML on attempt %d: %w", attempt+1, err)
+
+			if logger != nil {
+				logger.Debug("YAML parsing failed", "attempt", attempt+1, "error", err, "response", cleanedResponse)
+			}
+
+			// Add continuation prompt for next attempt
+			if attempt < maxRetries {
+				workingMessages = append(workingMessages, types.Message{
+					Role:    RoleAssistant,
+					Content: response.Content,
+				})
+				workingMessages = append(workingMessages, types.Message{
+					Role:    RoleUser,
+					Content: fmt.Sprintf("The YAML format was invalid: %v. Please provide valid YAML data:", err),
+				})
+			}
+			continue
+		}
+
+		// Convert pointer slice to value slice
+		results := make([]T, 0, len(resultPtrs))
+		for _, ptr := range resultPtrs {
+			if ptr != nil {
+				results = append(results, *ptr)
+			}
+		}
+
+		return results, nil, nil
+	}
+
+	// All retries exhausted - return error information
+	// We reuse BadLlmCsvResponse for now as it has the right fields, maybe rename it later?
+	// It contains Messages, Response, Error.
+	badResponse := &types.BadLlmCsvResponse{
+		Messages: make([]*types.Message, 0, len(workingMessages)),
+		Response: "",
+		Error:    lastError,
+	}
+
+	for i := range workingMessages {
+		msg := workingMessages[i]
+		badResponse.Messages = append(badResponse.Messages, &msg)
+	}
+
+	if lastResponse != nil {
+		badResponse.Response = lastResponse.Content
+	}
+
+	return nil, badResponse, fmt.Errorf("failed to generate valid YAML after %d attempts", maxRetries+1)
+}

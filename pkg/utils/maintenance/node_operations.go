@@ -590,6 +590,7 @@ func (no *NodeOperations) ExtractAttributesFromNodes(ctx context.Context, nodes 
 			"previous_episodes": previousEpisodeContents,
 			"ensure_ascii":      true,
 			"logger":            no.logger,
+			"use_yaml":          no.UseYAML,
 		}
 
 		var extractedAttributesSlice []prompts.ExtractedNodeAttributes
@@ -607,20 +608,37 @@ func (no *NodeOperations) ExtractAttributesFromNodes(ctx context.Context, nodes 
 				return nil, fmt.Errorf("failed to create batch extraction prompt: %w", err)
 			}
 
-			// Create CSV parser function for ExtractedNodeAttributes
-			csvParser := func(csvContent string) ([]*prompts.ExtractedNodeAttributes, error) {
-				return utils.UnmarshalCSV[prompts.ExtractedNodeAttributes](csvContent, '\t')
-			}
+			if no.UseYAML {
+				// Create YAML parser function for ExtractedNodeAttributes
+				yamlParser := func(yamlContent string) ([]*prompts.ExtractedNodeAttributes, error) {
+					return utils.UnmarshalYAML[prompts.ExtractedNodeAttributes](yamlContent)
+				}
 
-			// Use GenerateCSVResponse for robust CSV parsing with retries
-			extractedAttributesSlice, badResp, err = llm.GenerateCSVResponse[prompts.ExtractedNodeAttributes](
-				ctx,
-				no.getAttributeLLM(),
-				no.logger,
-				messages,
-				csvParser,
-				3, // maxRetries
-			)
+				// Use GenerateYAMLResponse
+				extractedAttributesSlice, badResp, err = llm.GenerateYAMLResponse[prompts.ExtractedNodeAttributes](
+					ctx,
+					no.getAttributeLLM(),
+					no.logger,
+					messages,
+					yamlParser,
+					3, // maxRetries
+				)
+			} else {
+				// Create CSV parser function for ExtractedNodeAttributes
+				csvParser := func(csvContent string) ([]*prompts.ExtractedNodeAttributes, error) {
+					return utils.UnmarshalCSV[prompts.ExtractedNodeAttributes](csvContent, '\t')
+				}
+
+				// Use GenerateCSVResponse for robust CSV parsing with retries
+				extractedAttributesSlice, badResp, err = llm.GenerateCSVResponse[prompts.ExtractedNodeAttributes](
+					ctx,
+					no.getAttributeLLM(),
+					no.logger,
+					messages,
+					csvParser,
+					3, // maxRetries
+				)
+			}
 		}
 
 		if err != nil {

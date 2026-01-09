@@ -14,14 +14,16 @@ import (
 	"time"
 	"unicode"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/soundprediction/go-predicato/pkg/llm"
 	"github.com/soundprediction/go-predicato/pkg/types"
 )
 
 // ExtractedEntity represents an entity extracted from content
 type ExtractedEntity struct {
-	Name         string `json:"entity" mapstructure:"entity" csv:"entity"`
-	EntityTypeID int    `json:"entity_type_id" mapstructure:"entity_type_id" csv:"entity_type_id"`
+	Name         string `json:"entity" mapstructure:"entity" csv:"entity" yaml:"entity"`
+	EntityTypeID int    `json:"entity_type_id" mapstructure:"entity_type_id" csv:"entity_type_id" yaml:"entity_type_id"`
 }
 
 // ExtractedEntities represents a list of extracted entities
@@ -58,8 +60,8 @@ type EntitySummary struct {
 
 // ExtractedNodeAttributes represents extracted attributes and summary for a node
 type ExtractedNodeAttributes struct {
-	NodeID  int    `json:"node_id" mapstructure:"node_id" csv:"node_id"`
-	Summary string `json:"summary" mapstructure:"summary" csv:"summary"`
+	NodeID  int    `json:"node_id" mapstructure:"node_id" csv:"node_id" yaml:"node_id"`
+	Summary string `json:"summary" mapstructure:"summary" csv:"summary" yaml:"summary"`
 }
 type ExtractedEdge struct {
 	Name      string    `json:"relation_type" mapstructure:"relation_type" csv:"relation_type"` // matches Python name
@@ -105,9 +107,9 @@ type EdgeDuplicate struct {
 
 // EdgeDuplicateTSV represents edge duplicate detection result from TSV
 type EdgeDuplicateTSV struct {
-	DuplicateFacts    []string `json:"duplicate_facts" mapstructure:"duplicate_facts" csv:"duplicate_facts"`
-	ContradictedFacts []string `json:"contradicted_facts" mapstructure:"contradicted_facts" csv:"contradicted_facts"`
-	FactType          string   `json:"fact_type" mapstructure:"fact_type" csv:"fact_type"`
+	DuplicateFacts    []string `json:"duplicate_facts" mapstructure:"duplicate_facts" csv:"duplicate_facts" yaml:"duplicate_facts"`
+	ContradictedFacts []string `json:"contradicted_facts" mapstructure:"contradicted_facts" csv:"contradicted_facts" yaml:"contradicted_facts"`
+	FactType          string   `json:"fact_type" mapstructure:"fact_type" csv:"fact_type" yaml:"fact_type"`
 }
 
 // UniqueFact represents a unique fact
@@ -522,4 +524,17 @@ func LogResponses(logger *slog.Logger, response types.Response) {
 	fmt.Println(response.Content)
 	fmt.Println("=== END LLM response ===")
 
+}
+
+// ToPromptYAML serializes data to YAML for use in prompts.
+func ToPromptYAML(data interface{}) (string, error) {
+	// Re-use gopkg.in/yaml.v3
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	err := enc.Encode(data)
+	if err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }

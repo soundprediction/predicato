@@ -84,17 +84,85 @@ Your primary task is to extract and classify the speaker and other significant e
 
 	// Filter out entity_type_description to reduce redundancy
 	filteredEntityTypes := filterEntityTypes(entityTypes)
-	entityTypesTSV, err := ToPromptCSV(filteredEntityTypes, ensureASCII)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal entity types: %w", err)
+	// Determine output format
+	useYAML := false
+	if val, ok := context["use_yaml"]; ok {
+		if b, ok := val.(bool); ok {
+			useYAML = b
+		}
 	}
 
-	previousEpisodesTSV, err := ToPromptCSV(previousEpisodes, ensureASCII)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal previous episodes: %w", err)
-	}
+	var userPrompt string
+	if useYAML {
+		entityTypesYAML, err := ToPromptYAML(filteredEntityTypes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal entity types to YAML: %w", err)
+		}
 
-	userPrompt := fmt.Sprintf(`<ENTITY TYPES>
+		previousEpisodesYAML, err := ToPromptYAML(previousEpisodes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal previous episodes to YAML: %w", err)
+		}
+
+		userPrompt = fmt.Sprintf(`<ENTITY TYPES>
+%s
+</ENTITY TYPES>
+
+<PREVIOUS MESSAGES>
+%s
+</PREVIOUS MESSAGES>
+
+<CURRENT MESSAGE>
+%v
+</CURRENT MESSAGE>
+
+Note: ENTITY TYPES and PREVIOUS MESSAGES are provided in YAML format.
+
+Instructions:
+
+You are given a conversation context and a CURRENT MESSAGE. Your task is to extract **entity nodes** mentioned **explicitly or implicitly** in the CURRENT MESSAGE.
+Pronoun references such as he/she/they or this/that/those should be disambiguated to the names of the 
+reference entities. Only extract distinct entities from the CURRENT MESSAGE. Don't extract pronouns like you, me, he/she/they, we/us as entities.
+
+1. **Speaker Extraction**: Always extract the speaker (the part before the colon in each dialogue line) as the first entity node.
+   - If the speaker is mentioned again in the message, treat both mentions as a **single entity**.
+
+2. **Entity Identification**:
+   - Extract all significant entities, concepts, or actors that are **explicitly or implicitly** mentioned in the CURRENT MESSAGE.
+   - **Exclude** entities mentioned only in the PREVIOUS MESSAGES (they are for context only).
+
+3. **Entity Classification**:
+   - Use the descriptions in ENTITY TYPES to classify each extracted entity.
+   - Assign the appropriate entity_type_id for each one.
+
+4. **Exclusions**:
+   - Do NOT extract entities representing relationships or actions.
+   - Do NOT extract dates, times, or other temporal information—these will be handled separately.
+
+5. **Formatting**:
+   - Be **explicit and unambiguous** in naming entities (e.g., use full names when available).
+   - Format your response as a YAML list of objects.
+   - Each object should have 'entity' and 'entity_type_id' fields.
+
+Example:
+- entity: "John Doe"
+  entity_type_id: 1
+- entity: "Jane Smith"
+  entity_type_id: 1
+
+%v`, entityTypesYAML, previousEpisodesYAML, episodeContent, customPrompt)
+	} else {
+		entityTypesTSV, err := ToPromptCSV(filteredEntityTypes, ensureASCII)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal entity types: %w", err)
+		}
+
+		previousEpisodesTSV, err := ToPromptCSV(previousEpisodes, ensureASCII)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal previous episodes: %w", err)
+		}
+
+		userPrompt = fmt.Sprintf(`<ENTITY TYPES>
 %s
 </ENTITY TYPES>
 
@@ -131,8 +199,10 @@ reference entities. Only extract distinct entities from the CURRENT MESSAGE. Don
 
 5. **Formatting**:
    - Be **explicit and unambiguous** in naming entities (e.g., use full names when available).
+   - Format results as TSV (Tab Separated Values).
 
 %v`, entityTypesTSV, previousEpisodesTSV, episodeContent, customPrompt)
+	}
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
 		llm.NewSystemMessage(sysPrompt),
@@ -160,12 +230,58 @@ Your primary task is to extract and classify relevant entities from JSON files`
 
 	// Filter out entity_type_description to reduce redundancy
 	filteredEntityTypes := filterEntityTypes(entityTypes)
-	entityTypesTSV, err := ToPromptCSV(filteredEntityTypes, ensureASCII)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal entity types: %w", err)
+	// Determine output format
+	useYAML := false
+	if val, ok := context["use_yaml"]; ok {
+		if b, ok := val.(bool); ok {
+			useYAML = b
+		}
 	}
 
-	userPrompt := fmt.Sprintf(`
+	var userPrompt string
+	if useYAML {
+		entityTypesYAML, err := ToPromptYAML(filteredEntityTypes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal entity types to YAML: %w", err)
+		}
+
+		userPrompt = fmt.Sprintf(`
+<ENTITY TYPES>
+%s
+</ENTITY TYPES>
+
+<SOURCE DESCRIPTION>:
+%v
+</SOURCE DESCRIPTION>
+<CONTENT>
+%v
+</CONTENT>
+
+Note: ENTITY TYPES are provided in YAML format.
+
+%v
+
+Given the above source description and CONTENT, extract relevant entities from the provided CONTENT.
+For each entity extracted, also determine its entity type based on the provided ENTITY TYPES and their descriptions.
+Indicate the classified entity type by providing its entity_type_id.
+
+Guidelines:
+1. Always try to extract an entities that the CONTENT represents. This will often be something like a "name" or "user field
+2. Do NOT extract any properties that contain dates
+3. Format your response as a YAML list of objects.
+   - Each object should have 'entity' and 'entity_type_id' fields.
+
+Example:
+- entity: "John Doe"
+  entity_type_id: 1
+`, entityTypesYAML, sourceDescription, episodeContent, customPrompt)
+	} else {
+		entityTypesTSV, err := ToPromptCSV(filteredEntityTypes, ensureASCII)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal entity types: %w", err)
+		}
+
+		userPrompt = fmt.Sprintf(`
 <ENTITY TYPES>
 %s
 </ENTITY TYPES>
@@ -189,6 +305,7 @@ Guidelines:
 1. Always try to extract an entities that the JSON represents. This will often be something like a "name" or "user field
 2. Do NOT extract any properties that contain dates
 `, entityTypesTSV, sourceDescription, episodeContent, customPrompt)
+	}
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
 		llm.NewSystemMessage(sysPrompt),
@@ -215,12 +332,63 @@ Your primary task is to extract and classify the speaker and other significant e
 
 	// Filter out entity_type_description to reduce redundancy
 	filteredEntityTypes := filterEntityTypes(entityTypes)
-	entityTypesTSV, err := ToPromptCSV(filteredEntityTypes, ensureASCII)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal entity types: %w", err)
+	// Determine output format
+	useYAML := false
+	if val, ok := context["use_yaml"]; ok {
+		if b, ok := val.(bool); ok {
+			useYAML = b
+		}
 	}
 
-	userPrompt := fmt.Sprintf(`
+	var userPrompt string
+	if useYAML {
+		entityTypesYAML, err := ToPromptYAML(filteredEntityTypes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal entity types to YAML: %w", err)
+		}
+
+		userPrompt = fmt.Sprintf(`
+<ENTITY TYPES>
+%s
+</ENTITY TYPES>
+
+<TEXT>
+%v
+</TEXT>
+
+Note: ENTITY TYPES are provided in YAML format.
+
+Given the above text, extract entities from the TEXT that are explicitly or implicitly mentioned.
+For each entity extracted, also determine its entity type based on the provided ENTITY TYPES and their descriptions.
+Indicate the classified entity type by providing its entity_type_id.
+
+%v
+
+
+Guidelines:
+1. Extract significant entities, concepts, or actors mentioned in the conversation.
+2. Avoid creating nodes for relationships or actions.
+3. Avoid creating nodes for temporal information like dates, times or years (these will be added to edges later).
+4. Be as explicit as possible in your node names, using full names and avoiding abbreviations.
+5. Format your response as a YAML list of objects.
+   - Each object should have 'entity' and 'entity_type_id' fields.
+
+<EXAMPLE>
+- entity: "phlebotomist"
+  entity_type_id: 34
+- entity: "cognitive behavioral therapy"
+  entity_type_id: 30
+</EXAMPLE>
+
+Use the EXAMPLE as a guide.
+`, entityTypesYAML, episodeContent, customPrompt)
+	} else {
+		entityTypesTSV, err := ToPromptCSV(filteredEntityTypes, ensureASCII)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal entity types: %w", err)
+		}
+
+		userPrompt = fmt.Sprintf(`
 <ENTITY TYPES>
 %s
 </ENTITY TYPES>
@@ -260,6 +428,7 @@ cognitive behavioral therapy\t30
 Use the EXAMPLE as a guide
 Finish your response with a new line
 `, entityTypesTSV, episodeContent, customPrompt)
+	}
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
 		llm.NewSystemMessage(sysPrompt),
@@ -495,19 +664,75 @@ func extractAttributesBatchPrompt(context map[string]interface{}) ([]types.Messa
 		}
 	}
 
-	previousEpisodesTSV, err := ToPromptCSV(previousEpisodes, ensureASCII)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal previous episodes: %w", err)
-	}
-
-	nodesTSV, err := ToPromptCSV(nodes, ensureASCII)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal nodes: %w", err)
-	}
-
 	sysPrompt := `You are a helpful assistant that extracts entity summaries and attributes from the provided text.`
 
-	userPrompt := fmt.Sprintf(`
+	// Determine output format
+	useYAML := false
+	if val, ok := context["use_yaml"]; ok {
+		if b, ok := val.(bool); ok {
+			useYAML = b
+		}
+	}
+
+	var userPrompt string
+	if useYAML {
+		previousEpisodesYAML, err := ToPromptYAML(previousEpisodes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal previous episodes to YAML: %w", err)
+		}
+
+		nodesYAML, err := ToPromptYAML(nodes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal nodes to YAML: %w", err)
+		}
+
+		userPrompt = fmt.Sprintf(`
+<PREVIOUS MESSAGES>
+%s
+</PREVIOUS MESSAGES>
+<CURRENT MESSAGE>
+%v
+</CURRENT MESSAGE>
+
+Note: PREVIOUS MESSAGES and ENTITIES are provided in YAML format.
+
+Given the above MESSAGES and the following ENTITIES, update the summary for each entity that combines relevant information
+from the messages and relevant information from the existing summary.
+
+Guidelines:
+1. Do not hallucinate entity information if they cannot be found in the current context.
+2. Only use the provided MESSAGES and ENTITIES to set summary values.
+3. The summary attribute represents a summary of the ENTITY, and should be updated with new information about the Entity from the MESSAGES.
+   Summaries must be no longer than 250 words.
+4. Format your response as a YAML list of objects.
+   - Each object should have 'node_id' and 'summary' fields.
+
+<EXAMPLE>
+- node_id: 0
+  summary: "John Smith is a software engineer who works at Google. He has 10 years of experience."
+- node_id: 1
+  summary: "Alice Johnson is a data scientist specializing in machine learning."
+</EXAMPLE>
+
+<ENTITIES>
+%s
+</ENTITIES>
+
+Provide a YAML list item for each entity in the ENTITIES list above.
+Use the node_id field from each entity to identify it in your output.
+`, previousEpisodesYAML, episodeContent, nodesYAML)
+	} else {
+		previousEpisodesTSV, err := ToPromptCSV(previousEpisodes, ensureASCII)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal previous episodes: %w", err)
+		}
+
+		nodesTSV, err := ToPromptCSV(nodes, ensureASCII)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal nodes: %w", err)
+		}
+
+		userPrompt = fmt.Sprintf(`
 <PREVIOUS MESSAGES>
 %s
 </PREVIOUS MESSAGES>
@@ -547,6 +772,7 @@ Provide a TSV row for each entity in the ENTITIES list above.
 Use the node_id field from each entity to identify it in your TSV output.
 Finish your response with a new line.
 `, previousEpisodesTSV, episodeContent, nodesTSV)
+	}
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
 		llm.NewSystemMessage(sysPrompt),

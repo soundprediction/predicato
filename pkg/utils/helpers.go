@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/soundprediction/go-predicato/pkg/driver"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -512,4 +513,15 @@ func IsLastLineEmpty(text string) bool {
 
 	// Trim whitespace and check if it's empty
 	return strings.TrimSpace(lastLine) == ""
+}
+
+// UnmarshalYAML parses a YAML string and unmarshals it into a slice of structs.
+// It uses gopkg.in/yaml.v3
+func UnmarshalYAML[T any](yamlString string) ([]*T, error) {
+	var results []*T
+	err := yaml.Unmarshal([]byte(yamlString), &results)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse YAML: %w", err)
+	}
+	return results, nil
 }

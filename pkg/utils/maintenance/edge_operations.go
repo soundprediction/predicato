@@ -598,17 +598,17 @@ func (eo *EdgeOperations) resolveExtractedEdge(ctx context.Context, extractedEdg
 	promptContext := map[string]interface{}{
 		"existing_edges":               relatedEdgesContext,
 		"new_edge":                     extractedEdge.Summary,
-		"edge_invalidation_candidates": invalidationCandidatesContext,
-		"edge_types":                   edgeTypesContext,
+		"episode_content":              episode.Content,
+		"invalidation_candidate_edges": invalidationCandidatesContext,
+		"edge_types":                   edgeTypesContext, // Python passes this to prompt
 		"ensure_ascii":                 true,
 		"logger":                       eo.logger,
+		"use_yaml":                     eo.UseYAML,
 	}
 
-	// Use LLM to resolve duplicates and contradictions
 	messages, err := eo.prompts.DedupeEdges().ResolveEdge().Call(promptContext)
 	if err != nil {
-		log.Printf("Warning: failed to create dedupe prompt: %v", err)
-		return extractedEdge, []*types.Edge{}, nil
+		return nil, nil, fmt.Errorf("failed to create deduplication prompt: %w", err)
 	}
 
 	// Create CSV parser function for EdgeDuplicateTSV
@@ -616,15 +616,35 @@ func (eo *EdgeOperations) resolveExtractedEdge(ctx context.Context, extractedEdg
 		return utils.UnmarshalCSV[prompts.EdgeDuplicateTSV](csvContent, '\t')
 	}
 
-	// Use GenerateCSVResponse for robust CSV parsing with retries
-	edgeDuplicateTSVSlice, badResp, err := llm.GenerateCSVResponse[prompts.EdgeDuplicateTSV](
-		ctx,
-		eo.getResolutionLLM(),
-		eo.logger,
-		messages,
-		csvParser,
-		3, // maxRetries
-	)
+	var edgeDuplicateTSVSlice []prompts.EdgeDuplicateTSV
+	var badResp *types.BadLlmCsvResponse
+
+	if eo.UseYAML {
+		// Create YAML parser function for EdgeDuplicateTSV
+		yamlParser := func(yamlContent string) ([]*prompts.EdgeDuplicateTSV, error) {
+			return utils.UnmarshalYAML[prompts.EdgeDuplicateTSV](yamlContent)
+		}
+
+		// Use GenerateYAMLResponse
+		edgeDuplicateTSVSlice, badResp, err = llm.GenerateYAMLResponse[prompts.EdgeDuplicateTSV](
+			ctx,
+			eo.getResolutionLLM(),
+			eo.logger,
+			messages,
+			yamlParser,
+			3, // maxRetries
+		)
+	} else {
+		// Use GenerateCSVResponse
+		edgeDuplicateTSVSlice, badResp, err = llm.GenerateCSVResponse[prompts.EdgeDuplicateTSV](
+			ctx,
+			eo.getResolutionLLM(),
+			eo.logger,
+			messages,
+			csvParser,
+			3, // maxRetries
+		)
+	}
 
 	if err != nil {
 		// Log detailed error information
