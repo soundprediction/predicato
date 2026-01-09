@@ -465,7 +465,7 @@ func (no *NodeOperations) ResolveExtractedNodes(ctx context.Context, extractedNo
 		no.logger,
 		messages,
 		csvParser,
-		3, // maxRetries
+		0, // maxRetries (use default of 8)
 	)
 
 	if err != nil {

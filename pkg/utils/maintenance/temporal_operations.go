@@ -62,7 +62,7 @@ func (to *TemporalOperations) ExtractEdgeDates(ctx context.Context, edge *types.
 
 	// Use GenerateCSVResponse for robust CSV parsing with retries
 	edgeDatesSlice, badResp, err := llm.GenerateCSVResponse[prompts.EdgeDatesTSV](
-		ctx, to.llm, to.logger, messages, csvParser, 3,
+		ctx, to.llm, to.logger, messages, csvParser, 0, // maxRetries (use default of 8)
 	)
 	if err != nil {
 		if badResp != nil {
@@ -154,7 +154,7 @@ func (to *TemporalOperations) GetEdgeContradictions(ctx context.Context, newEdge
 
 	// Use GenerateCSVResponse for robust CSV parsing with retries
 	invalidatedSlice, badResp, err := llm.GenerateCSVResponse[prompts.InvalidatedEdgesTSV](
-		ctx, to.llm, to.logger, messages, csvParser, 3,
+		ctx, to.llm, to.logger, messages, csvParser, 0, // maxRetries (use default of 8)
 	)
 	if err != nil {
 		if badResp != nil {

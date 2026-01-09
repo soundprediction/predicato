@@ -132,6 +132,54 @@ func (eo *EdgeOperations) ExtractEdges(ctx context.Context, episode *types.Node,
 		return []*types.Edge{}, nil
 	}
 
+	// Batch processing for large node sets to avoid overwhelming the LLM
+	const batchSize = 15
+	if len(nodes) > batchSize {
+		eo.logger.Info("Batching edge extraction",
+			"total_nodes", len(nodes),
+			"batch_size", batchSize,
+			"num_batches", (len(nodes)+batchSize-1)/batchSize)
+
+		var allEdges []*types.Edge
+		for i := 0; i < len(nodes); i += batchSize {
+			end := i + batchSize
+			if end > len(nodes) {
+				end = len(nodes)
+			}
+			batch := nodes[i:end]
+
+			eo.logger.Debug("Processing edge extraction batch",
+				"batch_start", i,
+				"batch_end", end,
+				"batch_nodes", len(batch))
+
+			batchEdges, err := eo.extractEdgesBatch(ctx, episode, batch, nodes, previousEpisodes, edgeTypeMap, edgeTypes, groupID, i)
+			if err != nil {
+				return nil, fmt.Errorf("failed to extract edges from batch %d-%d: %w", i, end, err)
+			}
+			allEdges = append(allEdges, batchEdges...)
+		}
+
+		eo.logger.Info("Completed batched edge extraction",
+			"total_nodes", len(nodes),
+			"total_edges", len(allEdges),
+			"duration", time.Since(start))
+
+		return allEdges, nil
+	}
+
+	// For small node sets, process directly
+	return eo.extractEdgesBatch(ctx, episode, nodes, nodes, previousEpisodes, edgeTypeMap, edgeTypes, groupID, 0)
+}
+
+// extractEdgesBatch extracts edges for a batch of nodes
+func (eo *EdgeOperations) extractEdgesBatch(ctx context.Context, episode *types.Node, batchNodes []*types.Node, allNodes []*types.Node, previousEpisodes []*types.Node, edgeTypeMap map[string][][]string, edgeTypes map[string]interface{}, groupID string, batchOffset int) ([]*types.Edge, error) {
+	start := time.Now()
+
+	if len(batchNodes) == 0 {
+		return []*types.Edge{}, nil
+	}
+
 	// Prepare edge types context as a slice for TSV formatting
 	edgeTypesContext := []map[string]interface{}{}
 	if edgeTypeMap != nil {
@@ -144,10 +192,10 @@ func (eo *EdgeOperations) ExtractEdges(ctx context.Context, episode *types.Node,
 		}
 	}
 
-	// Prepare context for LLM
+	// Prepare context for LLM using batch nodes
 	// Note: Data is passed as slices for TSV formatting in prompts
-	nodeContexts := make([]map[string]interface{}, len(nodes))
-	for i, node := range nodes {
+	nodeContexts := make([]map[string]interface{}, len(batchNodes))
+	for i, node := range batchNodes {
 		nodeContexts[i] = map[string]interface{}{
 			"id":           i,
 			"name":         node.Name,
@@ -189,7 +237,7 @@ func (eo *EdgeOperations) ExtractEdges(ctx context.Context, episode *types.Node,
 		eo.logger,
 		messages,
 		csvParser,
-		3, // maxRetries
+		0, // maxRetries (use default of 8)
 	)
 
 	if err != nil {
@@ -219,15 +267,15 @@ func (eo *EdgeOperations) ExtractEdges(ctx context.Context, episode *types.Node,
 	// Convert to Edge objects
 	edges := make([]*types.Edge, 0, len(extractedEdges.Edges))
 	for _, edgeData := range extractedEdges.Edges {
-		// Validate node indices
-		if edgeData.SourceID < 0 || edgeData.SourceID >= len(nodes) ||
-			edgeData.TargetID < 0 || edgeData.TargetID >= len(nodes) {
-			log.Printf("Warning: invalid node indices for edge %s", edgeData.Name)
+		// Validate node indices (relative to batch)
+		if edgeData.SourceID < 0 || edgeData.SourceID >= len(batchNodes) ||
+			edgeData.TargetID < 0 || edgeData.TargetID >= len(batchNodes) {
+			log.Printf("Warning: invalid node indices for edge %s (batch has %d nodes)", edgeData.Name, len(batchNodes))
 			continue
 		}
 
-		sourceNode := nodes[edgeData.SourceID]
-		targetNode := nodes[edgeData.TargetID]
+		sourceNode := batchNodes[edgeData.SourceID]
+		targetNode := batchNodes[edgeData.TargetID]
 
 		// Parse temporal information
 		var validAt time.Time

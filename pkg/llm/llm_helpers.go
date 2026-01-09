@@ -5,12 +5,34 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"regexp"
 	"strings"
+	"time"
 
 	jsonrepair "github.com/kaptinlin/jsonrepair"
 	"github.com/soundprediction/go-predicato/pkg/types"
 )
+
+// calculateProgressiveTimeout returns a timeout duration that increases with each attempt.
+// Starts at 90s, increases by 45s per attempt, with ±20% jitter.
+// Examples: attempt 0: 72-108s, attempt 1: 108-162s, attempt 2: 144-216s, attempt 8: 432-648s
+func calculateProgressiveTimeout(attempt int) time.Duration {
+	// Base timeout: 90s + (attempt * 45s)
+	baseTimeout := time.Duration(90+attempt*45) * time.Second
+
+	// Add ±20% jitter
+	jitterPercent := 0.2
+	jitterRange := float64(baseTimeout) * jitterPercent
+	jitter := time.Duration(rand.Float64()*jitterRange*2 - jitterRange)
+
+	timeout := baseTimeout + jitter
+	// Ensure minimum timeout of 30s
+	if timeout < 30*time.Second {
+		timeout = 30 * time.Second
+	}
+	return timeout
+}
 
 // GenerateJSONResponseWithContinuation makes repeated LLM calls with continuation prompts
 // until valid JSON is received or max retries is reached.
@@ -139,7 +161,7 @@ func GenerateJSONResponseWithContinuationMessages(
 	maxRetries int,
 ) (string, error) {
 	if maxRetries <= 0 {
-		maxRetries = 4
+		maxRetries = 8
 	}
 
 	// Make a copy of messages to avoid modifying the original slice
@@ -154,8 +176,13 @@ func GenerateJSONResponseWithContinuationMessages(
 			workingMessages[1].Content = messages[1].Content + "\nFinish your work:\n" + strings.TrimSpace(accumulatedResponse)
 		}
 
+		// Create context with progressive timeout (increases with each attempt + jitter)
+		timeout := calculateProgressiveTimeout(attempt)
+		attemptCtx, cancel := context.WithTimeout(ctx, timeout)
+
 		// fmt.Printf("workingMessages[1].Content: %v\n", workingMessages[1].Content)
-		response, err := llmClient.Chat(ctx, workingMessages)
+		response, err := llmClient.Chat(attemptCtx, workingMessages)
+		cancel()
 
 		if err != nil {
 			lastError = fmt.Errorf("LLM call failed on attempt %d: %w", attempt+1, err)
@@ -217,7 +244,7 @@ func GenerateJSONWithContinuation(
 	maxRetries int,
 ) (string, error) {
 	if maxRetries <= 0 {
-		maxRetries = 3
+		maxRetries = 8
 	}
 
 	// Build initial messages
@@ -230,8 +257,13 @@ func GenerateJSONWithContinuation(
 	var lastError error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
+		// Create context with progressive timeout (increases with each attempt + jitter)
+		timeout := calculateProgressiveTimeout(attempt)
+		attemptCtx, cancel := context.WithTimeout(ctx, timeout)
+
 		// Make LLM call
-		response, err := llmClient.Chat(ctx, messages)
+		response, err := llmClient.Chat(attemptCtx, messages)
+		cancel()
 		if err != nil {
 			lastError = fmt.Errorf("LLM call failed on attempt %d: %w", attempt+1, err)
 			continue
@@ -384,7 +416,7 @@ func GenerateCSVResponse[T any](
 	maxRetries int,
 ) ([]T, *types.BadLlmCsvResponse, error) {
 	if maxRetries <= 0 {
-		maxRetries = 3
+		maxRetries = 8
 	}
 
 	// Make a copy of messages to avoid modifying the original slice
@@ -395,8 +427,13 @@ func GenerateCSVResponse[T any](
 	var lastError error
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
+		// Create context with progressive timeout (increases with each attempt + jitter)
+		timeout := calculateProgressiveTimeout(attempt)
+		attemptCtx, cancel := context.WithTimeout(ctx, timeout)
+
 		// Make LLM call
-		response, err := llmClient.Chat(ctx, workingMessages)
+		response, err := llmClient.Chat(attemptCtx, workingMessages)
+		cancel()
 		if err != nil {
 			lastError = fmt.Errorf("LLM call failed on attempt %d: %w", attempt+1, err)
 			lastResponse = response
