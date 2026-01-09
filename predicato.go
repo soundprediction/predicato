@@ -106,6 +106,24 @@ type Client struct {
 	community *community.Builder
 	config    *Config
 	logger    *slog.Logger
+
+	// Specialized LLM clients for different steps
+	extractionLLM     llm.Client
+	reflexionLLM      llm.Client
+	resolutionLLM     llm.Client
+	attributeLLM      llm.Client
+	edgeExtractionLLM llm.Client
+	edgeResolutionLLM llm.Client
+}
+
+// IngestionModels holds specialized LLM clients for different ingestion steps.
+type IngestionModels struct {
+	NodeExtraction llm.Client
+	NodeReflexion  llm.Client
+	NodeResolution llm.Client
+	NodeAttribute  llm.Client
+	EdgeExtraction llm.Client
+	EdgeResolution llm.Client
 }
 
 // Config holds configuration for the Predicato client.
@@ -123,6 +141,8 @@ type Config struct {
 	EdgeMap map[string]map[string][]interface{}
 	// GlinerModel is the model path or ID for GLiNER operations (optional)
 	GlinerModel string
+	// IngestionModels holds specialized LLM clients for different steps (optional)
+	IngestionModels IngestionModels
 }
 
 // AddEpisodeOptions holds options for adding a single episode.
@@ -143,6 +163,15 @@ type AddEpisodeOptions struct {
 	OverwriteExisting  bool
 	GenerateEmbeddings bool
 	MaxCharacters      int
+
+	// Skip options for faster ingestion or debugging
+	SkipReflexion      bool
+	SkipResolution     bool
+	SkipAttributes     bool
+	SkipEdgeResolution bool
+
+	// UseYAML toggles between CSV/TSV (default) and YAML for LLM interchange
+	UseYAML bool
 }
 
 // NewClient creates a new Predicato client with the provided configuration.
@@ -173,13 +202,19 @@ func NewClient(driver driver.GraphDriver, llmClient llm.Client, embedderClient e
 	communityBuilder := community.NewBuilder(driver, llmClient, embedderClient)
 
 	return &Client{
-		driver:    driver,
-		llm:       llmClient,
-		embedder:  embedderClient,
-		searcher:  searcher,
-		community: communityBuilder,
-		config:    config,
-		logger:    logger,
+		driver:            driver,
+		llm:               llmClient,
+		embedder:          embedderClient,
+		searcher:          searcher,
+		community:         communityBuilder,
+		config:            config,
+		logger:            logger,
+		extractionLLM:     config.IngestionModels.NodeExtraction,
+		reflexionLLM:      config.IngestionModels.NodeReflexion,
+		resolutionLLM:     config.IngestionModels.NodeResolution,
+		attributeLLM:      config.IngestionModels.NodeAttribute,
+		edgeExtractionLLM: config.IngestionModels.EdgeExtraction,
+		edgeResolutionLLM: config.IngestionModels.EdgeResolution,
 	}, nil
 }
 

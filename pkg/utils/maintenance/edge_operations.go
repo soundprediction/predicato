@@ -24,6 +24,16 @@ type EdgeOperations struct {
 	embedder embedder.Client
 	prompts  prompts.Library
 	logger   *slog.Logger
+
+	// Specialized LLM clients
+	ExtractionLLM llm.Client
+	ResolutionLLM llm.Client
+
+	// Skip flags
+	SkipResolution bool
+
+	// Format flags
+	UseYAML bool
 }
 
 // NewEdgeOperations creates a new EdgeOperations instance
@@ -40,6 +50,21 @@ func NewEdgeOperations(driver driver.GraphDriver, llm llm.Client, embedder embed
 // SetLogger sets a custom logger for the EdgeOperations
 func (eo *EdgeOperations) SetLogger(logger *slog.Logger) {
 	eo.logger = logger
+}
+
+// Helper methods to get the appropriate LLM client with fallback to default
+func (eo *EdgeOperations) getExtractionLLM() llm.Client {
+	if eo.ExtractionLLM != nil {
+		return eo.ExtractionLLM
+	}
+	return eo.llm
+}
+
+func (eo *EdgeOperations) getResolutionLLM() llm.Client {
+	if eo.ResolutionLLM != nil {
+		return eo.ResolutionLLM
+	}
+	return eo.llm
 }
 
 // BuildEpisodicEdges creates episodic edges from entity nodes to an episode
@@ -208,7 +233,7 @@ func (eo *EdgeOperations) extractEdgesBatch(ctx context.Context, episode *types.
 	// Use GenerateCSVResponse for robust CSV parsing with retries
 	extractedEdgeSlice, badResp, err := llm.GenerateCSVResponse[prompts.ExtractedEdge](
 		ctx,
-		eo.llm,
+		eo.getExtractionLLM(),
 		eo.logger,
 		messages,
 		csvParser,
@@ -432,6 +457,12 @@ func (eo *EdgeOperations) ResolveExtractedEdges(ctx context.Context, extractedEd
 	resolvedEdges := make([]*types.Edge, 0, len(extractedEdges))
 	invalidatedEdges := make([]*types.Edge, 0)
 
+	// Check if resolution should be skipped
+	if eo.SkipResolution {
+		eo.logger.Info("Skipping edge resolution as requested")
+		return bypassResolveEdges(ctx, extractedEdges)
+	}
+
 	// Process each extracted edge
 	for _, extractedEdge := range extractedEdges {
 		// Create embeddings for the edge
@@ -615,17 +646,17 @@ func (eo *EdgeOperations) resolveExtractedEdge(ctx context.Context, extractedEdg
 	promptContext := map[string]interface{}{
 		"existing_edges":               relatedEdgesContext,
 		"new_edge":                     extractedEdge.Summary,
-		"edge_invalidation_candidates": invalidationCandidatesContext,
-		"edge_types":                   edgeTypesContext,
+		"episode_content":              episode.Content,
+		"invalidation_candidate_edges": invalidationCandidatesContext,
+		"edge_types":                   edgeTypesContext, // Python passes this to prompt
 		"ensure_ascii":                 true,
 		"logger":                       eo.logger,
+		"use_yaml":                     eo.UseYAML,
 	}
 
-	// Use LLM to resolve duplicates and contradictions
 	messages, err := eo.prompts.DedupeEdges().ResolveEdge().Call(promptContext)
 	if err != nil {
-		log.Printf("Warning: failed to create dedupe prompt: %v", err)
-		return extractedEdge, []*types.Edge{}, nil
+		return nil, nil, fmt.Errorf("failed to create deduplication prompt: %w", err)
 	}
 
 	// Create CSV parser function for EdgeDuplicateTSV
@@ -633,15 +664,35 @@ func (eo *EdgeOperations) resolveExtractedEdge(ctx context.Context, extractedEdg
 		return utils.UnmarshalCSV[prompts.EdgeDuplicateTSV](csvContent, '\t')
 	}
 
-	// Use GenerateCSVResponse for robust CSV parsing with retries
-	edgeDuplicateTSVSlice, badResp, err := llm.GenerateCSVResponse[prompts.EdgeDuplicateTSV](
-		ctx,
-		eo.llm,
-		eo.logger,
-		messages,
-		csvParser,
-		0, // maxRetries (use default of 8)
-	)
+	var edgeDuplicateTSVSlice []prompts.EdgeDuplicateTSV
+	var badResp *types.BadLlmCsvResponse
+
+	if eo.UseYAML {
+		// Create YAML parser function for EdgeDuplicateTSV
+		yamlParser := func(yamlContent string) ([]*prompts.EdgeDuplicateTSV, error) {
+			return utils.UnmarshalYAML[prompts.EdgeDuplicateTSV](yamlContent)
+		}
+
+		// Use GenerateYAMLResponse
+		edgeDuplicateTSVSlice, badResp, err = llm.GenerateYAMLResponse[prompts.EdgeDuplicateTSV](
+			ctx,
+			eo.getResolutionLLM(),
+			eo.logger,
+			messages,
+			yamlParser,
+			3, // maxRetries
+		)
+	} else {
+		// Use GenerateCSVResponse
+		edgeDuplicateTSVSlice, badResp, err = llm.GenerateCSVResponse[prompts.EdgeDuplicateTSV](
+			ctx,
+			eo.getResolutionLLM(),
+			eo.logger,
+			messages,
+			csvParser,
+			3, // maxRetries
+		)
+	}
 
 	if err != nil {
 		// Log detailed error information
@@ -912,4 +963,11 @@ func (eo *EdgeOperations) parseNeo4jEdgeRecords(result interface{}) []*types.Edg
 	}
 
 	return edges
+}
+
+// bypassResolveEdges is a helper that simulates edge resolution without using LLM.
+// It effectively maps each extracted edge to itself.
+func bypassResolveEdges(ctx context.Context, edges []*types.Edge) ([]*types.Edge, []*types.Edge, error) {
+	// Just return edges as resolved, with no invalidated edges
+	return edges, []*types.Edge{}, nil
 }

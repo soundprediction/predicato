@@ -271,8 +271,21 @@ func (c *Client) addEpisodeChunked(ctx context.Context, episode types.Episode, o
 
 	// STEP 4: Initialize maintenance operations
 	nodeOps := maintenance.NewNodeOperations(c.driver, c.llm, c.embedder, prompts.NewLibrary())
+	nodeOps.ExtractionLLM = c.extractionLLM
+	nodeOps.ReflexionLLM = c.reflexionLLM
+	nodeOps.ResolutionLLM = c.resolutionLLM
+	nodeOps.AttributeLLM = c.attributeLLM
+	nodeOps.SkipReflexion = options.SkipReflexion
+	nodeOps.SkipResolution = options.SkipResolution
+	nodeOps.SkipAttributes = options.SkipAttributes
+	nodeOps.UseYAML = options.UseYAML
 	nodeOps.SetLogger(c.logger)
+
 	edgeOps := maintenance.NewEdgeOperations(c.driver, c.llm, c.embedder, prompts.NewLibrary())
+	edgeOps.ExtractionLLM = c.edgeExtractionLLM
+	edgeOps.ResolutionLLM = c.edgeResolutionLLM
+	edgeOps.SkipResolution = options.SkipEdgeResolution
+	edgeOps.UseYAML = options.UseYAML
 	edgeOps.SetLogger(c.logger)
 
 	// STEP 5: Extract entities from all chunks

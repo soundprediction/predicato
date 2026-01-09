@@ -43,22 +43,98 @@ func dedupeEdgePrompt(context map[string]interface{}) ([]types.Message, error) {
 		}
 	}
 
-	previousEpisodesTSV, err := ToPromptCSV(previousEpisodes, ensureASCII)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal previous episodes: %w", err)
+	// Determine output format
+	useYAML := false
+	if val, ok := context["use_yaml"]; ok {
+		if b, ok := val.(bool); ok {
+			useYAML = b
+		}
 	}
 
-	newFactTSV, err := ToPromptCSV(newFact, ensureASCII)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal new fact: %w", err)
-	}
+	var userPrompt string
+	if useYAML {
+		previousEpisodesYAML, err := ToPromptYAML(previousEpisodes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal previous episodes to YAML: %w", err)
+		}
 
-	existingFactsTSV, err := ToPromptCSV(existingFacts, ensureASCII)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal existing facts: %w", err)
-	}
+		newFactYAML, err := ToPromptYAML(newFact)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal new fact to YAML: %w", err)
+		}
 
-	userPrompt := fmt.Sprintf(`
+		existingFactsYAML, err := ToPromptYAML(existingFacts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal existing facts to YAML: %w", err)
+		}
+
+		userPrompt = fmt.Sprintf(`
+<PREVIOUS MESSAGES>
+%s
+</PREVIOUS MESSAGES>
+<CURRENT MESSAGE>
+%v
+</CURRENT MESSAGE>
+<NEW FACT>
+%s
+</NEW FACT>
+<EXISTING FACTS>
+%s
+</EXISTING FACTS>
+
+Note: PREVIOUS MESSAGES, NEW FACT, and EXISTING FACTS are provided in YAML format.
+
+Task:
+You have TWO separate lists of facts. Each list uses 'idx' as its index field, starting from 0.
+
+1. DUPLICATE DETECTION:
+	- If the NEW FACT represents identical factual information as any fact in EXISTING FACTS, return those idx values in duplicate_facts.
+	- Facts with similar information that contain key differences should NOT be marked as duplicates.
+	- Return idx values from EXISTING FACTS.
+	- If no duplicates, return an empty list for duplicate_facts.
+
+2. FACT TYPE CLASSIFICATION:
+	- Given the predefined FACT TYPES, determine if the NEW FACT should be classified as one of these types.
+	- Return the fact type as fact_type or DEFAULT if NEW FACT is not one of the FACT TYPES.
+
+3. CONTRADICTION DETECTION:
+	- Based on FACT INVALIDATION CANDIDATES and NEW FACT, determine which facts the new fact contradicts.
+	- Return idx values from FACT INVALIDATION CANDIDATES.
+	- If no contradictions, return an empty list for contradicted_facts.
+
+IMPORTANT:
+- duplicate_facts: Use ONLY 'idx' values from EXISTING FACTS
+- contradicted_facts: Use ONLY 'idx' values from FACT INVALIDATION CANDIDATES
+- These are two separate lists with independent idx ranges starting from 0
+
+Guidelines:
+1. Some facts may be very similar but will have key differences, particularly around numeric values in the facts.
+	Do not mark these facts as duplicates.
+
+
+<SCHEMA>
+duplicated_facts: []int
+contradicted_facts: []int
+fact_type: string
+</SCHEMA>
+`, previousEpisodesYAML, episodeContent, newFactYAML, existingFactsYAML)
+	} else {
+		previousEpisodesTSV, err := ToPromptCSV(previousEpisodes, ensureASCII)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal previous episodes: %w", err)
+		}
+
+		newFactTSV, err := ToPromptCSV(newFact, ensureASCII)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal new fact: %w", err)
+		}
+
+		existingFactsTSV, err := ToPromptCSV(existingFacts, ensureASCII)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal existing facts: %w", err)
+		}
+
+		userPrompt = fmt.Sprintf(`
 <PREVIOUS MESSAGES>
 %s
 </PREVIOUS MESSAGES>
@@ -108,6 +184,7 @@ contradicted_facts: []int
 fact_type: string
 </SCHEMA>
 `, previousEpisodesTSV, episodeContent, newFactTSV, existingFactsTSV)
+	}
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
 		llm.NewSystemMessage(sysPrompt),
@@ -166,24 +243,113 @@ func resolveEdgePrompt(context map[string]interface{}) ([]types.Message, error) 
 		}
 	}
 
-	existingEdgesTSV, err := ToPromptCSV(existingEdges, ensureASCII)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal existing edges: %w", err)
+	// Determine output format
+	useYAML := false
+	if val, ok := context["use_yaml"]; ok {
+		if b, ok := val.(bool); ok {
+			useYAML = b
+		}
 	}
 
-	edgeInvalidationCandidatesTSV, err := ToPromptCSV(edgeInvalidationCandidates, ensureASCII)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal edge invalidation candidates: %w", err)
-	}
+	var userPrompt string
+	if useYAML {
+		existingEdgesYAML, err := ToPromptYAML(existingEdges)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal existing edges to YAML: %w", err)
+		}
 
-	// Filter out fact_type_description to reduce redundancy
-	filteredEdgeTypes := filterEdgeTypes(edgeTypes)
-	edgeTypesTSV, err := ToPromptCSV(filteredEdgeTypes, ensureASCII)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal edge types: %w", err)
-	}
+		edgeInvalidationCandidatesYAML, err := ToPromptYAML(edgeInvalidationCandidates)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal edge invalidation candidates to YAML: %w", err)
+		}
 
-	userPrompt := fmt.Sprintf(`
+		// Filter out fact_type_description to reduce redundancy
+		filteredEdgeTypes := filterEdgeTypes(edgeTypes)
+		edgeTypesYAML, err := ToPromptYAML(filteredEdgeTypes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal edge types to YAML: %w", err)
+		}
+
+		userPrompt = fmt.Sprintf(`
+<NEW FACT>
+%v
+</NEW FACT>
+
+<EXISTING FACTS>
+%s
+</EXISTING FACTS>
+
+<FACT INVALIDATION CANDIDATES>
+%s
+</FACT INVALIDATION CANDIDATES>
+
+<FACT TYPES>
+%s
+</FACT TYPES>
+
+Note: EXISTING FACTS, FACT INVALIDATION CANDIDATES, and FACT TYPES are provided in YAML format.
+
+Task:
+You have THREE separate lists: NEW FACT (string), EXISTING FACTS (YAML with 'id' and 'fact' fields), and FACT INVALIDATION CANDIDATES (YAML with 'id' field).
+
+1. DUPLICATE DETECTION:
+   - If the NEW FACT represents identical factual information as any fact in EXISTING FACTS, identify which ones.
+   - Facts with similar information that contain key differences should NOT be marked as duplicates.
+   - Return a list of id values from EXISTING FACTS that are duplicates.
+   - If no duplicates, return an empty list.
+
+2. FACT TYPE CLASSIFICATION:
+   - Given the predefined FACT TYPES, determine if the NEW FACT should be classified as one of these types.
+   - Return the fact type name or DEFAULT if NEW FACT is not one of the FACT TYPES.
+
+3. CONTRADICTION DETECTION:
+   - Based on FACT INVALIDATION CANDIDATES and NEW FACT, determine which facts the new fact contradicts.
+   - Return a list of id values from FACT INVALIDATION CANDIDATES.
+   - If no contradictions, return an empty list.
+
+IMPORTANT:
+- duplicate_facts: Use ONLY 'id' values from EXISTING FACTS as a list of strings
+- contradicted_facts: Use ONLY 'id' values from FACT INVALIDATION CANDIDATES as a list of strings
+- These are two separate lists with independent id ranges
+
+Guidelines:
+1. Some facts may be very similar but will have key differences, particularly around numeric values.
+   Do not mark these facts as duplicates.
+
+Output Format:
+Format your response as a YAML object with the following schema:
+duplicate_facts: list[string]
+contradicted_facts: list[string]
+fact_type: string
+
+<EXAMPLE>
+duplicate_facts:
+  - "019a0cd8-20db-7334-b493-f7242f062cce"
+  - "019a0cd8-20db-7353-b922-cfc410ea9396"
+contradicted_facts:
+  - "000b7f15-aa7b-4270-b517-e433a98e4931"
+fact_type: KNOWS
+</EXAMPLE>
+`, newEdge, existingEdgesYAML, edgeInvalidationCandidatesYAML, edgeTypesYAML)
+	} else {
+		existingEdgesTSV, err := ToPromptCSV(existingEdges, ensureASCII)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal existing edges: %w", err)
+		}
+
+		edgeInvalidationCandidatesTSV, err := ToPromptCSV(edgeInvalidationCandidates, ensureASCII)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal edge invalidation candidates: %w", err)
+		}
+
+		// Filter out fact_type_description to reduce redundancy
+		filteredEdgeTypes := filterEdgeTypes(edgeTypes)
+		edgeTypesTSV, err := ToPromptCSV(filteredEdgeTypes, ensureASCII)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal edge types: %w", err)
+		}
+
+		userPrompt = fmt.Sprintf(`
 <NEW FACT>
 %v
 </NEW FACT>
@@ -246,6 +412,7 @@ duplicate_facts\tcontradicted_facts\tfact_type
 
 Provide only the TSV header and data row. Finish your response with a new line.
 `, newEdge, existingEdgesTSV, edgeInvalidationCandidatesTSV, edgeTypesTSV)
+	}
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
 		llm.NewSystemMessage(sysPrompt),
