@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/firebase/genkit/go/genkit"
-	"github.com/soundprediction/go-predicato"
-	"github.com/soundprediction/go-predicato/pkg/driver"
-	"github.com/soundprediction/go-predicato/pkg/embedder"
-	"github.com/soundprediction/go-predicato/pkg/llm"
-	predicatoLogger "github.com/soundprediction/go-predicato/pkg/logger"
+	"github.com/soundprediction/predicato"
+	"github.com/soundprediction/predicato/pkg/driver"
+	"github.com/soundprediction/predicato/pkg/embedder"
+	"github.com/soundprediction/predicato/pkg/llm"
+	predicatoLogger "github.com/soundprediction/predicato/pkg/logger"
 )
 
 // Default configuration values

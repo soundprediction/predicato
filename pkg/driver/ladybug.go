@@ -15,7 +15,7 @@ import (
 
 	ladybug "github.com/LadybugDB/go-ladybug"
 
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 // LadybugSchemaQueries defines the Ladybug database schema exactly as in Python implementation

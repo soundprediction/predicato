@@ -13,7 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/parquet-go/parquet-go"
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 // LogRecord represents a single log entry for Parquet storage

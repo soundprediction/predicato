@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/soundprediction/go-predicato/pkg/driver"
-	"github.com/soundprediction/go-predicato/pkg/embedder"
-	"github.com/soundprediction/go-predicato/pkg/llm"
-	"github.com/soundprediction/go-predicato/pkg/prompts"
-	"github.com/soundprediction/go-predicato/pkg/types"
-	"github.com/soundprediction/go-predicato/pkg/utils"
+	"github.com/soundprediction/predicato/pkg/driver"
+	"github.com/soundprediction/predicato/pkg/embedder"
+	"github.com/soundprediction/predicato/pkg/llm"
+	"github.com/soundprediction/predicato/pkg/prompts"
+	"github.com/soundprediction/predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/utils"
 )
 
 // EdgeOperations provides edge-related maintenance operations

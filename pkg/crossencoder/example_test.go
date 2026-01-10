@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/soundprediction/go-predicato/pkg/crossencoder"
-	"github.com/soundprediction/go-predicato/pkg/llm"
+	"github.com/soundprediction/predicato/pkg/crossencoder"
+	"github.com/soundprediction/predicato/pkg/llm"
 )
 
 // ExampleNewClient demonstrates how to create different types of cross-encoder clients

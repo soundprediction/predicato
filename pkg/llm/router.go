@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/soundprediction/go-predicato/pkg/config"
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/config"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 // RouterClient routes requests to specific LLM providers based on rules

@@ -3,7 +3,7 @@ package main
 import (
 	"log/slog"
 
-	"github.com/soundprediction/go-predicato/pkg/logger"
+	"github.com/soundprediction/predicato/pkg/logger"
 )
 
 func main() {

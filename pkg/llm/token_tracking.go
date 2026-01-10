@@ -10,8 +10,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/parquet-go/parquet-go"
-	"github.com/soundprediction/go-predicato/pkg/cost"
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/cost"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 // TokenUsageRecord represents a single log entry for token usage

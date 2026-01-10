@@ -6,7 +6,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/soundprediction/go-predicato/pkg/embedder"
+	"github.com/soundprediction/predicato/pkg/embedder"
 )
 
 // EmbeddingRerankerClient implements cross-encoder functionality using embeddings

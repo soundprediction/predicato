@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/soundprediction/go-predicato/pkg/embedder"
+	"github.com/soundprediction/predicato/pkg/embedder"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

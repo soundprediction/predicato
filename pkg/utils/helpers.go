@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/soundprediction/go-predicato/pkg/driver"
+	"github.com/soundprediction/predicato/pkg/driver"
 	"gopkg.in/yaml.v3"
 )
 

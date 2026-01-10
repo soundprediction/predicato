@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 const (
