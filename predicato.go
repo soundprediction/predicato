@@ -116,6 +116,8 @@ type Client struct {
 	attributeLLM      llm.Client
 	edgeExtractionLLM llm.Client
 	edgeResolutionLLM llm.Client
+	summarizationLLM  llm.Client
+	generationLLM     llm.Client
 }
 
 // IngestionModels holds specialized LLM clients for different ingestion steps.
@@ -126,6 +128,8 @@ type IngestionModels struct {
 	NodeAttribute  llm.Client
 	EdgeExtraction llm.Client
 	EdgeResolution llm.Client
+	Summarization  llm.Client
+	TextGeneration llm.Client
 }
 
 // Config holds configuration for the Predicato client.
@@ -216,7 +220,7 @@ func NewClient(driver driver.GraphDriver, llmClient llm.Client, embedderClient e
 	}
 
 	searcher := search.NewSearcher(driver, embedderClient, llmClient)
-	communityBuilder := community.NewBuilder(driver, llmClient, embedderClient)
+	communityBuilder := community.NewBuilder(driver, llmClient, config.IngestionModels.Summarization, embedderClient)
 
 	return &Client{
 		driver:            driver,
@@ -232,6 +236,8 @@ func NewClient(driver driver.GraphDriver, llmClient llm.Client, embedderClient e
 		attributeLLM:      config.IngestionModels.NodeAttribute,
 		edgeExtractionLLM: config.IngestionModels.EdgeExtraction,
 		edgeResolutionLLM: config.IngestionModels.EdgeResolution,
+		summarizationLLM:  config.IngestionModels.Summarization,
+		generationLLM:     config.IngestionModels.TextGeneration,
 		rustBert:          rustBertClient,
 	}, nil
 }
