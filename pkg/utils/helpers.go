@@ -516,12 +516,42 @@ func IsLastLineEmpty(text string) bool {
 }
 
 // UnmarshalYAML parses a YAML string and unmarshals it into a slice of structs.
-// It uses gopkg.in/yaml.v3
+// It uses gopkg.in/yaml.v3 and handles partial failures by skipping invalid items.
 func UnmarshalYAML[T any](yamlString string) ([]*T, error) {
-	var results []*T
-	err := yaml.Unmarshal([]byte(yamlString), &results)
+	// First, try to unmarshal as a slice of yaml.Nodes to access individual items
+	var nodes []yaml.Node
+	err := yaml.Unmarshal([]byte(yamlString), &nodes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse YAML: %w", err)
+		// Fallback: If it's not a list, try generic unmarshal to see if it's a single item not wrapped in list ??
+		// Or if the outer structure is fundamentally broken, we can't do much.
+		return nil, fmt.Errorf("failed to parse YAML structure: %w", err)
 	}
+
+	results := make([]*T, 0, len(nodes))
+	var errors []error
+
+	for i, node := range nodes {
+		var item T
+		// Decode individual node
+		if err := node.Decode(&item); err != nil {
+			// Log error but continue
+			errors = append(errors, fmt.Errorf("failed to unmarshal item %d: %v", i, err))
+			continue
+		}
+		results = append(results, &item)
+	}
+
+	if len(results) == 0 && len(errors) > 0 {
+		// If ALL items failed, return error
+		return nil, fmt.Errorf("failed to unmarshal any items: %v", errors[0])
+	}
+
+	if len(errors) > 0 {
+		// Log errors for partial failures (using standard log or just printing since we don't have logger here)
+		// Ideally we'd accept a logger, but for a utility helper, fmt.Printf to stderr or just ignoring is common.
+		// Given this is for LLM resilience, silent partial success is often desired, but let's print a warning.
+		fmt.Fprintf(os.Stderr, "Warning: %d YAML items failed to parse and were skipped\n", len(errors))
+	}
+
 	return results, nil
 }
