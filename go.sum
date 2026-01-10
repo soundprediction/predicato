@@ -140,6 +140,8 @@ github.com/soundprediction/go-embedeverything v0.7.1-0.20251230214014-73c71bb50a
 github.com/soundprediction/go-embedeverything v0.7.1-0.20251230214014-73c71bb50aeb/go.mod h1:0svs5L7xJyVKi5OWiBcscbiywDavT3os2eup5WNEyIg=
 github.com/soundprediction/go-gline-rs v0.1.0 h1:RP4CUwtlFS29nOzLUrjwZAafkhfx0jYPwa3b+dvGdpM=
 github.com/soundprediction/go-gline-rs v0.1.0/go.mod h1:TKCAsm7g+QKEciSsptHluq4/lxgm8htR7DAWr32yjRs=
+github.com/soundprediction/go-rust-bert v0.0.2 h1:KbV6JDKaFdoGbQGJSO8jzCnCG5ty3oJ8IyPvNNy6sMk=
+github.com/soundprediction/go-rust-bert v0.0.2/go.mod h1:ccJZhiTS5ClfZNL5UGJCSv3nwjauEKn0x3f4s62nePM=
 github.com/spf13/afero v1.15.0 h1:b/YBCLWAJdFWJTN9cLhiXXcD7mzKn9Dm86dNnfyQw1I=
 github.com/spf13/afero v1.15.0/go.mod h1:NC2ByUVxtQs4b3sIUphxK0NioZnmxgyCrfzeuq8lxMg=
 github.com/spf13/cast v1.10.0 h1:h2x0u2shc1QuLHfxi+cTJvs30+ZAHOGRic8uyGTDWxY=
