@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/soundprediction/go-predicato"
-	"github.com/soundprediction/go-predicato/pkg/server/dto"
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato"
+	"github.com/soundprediction/predicato/pkg/server/dto"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 // RetrieveHandler handles data retrieval requests

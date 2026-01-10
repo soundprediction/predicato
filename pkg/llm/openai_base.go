@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/sashabaranov/go-openai"
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 // Constants matching Python defaults

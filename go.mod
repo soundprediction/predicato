@@ -1,4 +1,4 @@
-module github.com/soundprediction/go-predicato
+module github.com/soundprediction/predicato
 
 go 1.25.5
 
@@ -101,7 +101,3 @@ require (
 	golang.org/x/tools v0.39.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
-
-replace github.com/go-rust-bert/go-rust-bert => /Users/josh/workspace/go-rust-bert
-
-replace github.com/soundprediction/go-rust-bert => ../go-rust-bert

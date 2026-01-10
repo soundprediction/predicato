@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/sony/gobreaker"
-	"github.com/soundprediction/go-predicato/pkg/alert"
-	"github.com/soundprediction/go-predicato/pkg/config"
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/alert"
+	"github.com/soundprediction/predicato/pkg/config"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 // CircuitBreakerClient wraps a Client with circuit breaking logic

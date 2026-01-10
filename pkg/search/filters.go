@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 // ComparisonOperator defines comparison operators for filtering

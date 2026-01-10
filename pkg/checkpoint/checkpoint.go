@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/soundprediction/go-predicato/pkg/types"
-	"github.com/soundprediction/go-predicato/pkg/utils"
+	"github.com/soundprediction/predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/utils"
 )
 
 // ProcessingStep represents a step in the addEpisodeChunked pipeline

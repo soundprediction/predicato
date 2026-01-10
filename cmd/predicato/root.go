@@ -17,7 +17,7 @@ var (
 It provides tools for building temporally-aware knowledge graphs with real-time 
 incremental updates.
 
-Complete documentation is available at https://github.com/soundprediction/go-predicato`,
+Complete documentation is available at https://github.com/soundprediction/predicato`,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			// Initialize configuration
 			initConfig()

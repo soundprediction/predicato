@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 // GeminiClient implements the Client interface for Google Gemini models.

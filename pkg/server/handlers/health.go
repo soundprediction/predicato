@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/soundprediction/go-predicato"
+	"github.com/soundprediction/predicato"
 )
 
 // Build information - can be set at build time using ldflags

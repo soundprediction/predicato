@@ -14,7 +14,7 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j/db"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j/dbtype"
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 // MemgraphDriver implements the GraphDriver interface for Memgraph databases.

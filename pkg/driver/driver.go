@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 // GraphProvider represents the type of graph database provider

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 func TestGraphProvider(t *testing.T) {

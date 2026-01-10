@@ -11,7 +11,7 @@ import (
 	"time"
 
 	jsonrepair "github.com/kaptinlin/jsonrepair"
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 // calculateProgressiveTimeout returns a timeout duration that increases with each attempt.

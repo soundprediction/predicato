@@ -4,7 +4,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 // TokenCounter provides token counting functionality.

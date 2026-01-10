@@ -7,15 +7,15 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/soundprediction/go-predicato/pkg/community"
-	"github.com/soundprediction/go-predicato/pkg/driver"
-	"github.com/soundprediction/go-predicato/pkg/embedder"
-	"github.com/soundprediction/go-predicato/pkg/gliner"
-	"github.com/soundprediction/go-predicato/pkg/llm"
-	"github.com/soundprediction/go-predicato/pkg/rustbert"
-	"github.com/soundprediction/go-predicato/pkg/search"
-	"github.com/soundprediction/go-predicato/pkg/types"
-	"github.com/soundprediction/go-predicato/pkg/utils/maintenance"
+	"github.com/soundprediction/predicato/pkg/community"
+	"github.com/soundprediction/predicato/pkg/driver"
+	"github.com/soundprediction/predicato/pkg/embedder"
+	"github.com/soundprediction/predicato/pkg/gliner"
+	"github.com/soundprediction/predicato/pkg/llm"
+	"github.com/soundprediction/predicato/pkg/rustbert"
+	"github.com/soundprediction/predicato/pkg/search"
+	"github.com/soundprediction/predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/utils/maintenance"
 )
 
 // driverWrapper wraps driver.GraphDriver to implement types.EdgeOperations

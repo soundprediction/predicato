@@ -49,8 +49,8 @@ package crossencoder
 import (
 	"fmt"
 
-	"github.com/soundprediction/go-predicato/pkg/embedder"
-	"github.com/soundprediction/go-predicato/pkg/llm"
+	"github.com/soundprediction/predicato/pkg/embedder"
+	"github.com/soundprediction/predicato/pkg/llm"
 )
 
 // Provider represents the type of cross-encoder provider

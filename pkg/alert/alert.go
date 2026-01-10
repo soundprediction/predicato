@@ -5,7 +5,7 @@ import (
 	"net/smtp"
 	"strings"
 
-	"github.com/soundprediction/go-predicato/pkg/config"
+	"github.com/soundprediction/predicato/pkg/config"
 )
 
 // Alerter defines an interface for sending alerts

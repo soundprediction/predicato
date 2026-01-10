@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/parquet-go/parquet-go"
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 // ParquetGraphWriter handles writing nodes and edges to Parquet files

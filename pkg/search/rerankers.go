@@ -5,8 +5,8 @@ import (
 	"math"
 	"sort"
 
-	"github.com/soundprediction/go-predicato/pkg/driver"
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/driver"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 // RRFResult represents the result of RRF reranking

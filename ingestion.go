@@ -9,12 +9,12 @@ import (
 	"time"
 
 	jsonrepair "github.com/kaptinlin/jsonrepair"
-	"github.com/soundprediction/go-predicato/pkg/driver"
-	"github.com/soundprediction/go-predicato/pkg/prompts"
-	"github.com/soundprediction/go-predicato/pkg/search"
-	"github.com/soundprediction/go-predicato/pkg/types"
-	"github.com/soundprediction/go-predicato/pkg/utils"
-	"github.com/soundprediction/go-predicato/pkg/utils/maintenance"
+	"github.com/soundprediction/predicato/pkg/driver"
+	"github.com/soundprediction/predicato/pkg/prompts"
+	"github.com/soundprediction/predicato/pkg/search"
+	"github.com/soundprediction/predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/utils"
+	"github.com/soundprediction/predicato/pkg/utils/maintenance"
 )
 
 // retrieveAndValidateEpisode retrieves an existing episode and validates it.

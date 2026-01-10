@@ -12,7 +12,7 @@ import "C"
 import (
 	"os"
 
-	"github.com/soundprediction/go-predicato/cmd/predicato"
+	"github.com/soundprediction/predicato/cmd/predicato"
 )
 
 func main() {

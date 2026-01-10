@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/soundprediction/go-predicato/pkg/driver"
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/driver"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 // BFSSearchOptions holds options for BFS search operations

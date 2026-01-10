@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/soundprediction/go-predicato/pkg/driver"
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/driver"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 // ClearGraph removes all nodes and edges from the knowledge graph for a specific group.

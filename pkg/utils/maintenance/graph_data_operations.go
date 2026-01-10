@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/soundprediction/go-predicato/pkg/driver"
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/driver"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 const (

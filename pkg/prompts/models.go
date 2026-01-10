@@ -16,8 +16,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/soundprediction/go-predicato/pkg/llm"
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/llm"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 // ExtractedEntity represents an entity extracted from content

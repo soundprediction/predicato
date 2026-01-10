@@ -9,14 +9,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/soundprediction/go-predicato"
-	"github.com/soundprediction/go-predicato/pkg/config"
-	"github.com/soundprediction/go-predicato/pkg/driver"
-	"github.com/soundprediction/go-predicato/pkg/embedder"
-	"github.com/soundprediction/go-predicato/pkg/llm"
-	predicatoLogger "github.com/soundprediction/go-predicato/pkg/logger"
-	"github.com/soundprediction/go-predicato/pkg/server"
-	"github.com/soundprediction/go-predicato/pkg/telemetry"
+	"github.com/soundprediction/predicato"
+	"github.com/soundprediction/predicato/pkg/config"
+	"github.com/soundprediction/predicato/pkg/driver"
+	"github.com/soundprediction/predicato/pkg/embedder"
+	"github.com/soundprediction/predicato/pkg/llm"
+	predicatoLogger "github.com/soundprediction/predicato/pkg/logger"
+	"github.com/soundprediction/predicato/pkg/server"
+	"github.com/soundprediction/predicato/pkg/telemetry"
 	"github.com/spf13/cobra"
 )
 

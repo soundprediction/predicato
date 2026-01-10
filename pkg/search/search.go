@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/soundprediction/go-predicato/pkg/crossencoder"
-	"github.com/soundprediction/go-predicato/pkg/driver"
-	"github.com/soundprediction/go-predicato/pkg/embedder"
-	"github.com/soundprediction/go-predicato/pkg/llm"
-	"github.com/soundprediction/go-predicato/pkg/types"
+	"github.com/soundprediction/predicato/pkg/crossencoder"
+	"github.com/soundprediction/predicato/pkg/driver"
+	"github.com/soundprediction/predicato/pkg/embedder"
+	"github.com/soundprediction/predicato/pkg/llm"
+	"github.com/soundprediction/predicato/pkg/types"
 )
 
 type SearchMethod string
