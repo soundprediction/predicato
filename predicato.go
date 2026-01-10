@@ -12,6 +12,7 @@ import (
 	"github.com/soundprediction/go-predicato/pkg/embedder"
 	"github.com/soundprediction/go-predicato/pkg/gliner"
 	"github.com/soundprediction/go-predicato/pkg/llm"
+	"github.com/soundprediction/go-predicato/pkg/rustbert"
 	"github.com/soundprediction/go-predicato/pkg/search"
 	"github.com/soundprediction/go-predicato/pkg/types"
 	"github.com/soundprediction/go-predicato/pkg/utils/maintenance"
@@ -106,6 +107,7 @@ type Client struct {
 	community *community.Builder
 	config    *Config
 	logger    *slog.Logger
+	rustBert  *rustbert.Client
 
 	// Specialized LLM clients for different steps
 	extractionLLM     llm.Client
@@ -141,6 +143,8 @@ type Config struct {
 	EdgeMap map[string]map[string][]interface{}
 	// GlinerModel is the model path or ID for GLiNER operations (optional)
 	GlinerModel string
+	// RustBertModel is the model config for RustBert operations (optional)
+	RustBertModel string
 	// IngestionModels holds specialized LLM clients for different steps (optional)
 	IngestionModels IngestionModels
 }
@@ -198,6 +202,19 @@ func NewClient(driver driver.GraphDriver, llmClient llm.Client, embedderClient e
 		llmClient = gliner.NewLLMAdapter(glinerClient, llmClient)
 	}
 
+	// RustBert support
+	var rustBertClient *rustbert.Client
+	if config.RustBertModel != "" {
+		// Initialize the RustBert client
+		// We use the empty string (or config.RustBertModel if strictly model ID)
+		// But client.NewClient takes no args currently, internal load methods do.
+		// Wait, NewClient signature is func NewClient() *Client
+		// So we just call it.
+		rustBertClient = rustbert.NewClient()
+		// If the user provided a config that implies auto-loading, we could do it here
+		// But for now, we follow the pattern of lazy loading or explicit loading.
+	}
+
 	searcher := search.NewSearcher(driver, embedderClient, llmClient)
 	communityBuilder := community.NewBuilder(driver, llmClient, embedderClient)
 
@@ -215,6 +232,7 @@ func NewClient(driver driver.GraphDriver, llmClient llm.Client, embedderClient e
 		attributeLLM:      config.IngestionModels.NodeAttribute,
 		edgeExtractionLLM: config.IngestionModels.EdgeExtraction,
 		edgeResolutionLLM: config.IngestionModels.EdgeResolution,
+		rustBert:          rustBertClient,
 	}, nil
 }
 
@@ -236,6 +254,11 @@ func (c *Client) GetEmbedder() embedder.Client {
 // GetCommunityBuilder returns the community builder
 func (c *Client) GetCommunityBuilder() *community.Builder {
 	return c.community
+}
+
+// GetRustBert returns the RustBert client
+func (c *Client) GetRustBert() *rustbert.Client {
+	return c.rustBert
 }
 
 var (
