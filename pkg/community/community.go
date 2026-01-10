@@ -20,17 +20,23 @@ const (
 
 // Builder provides community building operations for knowledge graphs
 type Builder struct {
-	driver   driver.GraphDriver
-	llm      llm.Client
-	embedder embedder.Client
+	driver     driver.GraphDriver
+	llm        llm.Client
+	summarizer llm.Client
+	embedder   embedder.Client
 }
 
 // NewBuilder creates a new community builder
-func NewBuilder(driver driver.GraphDriver, llmClient llm.Client, embedderClient embedder.Client) *Builder {
+func NewBuilder(driver driver.GraphDriver, llmClient llm.Client, summarizerClient llm.Client, embedderClient embedder.Client) *Builder {
+	// Fallback to main LLM if summarizer is nil
+	if summarizerClient == nil {
+		summarizerClient = llmClient
+	}
 	return &Builder{
-		driver:   driver,
-		llm:      llmClient,
-		embedder: embedderClient,
+		driver:     driver,
+		llm:        llmClient,
+		summarizer: summarizerClient,
+		embedder:   embedderClient,
 	}
 }
 
@@ -280,7 +286,7 @@ Provide a single summary that captures the essential information from both:`, le
 		},
 	}
 
-	response, err := b.llm.Chat(ctx, messages)
+	response, err := b.summarizer.Chat(ctx, messages)
 	if err != nil {
 		return "", fmt.Errorf("failed to get LLM response for pair summarization: %w", err)
 	}
@@ -305,7 +311,7 @@ Name:`, summary),
 		},
 	}
 
-	response, err := b.llm.Chat(ctx, messages)
+	response, err := b.summarizer.Chat(ctx, messages)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate community name: %w", err)
 	}
