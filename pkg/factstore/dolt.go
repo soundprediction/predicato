@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/dolthub/driver"
 )
 
 // DoltDB implements FactsDB using a Dolt SQL database.
@@ -15,9 +15,9 @@ type DoltDB struct {
 }
 
 // NewDoltDB creates a new DoltDB instance.
-// connectionString should be a valid DSN, e.g., "root@tcp(127.0.0.1:3306)/predicato_facts"
+// connectionString should be a valid Dolt DSN, e.g., "file:///path/to/databases?commitname=User&commitemail=user@example.com&database=mydb"
 func NewDoltDB(connectionString string) (*DoltDB, error) {
-	db, err := sql.Open("mysql", connectionString)
+	db, err := sql.Open("dolt", connectionString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database connection: %w", err)
 	}

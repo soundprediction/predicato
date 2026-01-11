@@ -94,6 +94,9 @@ type Predicato interface {
 	Close(ctx context.Context) error
 
 	UpdateCommunities(ctx context.Context, episodeUUID string, groupID string) ([]*types.Node, []*types.Edge, error)
+
+	// GetFactStore returns the underlying fact store
+	GetFactStore() factstore.FactsDB
 }
 
 // Client is the main implementation of the Predicato interface.
@@ -233,6 +236,11 @@ func (c *Client) GetEmbedder() embedder.Client {
 // GetCommunityBuilder returns the community builder
 func (c *Client) GetCommunityBuilder() *community.Builder {
 	return c.community
+}
+
+// GetFactStore returns the underlying fact store
+func (c *Client) GetFactStore() factstore.FactsDB {
+	return c.factStore
 }
 
 var (
