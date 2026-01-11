@@ -14,13 +14,13 @@ import (
 	"github.com/soundprediction/predicato"
 	"github.com/soundprediction/predicato/pkg/driver"
 	"github.com/soundprediction/predicato/pkg/embedder"
-	"github.com/soundprediction/predicato/pkg/llm"
+	"github.com/soundprediction/predicato/pkg/nlp"
 	predicatoLogger "github.com/soundprediction/predicato/pkg/logger"
 )
 
 // Default configuration values
 const (
-	DefaultLLMModel       = "gpt-4o-mini"
+	DefaultNLPModel       = "gpt-4o-mini"
 	DefaultSmallModel     = "gpt-4o-mini"
 	DefaultEmbedderModel  = "text-embedding-3-small"
 	DefaultSemaphoreLimit = 10
@@ -43,10 +43,10 @@ var EntityTypes = map[string]interface{}{
 
 // Config holds all configuration for the MCP server
 type Config struct {
-	// LLM Configuration
-	LLMModel       string
-	SmallLLMModel  string
-	LLMTemperature float64
+	// NLP Configuration
+	NLPModel       string
+	SmallNLPModel  string
+	NLPTemperature float64
 	OpenAIAPIKey   string
 
 	// Embedder Configuration
@@ -80,9 +80,9 @@ type MCPServer struct {
 // NewConfig creates a new configuration from environment variables and command line flags
 func NewConfig() *Config {
 	config := &Config{
-		LLMModel:          getEnv("MODEL_NAME", DefaultLLMModel),
-		SmallLLMModel:     getEnv("SMALL_MODEL_NAME", DefaultSmallModel),
-		LLMTemperature:    getEnvFloat("LLM_TEMPERATURE", 0.0),
+		NLPModel:          getEnv("MODEL_NAME", DefaultNLPModel),
+		SmallNLPModel:     getEnv("SMALL_MODEL_NAME", DefaultSmallModel),
+		NLPTemperature:    getEnvFloat("LLM_TEMPERATURE", 0.0),
 		OpenAIAPIKey:      getEnv("OPENAI_API_KEY", ""),
 		EmbedderModel:     getEnv("EMBEDDER_MODEL_NAME", DefaultEmbedderModel),
 		DatabaseDriver:    getEnv("DB_DRIVER", "ladybug"),
@@ -157,19 +157,19 @@ func NewMCPServer(config *Config) (*MCPServer, error) {
 		return nil, fmt.Errorf("unsupported database driver: %s", config.DatabaseDriver)
 	}
 
-	// Create LLM client
-	var llmClient llm.Client
+	// Create NLP client
+	var nlProcessor nlp.Client
 	if config.OpenAIAPIKey != "" {
-		llmConfig := llm.Config{
-			Model:       config.LLMModel,
-			Temperature: &[]float32{float32(config.LLMTemperature)}[0],
+		nlpConfig := nlp.Config{
+			Model:       config.NLPModel,
+			Temperature: &[]float32{float32(config.NLPTemperature)}[0],
 		}
-		baseLLMClient, err := llm.NewOpenAIClient(config.OpenAIAPIKey, llmConfig)
+		baseNLPClient, err := nlp.NewOpenAIClient(config.OpenAIAPIKey, nlpConfig)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create LLM client: %w", err)
+			return nil, fmt.Errorf("failed to create NLP client: %w", err)
 		}
 		// Wrap with retry client for automatic retry on errors
-		llmClient = llm.NewRetryClient(baseLLMClient, llm.DefaultRetryConfig())
+		nlProcessor = nlp.NewRetryClient(baseNLPClient, nlp.DefaultRetryConfig())
 	}
 
 	// Create embedder client
@@ -187,7 +187,7 @@ func NewMCPServer(config *Config) (*MCPServer, error) {
 		TimeZone: time.UTC,
 	}
 
-	client, err := predicato.NewClient(graphDriver, llmClient, embedderClient, predicatoConfig, logger)
+	client, err := predicato.NewClient(graphDriver, nlProcessor, embedderClient, predicatoConfig, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Predicato client: %w", err)
 	}
@@ -232,8 +232,8 @@ func (s *MCPServer) Initialize(ctx context.Context) error {
 
 	s.logger.Info("Predicato client initialized successfully")
 	s.logger.Info("MCP server configuration",
-		"llm_model", s.config.LLMModel,
-		"temperature", s.config.LLMTemperature,
+		"llm_model", s.config.NLPModel,
+		"temperature", s.config.NLPTemperature,
 		"group_id", s.config.GroupID,
 		"custom_entities", s.config.UseCustomEntities,
 		"semaphore_limit", s.config.SemaphoreLimit,
@@ -310,7 +310,7 @@ func main() {
 	var (
 		groupID           = flag.String("group-id", "", "Namespace for the graph")
 		transport         = flag.String("transport", "stdio", "Transport to use (stdio or sse)")
-		model             = flag.String("model", "", fmt.Sprintf("Model name to use (default: %s)", DefaultLLMModel))
+		model             = flag.String("model", "", fmt.Sprintf("Model name to use (default: %s)", DefaultNLPModel))
 		smallModel        = flag.String("small-model", "", fmt.Sprintf("Small model name to use (default: %s)", DefaultSmallModel))
 		temperature       = flag.Float64("temperature", -1, "Temperature setting for the LLM (0.0-2.0)")
 		destroyGraph      = flag.Bool("destroy-graph", false, "Destroy all Predicato graphs")
@@ -331,13 +331,13 @@ func main() {
 		config.Transport = *transport
 	}
 	if *model != "" {
-		config.LLMModel = *model
+		config.NLPModel = *model
 	}
 	if *smallModel != "" {
-		config.SmallLLMModel = *smallModel
+		config.SmallNLPModel = *smallModel
 	}
 	if *temperature >= 0 {
-		config.LLMTemperature = *temperature
+		config.NLPTemperature = *temperature
 	}
 	if *destroyGraph {
 		config.DestroyGraph = true

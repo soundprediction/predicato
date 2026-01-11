@@ -13,7 +13,7 @@ import (
 	"github.com/soundprediction/predicato"
 	"github.com/soundprediction/predicato/pkg/driver"
 	"github.com/soundprediction/predicato/pkg/embedder"
-	"github.com/soundprediction/predicato/pkg/llm"
+	"github.com/soundprediction/predicato/pkg/nlp"
 	predicatoLogger "github.com/soundprediction/predicato/pkg/logger"
 	"github.com/soundprediction/predicato/pkg/telemetry"
 	"github.com/soundprediction/predicato/pkg/types"
@@ -66,8 +66,8 @@ func init() {
 
 	// Set up specific environment variable bindings to maintain compatibility
 	// with existing environment variable names
-	viper.BindEnv("llm.api_key", "OPENAI_API_KEY")
-	viper.BindEnv("llm.base_url", "LLM_BASE_URL")
+	viper.BindEnv("nlp.api_key", "OPENAI_API_KEY")
+	viper.BindEnv("nlp.base_url", "LLM_BASE_URL")
 	viper.BindEnv("embedder.api_key", "EMBEDDING_API_KEY", "OPENAI_API_KEY") // Fallback to OpenAI key
 	viper.BindEnv("embedder.base_url", "EMBEDDING_BASE_URL")
 	viper.BindEnv("embedder.model", "EMBEDDER_MODEL_NAME")
@@ -136,8 +136,8 @@ func init() {
 	viper.BindPFlag("database.database", mcpCmd.Flags().Lookup("db-database"))
 
 	// LLM configuration
-	viper.BindPFlag("llm.api_key", mcpCmd.Flags().Lookup("llm-api-key"))
-	viper.BindPFlag("llm.base_url", mcpCmd.Flags().Lookup("llm-base-url"))
+	viper.BindPFlag("nlp.api_key", mcpCmd.Flags().Lookup("llm-api-key"))
+	viper.BindPFlag("nlp.base_url", mcpCmd.Flags().Lookup("llm-base-url"))
 
 	// Embedder configuration
 	viper.BindPFlag("embedder.model", mcpCmd.Flags().Lookup("embedder-model"))
@@ -284,8 +284,8 @@ func runMCPServer(cmd *cobra.Command, args []string) error {
 		DatabaseName:     getViperStringWithFallback("database.database", ""),
 
 		// LLM configuration - now optional
-		OpenAIAPIKey: viper.GetString("llm.api_key"), // No fallback - truly optional
-		LLMBaseURL:   viper.GetString("llm.base_url"),
+		OpenAIAPIKey: viper.GetString("nlp.api_key"), // No fallback - truly optional
+		LLMBaseURL:   viper.GetString("nlp.base_url"),
 
 		// Embedder configuration
 		EmbedderModel:    getViperStringWithFallback("embedder.model", DefaultMCPEmbedderModel),
@@ -374,9 +374,9 @@ func NewMCPServer(config *MCPConfig) (*MCPServer, error) {
 	}
 
 	// Create LLM client - only if we have an API key or base URL
-	var llmClient llm.Client
+	var nlProcessor nlp.Client
 	if config.OpenAIAPIKey != "" || config.LLMBaseURL != "" {
-		llmConfig := llm.Config{
+		llmConfig := nlp.Config{
 			Model:       config.LLMModel,
 			Temperature: &[]float32{float32(config.LLMTemperature)}[0],
 			BaseURL:     config.LLMBaseURL,
@@ -386,12 +386,12 @@ func NewMCPServer(config *MCPConfig) (*MCPServer, error) {
 		if apiKey == "" && config.LLMBaseURL != "" {
 			apiKey = "dummy" // Some OpenAI-compatible services require a non-empty key
 		}
-		baseLLMClient, err := llm.NewOpenAIClient(apiKey, llmConfig)
+		baseLLMClient, err := nlp.NewOpenAIClient(apiKey, llmConfig)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create LLM client: %w", err)
 		}
 		// Wrap with retry client for automatic retry on errors
-		retryClient := llm.NewRetryClient(baseLLMClient, llm.DefaultRetryConfig())
+		retryClient := nlp.NewRetryClient(baseLLMClient, nlp.DefaultRetryConfig())
 
 		// Telemetry using Parquet
 		trackingPath := config.TelemetryParquetPath
@@ -409,12 +409,12 @@ func NewMCPServer(config *MCPConfig) (*MCPServer, error) {
 		}
 
 		// Initialize Token Tracker
-		tracker, err := llm.NewTokenTracker(trackingPath)
+		tracker, err := nlp.NewTokenTracker(trackingPath)
 		if err != nil {
 			logger.Warn("Failed to initialize token tracker", "error", err)
-			llmClient = retryClient
+			nlProcessor = retryClient
 		} else {
-			llmClient = llm.NewTokenTrackingClient(retryClient, tracker)
+			nlProcessor = nlp.NewTokenTrackingClient(retryClient, tracker)
 			logger.Info("Token tracking enabled", "path", trackingPath)
 		}
 
@@ -455,7 +455,7 @@ func NewMCPServer(config *MCPConfig) (*MCPServer, error) {
 		TimeZone: time.UTC,
 	}
 
-	client, err := predicato.NewClient(graphDriver, llmClient, embedderClient, predicatoConfig, logger)
+	client, err := predicato.NewClient(graphDriver, nlProcessor, embedderClient, predicatoConfig, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Predicato client: %w", err)
 	}

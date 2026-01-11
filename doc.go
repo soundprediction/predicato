@@ -17,7 +17,7 @@
 //
 //	// Create LLM client
 //	llmConfig := llm.Config{Model: "gpt-4o-mini"}
-//	llmClient := llm.NewOpenAIClient("your-api-key", llmConfig)
+//	nlProcessor := llm.NewOpenAIClient("your-api-key", llmConfig)
 //
 //	// Create embedder
 //	embConfig := embedder.Config{Model: "text-embedding-3-small"}
@@ -25,7 +25,7 @@
 //
 //	// Create Predicato client
 //	config := &predicato.Config{GroupID: "my-group"}
-//	client := predicato.NewClient(driver, llmClient, embedderClient, config)
+//	client := predicato.NewClient(driver, nlProcessor, embedderClient, config)
 //
 // # Adding Episodes
 //

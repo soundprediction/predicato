@@ -29,8 +29,8 @@ The server can be configured via environment variables or command-line flags:
 
 ### Environment Variables
 
-- `OPENAI_API_KEY`: Required for LLM and embedding operations
-- `MODEL_NAME`: LLM model to use (default: gpt-4o-mini)
+- `OPENAI_API_KEY`: Required for NLP and embedding operations
+- `MODEL_NAME`: NLP model to use (default: gpt-4o-mini)
 - `EMBEDDER_MODEL_NAME`: Embedding model (default: text-embedding-3-small)
 - `DB_DRIVER`: Database driver to use (default: ladybug)
 - `DB_URI`: Database connection URI/path (default: ./ladybug_db for ladybug, bolt://localhost:7687 for neo4j)
@@ -38,7 +38,7 @@ The server can be configured via environment variables or command-line flags:
 - `NEO4J_USER`: Neo4j username (required when using neo4j driver)
 - `NEO4J_PASSWORD`: Neo4j password (required when using neo4j driver)
 - `GROUP_ID`: Default group ID for data isolation (default: default)
-- `LLM_TEMPERATURE`: Temperature for LLM operations (default: 0.0)
+- `NLP_TEMPERATURE`: Temperature for LLM operations (default: 0.0)
 - `SEMAPHORE_LIMIT`: Concurrency limit (default: 10)
 
 ### Command Line Flags
@@ -50,9 +50,9 @@ The server can be configured via environment variables or command-line flags:
 Available flags:
 - `--group-id`: Namespace for the graph
 - `--transport`: Communication transport (stdio or sse)
-- `--model`: LLM model name
-- `--small-model`: Small LLM model name
-- `--temperature`: LLM temperature (0.0-2.0)
+- `--model`: NLP model name
+- `--small-model`: Small NLP model name
+- `--temperature`: NLP temperature (0.0-2.0)
 - `--destroy-graph`: Destroy all graphs on startup
 - `--use-custom-entities`: Enable custom entity extraction
 - `--host`: Host to bind to
@@ -171,7 +171,7 @@ The MCP server is built on:
 - **go-predicato**: Temporal knowledge graph implementation
 - **ladybug**: Default graph database backend (high-performance embedded graph database)
 - **Neo4j**: Alternative graph database backend (requires separate installation)
-- **OpenAI API**: LLM and embedding services
+- **OpenAI API**: NLP and embedding services
 
 ## Custom Entity Types
 

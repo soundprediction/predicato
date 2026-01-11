@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/soundprediction/predicato/pkg/llm"
+	"github.com/soundprediction/predicato/pkg/nlp"
 	"github.com/soundprediction/predicato/pkg/types"
 )
 
@@ -84,8 +84,8 @@ Output ONLY the TSV data with a header row. Include one row per invalidated edge
 `, previousEpisodesTSV, episodeContent, existingEdgesTSV, referenceTime)
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
-		llm.NewSystemMessage(sysPrompt),
-		llm.NewUserMessage(userPrompt),
+		nlp.NewSystemMessage(sysPrompt),
+		nlp.NewUserMessage(userPrompt),
 	}, nil
 }
 

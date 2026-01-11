@@ -11,8 +11,8 @@ local reranking, and mock implementations for testing.
 Usage:
 
 	// Using OpenAI reranker
-	llmClient := llm.NewOpenAIClient("api-key", llm.Config{Model: "gpt-4o-mini"})
-	reranker := crossencoder.NewOpenAIRerankerClient(llmClient, crossencoder.Config{
+	nlProcessor := nlp.NewOpenAIClient("api-key", nlp.Config{Model: "gpt-4o-mini"})
+	reranker := crossencoder.NewOpenAIRerankerClient(nlProcessor, crossencoder.Config{
 		MaxConcurrency: 5,
 	})
 
@@ -50,7 +50,7 @@ import (
 	"fmt"
 
 	"github.com/soundprediction/predicato/pkg/embedder"
-	"github.com/soundprediction/predicato/pkg/llm"
+	"github.com/soundprediction/predicato/pkg/nlp"
 )
 
 // Provider represents the type of cross-encoder provider
@@ -80,7 +80,7 @@ const (
 type ClientConfig struct {
 	Provider              Provider                `json:"provider"`
 	Config                Config                  `json:"config"`
-	LLMClient             llm.Client              `json:"-"`                                // Not serialized, passed at runtime
+	LLMClient             nlp.Client              `json:"-"`                                // Not serialized, passed at runtime
 	EmbedderClient        embedder.Client         `json:"-"`                                // Required for embedding provider
 	RerankerConfig        *RerankerConfig         `json:"reranker_config,omitempty"`        // Jina-compatible reranker config
 	EmbeddingConfig       *EmbeddingConfig        `json:"embedding_config,omitempty"`       // Embedding-specific config

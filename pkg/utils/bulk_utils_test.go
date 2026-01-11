@@ -150,7 +150,7 @@ func TestClients(t *testing.T) {
 	// Test the Clients structure
 	clients := &Clients{
 		Driver:   nil, // These would be real implementations in practice
-		LLM:      nil,
+		NLP:      nil,
 		Embedder: nil,
 		Prompts:  nil,
 	}

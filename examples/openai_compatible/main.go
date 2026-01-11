@@ -11,7 +11,7 @@ import (
 	"github.com/soundprediction/predicato"
 	"github.com/soundprediction/predicato/pkg/driver"
 	"github.com/soundprediction/predicato/pkg/embedder"
-	"github.com/soundprediction/predicato/pkg/llm"
+	"github.com/soundprediction/predicato/pkg/nlp"
 	predicatoLogger "github.com/soundprediction/predicato/pkg/logger"
 	"github.com/soundprediction/predicato/pkg/types"
 )
@@ -52,9 +52,9 @@ func runOllamaExample() error {
 	fmt.Println("Creating Ollama client...")
 
 	// Create Ollama client (assumes Ollama is running on localhost:11434)
-	client, err := llm.NewOpenAIClient(
+	client, err := nlp.NewOpenAIClient(
 		"", // No API key needed for Ollama
-		llm.Config{
+		nlp.Config{
 			BaseURL:     "http://localhost:11434", // Ollama default URL
 			Model:       "llama2:7b",              // Model name
 			Temperature: &[]float32{0.7}[0],
@@ -68,7 +68,7 @@ func runOllamaExample() error {
 
 	// Test basic chat functionality
 	messages := []types.Message{
-		llm.NewUserMessage("Explain what a knowledge graph is in one sentence."),
+		nlp.NewUserMessage("Explain what a knowledge graph is in one sentence."),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -91,9 +91,9 @@ func runLocalAIExample() error {
 	fmt.Println("Creating LocalAI client...")
 
 	// Create LocalAI client
-	client, err := llm.NewOpenAIClient(
+	client, err := nlp.NewOpenAIClient(
 		"", // No API key needed for LocalAI
-		llm.Config{
+		nlp.Config{
 			BaseURL:     "http://localhost:8080", // LocalAI default URL
 			Model:       "gpt-3.5-turbo",         // Model name configured in LocalAI
 			Temperature: &[]float32{0.8}[0],
@@ -105,8 +105,8 @@ func runLocalAIExample() error {
 	defer client.Close()
 
 	messages := []types.Message{
-		llm.NewSystemMessage("You are a helpful assistant specialized in graph databases."),
-		llm.NewUserMessage("What are the benefits of using Neo4j for knowledge graphs?"),
+		nlp.NewSystemMessage("You are a helpful assistant specialized in graph databases."),
+		nlp.NewUserMessage("What are the benefits of using Neo4j for knowledge graphs?"),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -125,9 +125,9 @@ func runVLLMExample() error {
 	fmt.Println("Creating vLLM client...")
 
 	// Create vLLM client
-	client, err := llm.NewOpenAIClient(
+	client, err := nlp.NewOpenAIClient(
 		"", // No API key needed for vLLM
-		llm.Config{
+		nlp.Config{
 			BaseURL:   "http://vllm-server:8000",   // vLLM server URL
 			Model:     "microsoft/DialoGPT-medium", // Model name
 			MaxTokens: &[]int{150}[0],
@@ -139,7 +139,7 @@ func runVLLMExample() error {
 	defer client.Close()
 
 	messages := []types.Message{
-		llm.NewUserMessage("How do you implement efficient graph traversal algorithms?"),
+		nlp.NewUserMessage("How do you implement efficient graph traversal algorithms?"),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -158,9 +158,9 @@ func runCustomServiceExample() error {
 	fmt.Println("Creating custom OpenAI-compatible client...")
 
 	// Create client for a custom OpenAI-compatible service
-	client, err := llm.NewOpenAIClient(
+	client, err := nlp.NewOpenAIClient(
 		"your-api-key", // API key
-		llm.Config{
+		nlp.Config{
 			BaseURL:     "https://api.your-service.com", // Your service URL
 			Model:       "your-model-name",              // Model identifier
 			Temperature: &[]float32{0.5}[0],
@@ -175,8 +175,8 @@ func runCustomServiceExample() error {
 
 	// Test structured output (if your service supports it)
 	messages := []types.Message{
-		llm.NewSystemMessage("You are an expert in data structures. Respond with valid JSON."),
-		llm.NewUserMessage("Describe a graph data structure with its properties."),
+		nlp.NewSystemMessage("You are an expert in data structures. Respond with valid JSON."),
+		nlp.NewUserMessage("Describe a graph data structure with its properties."),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -240,9 +240,9 @@ func runPredicatoIntegrationExample() error {
 	defer neo4jDriver.Close()
 
 	// Create Ollama LLM client
-	baseLLMClient, err := llm.NewOpenAIClient(
+	baseLLMClient, err := nlp.NewOpenAIClient(
 		"", // No API key needed for Ollama
-		llm.Config{
+		nlp.Config{
 			BaseURL:     "http://localhost:11434",
 			Model:       "llama2:7b",
 			Temperature: &[]float32{0.7}[0],
@@ -253,8 +253,8 @@ func runPredicatoIntegrationExample() error {
 		return fmt.Errorf("failed to create Ollama client: %w", err)
 	}
 	// Wrap with retry client for automatic retry on errors
-	llmClient := llm.NewRetryClient(baseLLMClient, llm.DefaultRetryConfig())
-	defer llmClient.Close()
+	nlProcessor := nlp.NewRetryClient(baseLLMClient, nlp.DefaultRetryConfig())
+	defer nlProcessor.Close()
 
 	// For embeddings, we'll still use OpenAI since most local solutions
 	// don't have great embedding models yet, but you could also use
@@ -280,7 +280,7 @@ func runPredicatoIntegrationExample() error {
 	logger := slog.New(predicatoLogger.NewColorHandler(os.Stderr, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
-	predicatoClient, err := predicato.NewClient(neo4jDriver, llmClient, embedderClient, config, logger)
+	predicatoClient, err := predicato.NewClient(neo4jDriver, nlProcessor, embedderClient, config, logger)
 	if err != nil {
 		return fmt.Errorf("failed to create Predicato client: %w", err)
 	}

@@ -20,8 +20,8 @@ Uses OpenAI's API to run boolean classification prompts for each passage. The mo
 determines whether each passage is relevant to the query, and log-probabilities are
 used to compute relevance scores.
 
-	llmClient := llm.NewOpenAIClient("api-key", llm.Config{Model: "gpt-4o-mini"})
-	reranker := crossencoder.NewOpenAIRerankerClient(llmClient, crossencoder.Config{
+	nlProcessor := nlp.NewOpenAIClient("api-key", nlp.Config{Model: "gpt-4o-mini"})
+	reranker := crossencoder.NewOpenAIRerankerClient(nlProcessor, crossencoder.Config{
 		MaxConcurrency: 5,
 	})
 
@@ -51,7 +51,7 @@ The NewClient function provides a convenient way to create clients based on prov
 	client, err := crossencoder.NewClient(crossencoder.ClientConfig{
 		Provider: crossencoder.ProviderOpenAI,
 		Config:   crossencoder.DefaultConfig(crossencoder.ProviderOpenAI),
-		LLMClient: llmClient, // Required for OpenAI provider
+		LLMClient: nlProcessor, // Required for OpenAI provider
 	})
 
 # Configuration

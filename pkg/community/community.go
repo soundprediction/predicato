@@ -9,7 +9,7 @@ import (
 
 	"github.com/soundprediction/predicato/pkg/driver"
 	"github.com/soundprediction/predicato/pkg/embedder"
-	"github.com/soundprediction/predicato/pkg/llm"
+	"github.com/soundprediction/predicato/pkg/nlp"
 	"github.com/soundprediction/predicato/pkg/types"
 )
 
@@ -20,23 +20,23 @@ const (
 
 // Builder provides community building operations for knowledge graphs
 type Builder struct {
-	driver     driver.GraphDriver
-	llm        llm.Client
-	summarizer llm.Client
-	embedder   embedder.Client
+	driver      driver.GraphDriver
+	nlProcessor nlp.Client
+	summarizer  nlp.Client
+	embedder    embedder.Client
 }
 
 // NewBuilder creates a new community builder
-func NewBuilder(driver driver.GraphDriver, llmClient llm.Client, summarizerClient llm.Client, embedderClient embedder.Client) *Builder {
+func NewBuilder(driver driver.GraphDriver, nlProcessor nlp.Client, summarizerClient nlp.Client, embedderClient embedder.Client) *Builder {
 	// Fallback to main LLM if summarizer is nil
 	if summarizerClient == nil {
-		summarizerClient = llmClient
+		summarizerClient = nlProcessor
 	}
 	return &Builder{
-		driver:     driver,
-		llm:        llmClient,
-		summarizer: summarizerClient,
-		embedder:   embedderClient,
+		driver:      driver,
+		nlProcessor: nlProcessor,
+		summarizer:  summarizerClient,
+		embedder:    embedderClient,
 	}
 }
 
@@ -271,11 +271,11 @@ func (b *Builder) hierarchicalSummarize(ctx context.Context, summaries []string)
 func (b *Builder) summarizePair(ctx context.Context, left, right string) (string, error) {
 	messages := []types.Message{
 		{
-			Role:    llm.RoleSystem,
+			Role:    nlp.RoleSystem,
 			Content: `You are an expert at synthesizing information. Given two entity summaries, create a single comprehensive summary that captures the key information from both. The summary should be concise (under 250 words) and maintain the most important details.`,
 		},
 		{
-			Role: llm.RoleUser,
+			Role: nlp.RoleUser,
 			Content: fmt.Sprintf(`Please summarize these two entity summaries into one comprehensive summary:
 
 Summary 1: %s
@@ -298,11 +298,11 @@ Provide a single summary that captures the essential information from both:`, le
 func (b *Builder) generateCommunityName(ctx context.Context, summary string) (string, error) {
 	messages := []types.Message{
 		{
-			Role:    llm.RoleSystem,
+			Role:    nlp.RoleSystem,
 			Content: `You are an expert at creating concise, descriptive names. Given a summary, create a brief descriptive name (1-5 words) that captures the essence of the content.`,
 		},
 		{
-			Role: llm.RoleUser,
+			Role: nlp.RoleUser,
 			Content: fmt.Sprintf(`Based on this summary, provide a brief descriptive name (1-5 words):
 
 %s

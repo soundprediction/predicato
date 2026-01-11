@@ -7,20 +7,20 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/soundprediction/predicato/pkg/llm"
+	"github.com/soundprediction/predicato/pkg/nlp"
 	"github.com/soundprediction/predicato/pkg/types"
 )
 
 // GeminiRerankerClient implements cross-encoder functionality using Google Gemini models
 // This reranker uses the Gemini API to score passage relevance through classification
 type GeminiRerankerClient struct {
-	client    llm.Client
+	client    nlp.Client
 	config    Config
 	semaphore chan struct{} // Controls concurrency
 }
 
 // NewGeminiRerankerClient creates a new Gemini-based reranker client
-func NewGeminiRerankerClient(llmClient llm.Client, config Config) *GeminiRerankerClient {
+func NewGeminiRerankerClient(nlProcessor nlp.Client, config Config) *GeminiRerankerClient {
 	if config.Model == "" {
 		config.Model = "gemini-1.5-flash"
 	}
@@ -29,7 +29,7 @@ func NewGeminiRerankerClient(llmClient llm.Client, config Config) *GeminiReranke
 	}
 
 	return &GeminiRerankerClient{
-		client:    llmClient,
+		client:    nlProcessor,
 		config:    config,
 		semaphore: make(chan struct{}, config.MaxConcurrency),
 	}
@@ -97,8 +97,8 @@ func (c *GeminiRerankerClient) Rank(ctx context.Context, query string, passages 
 // scorePassage scores a single passage against the query using Gemini's classification
 func (c *GeminiRerankerClient) scorePassage(ctx context.Context, query, passage string) (float64, error) {
 	messages := []types.Message{
-		llm.NewSystemMessage("You are an expert document relevance scorer. Your task is to determine how relevant a passage is to a given query. Respond with a single number between 0 and 1, where 0 means completely irrelevant and 1 means perfectly relevant."),
-		llm.NewUserMessage(fmt.Sprintf(`Rate the relevance of this PASSAGE to the QUERY on a scale from 0.0 to 1.0.
+		nlp.NewSystemMessage("You are an expert document relevance scorer. Your task is to determine how relevant a passage is to a given query. Respond with a single number between 0 and 1, where 0 means completely irrelevant and 1 means perfectly relevant."),
+		nlp.NewUserMessage(fmt.Sprintf(`Rate the relevance of this PASSAGE to the QUERY on a scale from 0.0 to 1.0.
 
 QUERY: %s
 

@@ -35,11 +35,11 @@ func TestPredicatoIntegration(t *testing.T) {
 	// require.NoError(t, err)
 	// defer driver.Close(ctx)
 
-	// llmClient, err := llm.NewOpenAIClient("test-key", llm.Config{
+	// nlProcessor, err := llm.NewOpenAIClient("test-key", llm.Config{
 	//     Model: "gpt-4o-mini",
 	// })
 	// require.NoError(t, err)
-	// defer llmClient.Close()
+	// defer nlProcessor.Close()
 
 	// embedder, err := embedder.NewOpenAIEmbedder("test-key", embedder.Config{
 	//     Model: "text-embedding-ada-002",
@@ -47,7 +47,7 @@ func TestPredicatoIntegration(t *testing.T) {
 	// require.NoError(t, err)
 	// defer embedder.Close()
 
-	// client := predicato.NewClient(driver, llmClient, embedder, &predicato.Config{
+	// client := predicato.NewClient(driver, nlProcessor, embedder, &predicato.Config{
 	//     GroupID: "test-integration",
 	//     TimeZone: time.UTC,
 	// })

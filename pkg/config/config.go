@@ -18,8 +18,8 @@ type Config struct {
 	// Database configuration
 	Database DatabaseConfig `mapstructure:"database"`
 
-	// LLM configuration
-	LLM LLMConfig `mapstructure:"llm"`
+	// NLP configuration
+	NLP NLPConfig `mapstructure:"nlp"`
 
 	// Embedding configuration
 	Embedding EmbeddingConfig `mapstructure:"embedding"`
@@ -81,8 +81,8 @@ type DatabaseConfig struct {
 	Database string `mapstructure:"database"`
 }
 
-// LLMConfig holds LLM configuration
-type LLMConfig struct {
+// NLPConfig holds NLP configuration
+type NLPConfig struct {
 	// Deprecated: Use Providers map instead
 	Provider string `mapstructure:"provider"`
 	// Deprecated: Use Providers map instead
@@ -162,11 +162,11 @@ func setDefaults() {
 	viper.SetDefault("database.password", "")
 	viper.SetDefault("database.database", "")
 
-	// LLM defaults
-	viper.SetDefault("llm.provider", "openai")
-	viper.SetDefault("llm.model", "gpt-4")
-	viper.SetDefault("llm.temperature", 0.1)
-	viper.SetDefault("llm.max_tokens", 2048)
+	// NLP defaults
+	viper.SetDefault("nlp.provider", "openai")
+	viper.SetDefault("nlp.model", "gpt-4")
+	viper.SetDefault("nlp.temperature", 0.1)
+	viper.SetDefault("nlp.max_tokens", 2048)
 
 	viper.SetDefault("embedding.provider", "openai")
 	viper.SetDefault("embedding.model", "text-embedding-3-small")
@@ -181,13 +181,13 @@ func setDefaults() {
 
 // overrideWithEnv overrides config with environment variables
 func overrideWithEnv(config *Config) {
-	// LLM API Key
+	// NLP API Key
 	if apiKey := os.Getenv("OPENAI_API_KEY"); apiKey != "" {
-		config.LLM.APIKey = apiKey
+		config.NLP.APIKey = apiKey
 		config.Embedding.APIKey = apiKey
 	}
-	if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" && config.LLM.Provider == "anthropic" {
-		config.LLM.APIKey = apiKey
+	if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" && config.NLP.Provider == "anthropic" {
+		config.NLP.APIKey = apiKey
 	}
 
 	// Database credentials

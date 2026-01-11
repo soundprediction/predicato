@@ -10,7 +10,7 @@ import (
 	"github.com/soundprediction/predicato/pkg/crossencoder"
 	"github.com/soundprediction/predicato/pkg/driver"
 	"github.com/soundprediction/predicato/pkg/embedder"
-	"github.com/soundprediction/predicato/pkg/llm"
+	"github.com/soundprediction/predicato/pkg/nlp"
 	"github.com/soundprediction/predicato/pkg/types"
 )
 
@@ -90,15 +90,15 @@ type HybridSearchResult struct {
 type Searcher struct {
 	driver       driver.GraphDriver
 	embedder     embedder.Client
-	llm          llm.Client
+	nlProcessor  nlp.Client
 	crossEncoder crossencoder.Client
 }
 
-func NewSearcher(driver driver.GraphDriver, embedder embedder.Client, llm llm.Client) *Searcher {
+func NewSearcher(driver driver.GraphDriver, embedder embedder.Client, nlProcessor nlp.Client) *Searcher {
 	return &Searcher{
 		driver:       driver,
 		embedder:     embedder,
-		llm:          llm,
+		nlProcessor:  nlProcessor,
 		crossEncoder: nil, // Will be set separately if needed
 	}
 }
@@ -695,7 +695,7 @@ func (s *Searcher) crossEncoderRerankNodes(ctx context.Context, query string, no
 
 // fallbackLLMRerankNodes provides LLM-based reranking when cross-encoder is not available
 func (s *Searcher) fallbackLLMRerankNodes(ctx context.Context, query string, nodes []*types.Node, minScore float64, limit int) ([]*types.Node, []float64, error) {
-	if s.llm == nil {
+	if s.nlProcessor == nil {
 		// Ultimate fallback to default scores
 		scores := make([]float64, min(limit, len(nodes)))
 		for i := range scores {
@@ -743,11 +743,11 @@ Please respond with only comma-separated scores for each node in order (e.g., "0
 Consider semantic relevance, topical alignment, and contextual importance.`
 
 		messages := []types.Message{
-			llm.NewSystemMessage("You are a relevance scoring system. Score how relevant each node is to the given query."),
-			llm.NewUserMessage(prompt),
+			nlp.NewSystemMessage("You are a relevance scoring system. Score how relevant each node is to the given query."),
+			nlp.NewUserMessage(prompt),
 		}
 
-		response, err := s.llm.Chat(ctx, messages)
+		response, err := s.nlProcessor.Chat(ctx, messages)
 		if err != nil {
 			// On error, assign default scores
 			for j := range batch {
@@ -863,7 +863,7 @@ func (s *Searcher) crossEncoderRerankEdges(ctx context.Context, query string, ed
 
 // fallbackLLMRerankEdges provides LLM-based reranking when cross-encoder is not available
 func (s *Searcher) fallbackLLMRerankEdges(ctx context.Context, query string, edges []*types.Edge, minScore float64, limit int) ([]*types.Edge, []float64, error) {
-	if s.llm == nil {
+	if s.nlProcessor == nil {
 		// Ultimate fallback to default scores
 		scores := make([]float64, min(limit, len(edges)))
 		for i := range scores {
@@ -911,11 +911,11 @@ Please respond with only comma-separated scores for each edge in order (e.g., "0
 Consider semantic relevance, relationship importance, and contextual significance.`
 
 		messages := []types.Message{
-			llm.NewSystemMessage("You are a relevance scoring system. Score how relevant each relationship edge is to the given query."),
-			llm.NewUserMessage(prompt),
+			nlp.NewSystemMessage("You are a relevance scoring system. Score how relevant each relationship edge is to the given query."),
+			nlp.NewUserMessage(prompt),
 		}
 
-		response, err := s.llm.Chat(ctx, messages)
+		response, err := s.nlProcessor.Chat(ctx, messages)
 		if err != nil {
 			// On error, assign default scores
 			for j := range batch {
