@@ -23,11 +23,11 @@ const (
 
 // NodeOperations provides node-related maintenance operations
 type NodeOperations struct {
-	driver   driver.GraphDriver
-	nlp      nlp.Client
-	embedder embedder.Client
-	prompts  prompts.Library
-	logger   *slog.Logger
+	driver      driver.GraphDriver
+	nlProcessor nlp.Client
+	embedder    embedder.Client
+	prompts     prompts.Library
+	logger      *slog.Logger
 
 	// Specialized NLP clients for different steps
 	ExtractionNLP nlp.Client
@@ -47,11 +47,11 @@ type NodeOperations struct {
 // NewNodeOperations creates a new NodeOperations instance
 func NewNodeOperations(driver driver.GraphDriver, nlProcessor nlp.Client, embedder embedder.Client, prompts prompts.Library) *NodeOperations {
 	return &NodeOperations{
-		driver:   driver,
-		nlp:      nlProcessor,
-		embedder: embedder,
-		prompts:  prompts,
-		logger:   slog.Default(), // Use default logger, can be overridden
+		driver:      driver,
+		nlProcessor: nlProcessor,
+		embedder:    embedder,
+		prompts:     prompts,
+		logger:      slog.Default(), // Use default logger, can be overridden
 	}
 }
 

@@ -97,20 +97,20 @@ type Predicato interface {
 
 // Client is the main implementation of the Predicato interface.
 type Client struct {
-	driver    driver.GraphDriver
-	nlp       nlp.Client
-	embedder  embedder.Client
-	searcher  *search.Searcher
-	community *community.Builder
-	config    *Config
-	logger    *slog.Logger
+	driver      driver.GraphDriver
+	nlProcessor nlp.Client
+	embedder    embedder.Client
+	searcher    *search.Searcher
+	community   *community.Builder
+	config      *Config
+	logger      *slog.Logger
 
 	// Specialized NLP clients for different steps
-	languageModels LanguageModels
+	nlpModels NlpModels
 }
 
-// LanguageModels holds specialized NLP clients for different steps.
-type LanguageModels struct {
+// NlpModels holds specialized NLP clients for different steps.
+type NlpModels struct {
 	NodeExtraction nlp.Client
 	NodeReflexion  nlp.Client
 	NodeResolution nlp.Client
@@ -134,8 +134,8 @@ type Config struct {
 	EdgeTypes   map[string]interface{}
 
 	EdgeMap map[string]map[string][]interface{}
-	// LanguageModels holds specialized NLP clients for different steps
-	LanguageModels LanguageModels
+	// NlpModels holds specialized NLP clients for different steps
+	NlpModels NlpModels
 }
 
 // AddEpisodeOptions holds options for adding a single episode.
@@ -183,17 +183,17 @@ func NewClient(driver driver.GraphDriver, nlProcessor nlp.Client, embedderClient
 	}
 
 	searcher := search.NewSearcher(driver, embedderClient, nlProcessor)
-	communityBuilder := community.NewBuilder(driver, nlProcessor, config.LanguageModels.Summarization, embedderClient)
+	communityBuilder := community.NewBuilder(driver, nlProcessor, config.NlpModels.Summarization, embedderClient)
 
 	return &Client{
-		driver:         driver,
-		nlp:            nlProcessor,
-		embedder:       embedderClient,
-		searcher:       searcher,
-		community:      communityBuilder,
-		config:         config,
-		logger:         logger,
-		languageModels: config.LanguageModels,
+		driver:      driver,
+		nlProcessor: nlProcessor,
+		embedder:    embedderClient,
+		searcher:    searcher,
+		community:   communityBuilder,
+		config:      config,
+		logger:      logger,
+		nlpModels:   config.NlpModels,
 	}, nil
 }
 
@@ -202,8 +202,8 @@ func (c *Client) GetDriver() driver.GraphDriver {
 	return c.driver
 }
 
-// GetNLP returns the NLP client
-func (c *Client) GetNLP() nlp.Client {
+// GetNLProcessor returns the NLP client
+func (c *Client) GetNLProcessor() nlp.Client {
 	return c.nlProcessor
 }
 

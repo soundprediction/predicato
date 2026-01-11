@@ -270,20 +270,20 @@ func (c *Client) addEpisodeChunked(ctx context.Context, episode types.Episode, o
 	}
 
 	// STEP 4: Initialize maintenance operations
-	nodeOps := maintenance.NewNodeOperations(c.driver, c.nlp, c.embedder, prompts.NewLibrary())
-	nodeOps.ExtractionNLP = c.languageModels.NodeExtraction
-	nodeOps.ReflexionNLP = c.languageModels.NodeReflexion
-	nodeOps.ResolutionNLP = c.languageModels.NodeResolution
-	nodeOps.AttributeNLP = c.languageModels.NodeAttribute
+	nodeOps := maintenance.NewNodeOperations(c.driver, c.nlProcessor, c.embedder, prompts.NewLibrary())
+	nodeOps.ExtractionNLP = c.nlpModels.NodeExtraction
+	nodeOps.ReflexionNLP = c.nlpModels.NodeReflexion
+	nodeOps.ResolutionNLP = c.nlpModels.NodeResolution
+	nodeOps.AttributeNLP = c.nlpModels.NodeAttribute
 	nodeOps.SkipReflexion = options.SkipReflexion
 	nodeOps.SkipResolution = options.SkipResolution
 	nodeOps.SkipAttributes = options.SkipAttributes
 	nodeOps.UseYAML = options.UseYAML
 	nodeOps.SetLogger(c.logger)
 
-	edgeOps := maintenance.NewEdgeOperations(c.driver, c.nlp, c.embedder, prompts.NewLibrary())
-	edgeOps.ExtractionNLP = c.languageModels.EdgeExtraction
-	edgeOps.ResolutionNLP = c.languageModels.EdgeResolution
+	edgeOps := maintenance.NewEdgeOperations(c.driver, c.nlProcessor, c.embedder, prompts.NewLibrary())
+	edgeOps.ExtractionNLP = c.nlpModels.EdgeExtraction
+	edgeOps.ResolutionNLP = c.nlpModels.EdgeResolution
 	edgeOps.SkipResolution = options.SkipEdgeResolution
 	edgeOps.UseYAML = options.UseYAML
 	edgeOps.SetLogger(c.logger)
@@ -721,7 +721,7 @@ func (c *Client) deduplicateEntitiesAcrossChunks(ctx context.Context, episodeID 
 
 	clients := &utils.Clients{
 		Driver:   c.driver,
-		NLP:      c.nlp,
+		NLP:      c.nlProcessor,
 		Embedder: c.embedder,
 		Prompts:  prompts.NewLibrary(),
 	}
@@ -1302,7 +1302,7 @@ func (c *Client) AddTriplet(ctx context.Context, sourceNode *types.Node, edge *t
 	}
 
 	// Step 3: Resolve extracted nodes (lines 1031-1034)
-	nodeOps := maintenance.NewNodeOperations(c.driver, c.nlp, c.embedder, prompts.NewLibrary())
+	nodeOps := maintenance.NewNodeOperations(c.driver, c.nlProcessor, c.embedder, prompts.NewLibrary())
 	nodeOps.SetLogger(c.logger)
 	nodes, uuidMap, _, err := nodeOps.ResolveExtractedNodes(ctx, []*types.Node{sourceNode, targetNode}, nil, nil, nil)
 	if err != nil {
@@ -1314,7 +1314,7 @@ func (c *Client) AddTriplet(ctx context.Context, sourceNode *types.Node, edge *t
 	updatedEdge := edge // The edge is updated in-place
 
 	// Step 5: Get existing edges between nodes (lines 1038-1040)
-	edgeOps := maintenance.NewEdgeOperations(c.driver, c.nlp, c.embedder, prompts.NewLibrary())
+	edgeOps := maintenance.NewEdgeOperations(c.driver, c.nlProcessor, c.embedder, prompts.NewLibrary())
 	edgeOps.SetLogger(c.logger)
 	validEdges, err := edgeOps.GetBetweenNodes(ctx, updatedEdge.SourceID, updatedEdge.TargetID)
 	if err != nil {
@@ -1411,7 +1411,7 @@ func (c *Client) AddTriplet(ctx context.Context, sourceNode *types.Node, edge *t
 // resolveExtractedEdgeExact is an exact translation of Python's resolve_extracted_edge function
 func (c *Client) resolveExtractedEdgeExact(ctx context.Context, extractedEdge *types.Edge, relatedEdges []*types.Edge, existingEdges []*types.Edge, episode *types.Node, createEmbeddings bool) (*types.Edge, []*types.Edge, error) {
 	// Use the EdgeOperations to resolve the edge exactly as in Python
-	edgeOps := maintenance.NewEdgeOperations(c.driver, c.nlp, c.embedder, prompts.NewLibrary())
+	edgeOps := maintenance.NewEdgeOperations(c.driver, c.nlProcessor, c.embedder, prompts.NewLibrary())
 	edgeOps.SetLogger(c.logger)
 
 	// The Go implementation wraps the private resolveExtractedEdge method

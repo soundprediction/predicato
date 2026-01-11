@@ -19,11 +19,11 @@ import (
 
 // EdgeOperations provides edge-related maintenance operations
 type EdgeOperations struct {
-	driver   driver.GraphDriver
-	nlp      nlp.Client
-	embedder embedder.Client
-	prompts  prompts.Library
-	logger   *slog.Logger
+	driver      driver.GraphDriver
+	nlProcessor nlp.Client
+	embedder    embedder.Client
+	prompts     prompts.Library
+	logger      *slog.Logger
 
 	// Specialized NLP clients
 	ExtractionNLP nlp.Client
@@ -39,11 +39,11 @@ type EdgeOperations struct {
 // NewEdgeOperations creates a new EdgeOperations instance
 func NewEdgeOperations(driver driver.GraphDriver, nlProcessor nlp.Client, embedder embedder.Client, prompts prompts.Library) *EdgeOperations {
 	return &EdgeOperations{
-		driver:   driver,
-		nlp:      nlProcessor,
-		embedder: embedder,
-		prompts:  prompts,
-		logger:   slog.Default(), // Use default logger, can be overridden
+		driver:      driver,
+		nlProcessor: nlProcessor,
+		embedder:    embedder,
+		prompts:     prompts,
+		logger:      slog.Default(), // Use default logger, can be overridden
 	}
 }
 

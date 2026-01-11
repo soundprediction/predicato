@@ -90,7 +90,7 @@ type HybridSearchResult struct {
 type Searcher struct {
 	driver       driver.GraphDriver
 	embedder     embedder.Client
-	nlp          nlp.Client
+	nlProcessor  nlp.Client
 	crossEncoder crossencoder.Client
 }
 
@@ -98,7 +98,7 @@ func NewSearcher(driver driver.GraphDriver, embedder embedder.Client, nlProcesso
 	return &Searcher{
 		driver:       driver,
 		embedder:     embedder,
-		nlp:          nlProcessor,
+		nlProcessor:  nlProcessor,
 		crossEncoder: nil, // Will be set separately if needed
 	}
 }
