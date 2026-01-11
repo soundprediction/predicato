@@ -1,10 +1,10 @@
-package llm_test
+package nlp_test
 
 import (
 	"context"
 	"testing"
 
-	"github.com/soundprediction/predicato/pkg/llm"
+	"github.com/soundprediction/predicato/pkg/nlp"
 	"github.com/soundprediction/predicato/pkg/types"
 )
 

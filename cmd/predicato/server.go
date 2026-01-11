@@ -13,8 +13,8 @@ import (
 	"github.com/soundprediction/predicato/pkg/config"
 	"github.com/soundprediction/predicato/pkg/driver"
 	"github.com/soundprediction/predicato/pkg/embedder"
-	"github.com/soundprediction/predicato/pkg/llm"
 	predicatoLogger "github.com/soundprediction/predicato/pkg/logger"
+	"github.com/soundprediction/predicato/pkg/nlp"
 	"github.com/soundprediction/predicato/pkg/server"
 	"github.com/soundprediction/predicato/pkg/telemetry"
 	"github.com/spf13/cobra"
@@ -56,13 +56,13 @@ func init() {
 	serverCmd.Flags().String("db-password", "", "Database password (not used for ladybug)")
 	serverCmd.Flags().String("db-database", "", "Database name (not used for ladybug)")
 
-	// LLM flags
-	serverCmd.Flags().String("llm-provider", "openai", "LLM provider")
-	serverCmd.Flags().String("llm-model", "gpt-4", "LLM model")
-	serverCmd.Flags().String("llm-api-key", "", "LLM API key")
-	serverCmd.Flags().String("llm-base-url", "", "LLM base URL")
-	serverCmd.Flags().Float32("llm-temperature", 0.1, "LLM temperature")
-	serverCmd.Flags().Int("llm-max-tokens", 2048, "LLM max tokens")
+	// NLP flags
+	serverCmd.Flags().String("nlp-provider", "openai", "NLP provider")
+	serverCmd.Flags().String("nlp-model", "gpt-4", "NLP model")
+	serverCmd.Flags().String("nlp-api-key", "", "NLP API key")
+	serverCmd.Flags().String("nlp-base-url", "", "NLP base URL")
+	serverCmd.Flags().Float32("nlp-temperature", 0.1, "NLP temperature")
+	serverCmd.Flags().Int("nlp-max-tokens", 2048, "NLP max tokens")
 
 	// Embedding flags
 	serverCmd.Flags().String("embedding-provider", "openai", "Embedding provider")
@@ -166,24 +166,24 @@ func overrideConfigWithFlags(cmd *cobra.Command, cfg *config.Config) {
 		cfg.Database.Database, _ = cmd.Flags().GetString("db-database")
 	}
 
-	// LLM flags
-	if cmd.Flags().Changed("llm-provider") {
-		cfg.LLM.Provider, _ = cmd.Flags().GetString("llm-provider")
+	// NLP flags
+	if cmd.Flags().Changed("nlp-provider") {
+		cfg.NLP.Provider, _ = cmd.Flags().GetString("nlp-provider")
 	}
-	if cmd.Flags().Changed("llm-model") {
-		cfg.LLM.Model, _ = cmd.Flags().GetString("llm-model")
+	if cmd.Flags().Changed("nlp-model") {
+		cfg.NLP.Model, _ = cmd.Flags().GetString("nlp-model")
 	}
-	if cmd.Flags().Changed("llm-api-key") {
-		cfg.LLM.APIKey, _ = cmd.Flags().GetString("llm-api-key")
+	if cmd.Flags().Changed("nlp-api-key") {
+		cfg.NLP.APIKey, _ = cmd.Flags().GetString("nlp-api-key")
 	}
-	if cmd.Flags().Changed("llm-base-url") {
-		cfg.LLM.BaseURL, _ = cmd.Flags().GetString("llm-base-url")
+	if cmd.Flags().Changed("nlp-base-url") {
+		cfg.NLP.BaseURL, _ = cmd.Flags().GetString("nlp-base-url")
 	}
-	if cmd.Flags().Changed("llm-temperature") {
-		cfg.LLM.Temperature, _ = cmd.Flags().GetFloat32("llm-temperature")
+	if cmd.Flags().Changed("nlp-temperature") {
+		cfg.NLP.Temperature, _ = cmd.Flags().GetFloat32("nlp-temperature")
 	}
-	if cmd.Flags().Changed("llm-max-tokens") {
-		cfg.LLM.MaxTokens, _ = cmd.Flags().GetInt("llm-max-tokens")
+	if cmd.Flags().Changed("nlp-max-tokens") {
+		cfg.NLP.MaxTokens, _ = cmd.Flags().GetInt("nlp-max-tokens")
 	}
 
 	// Embedding flags
@@ -238,22 +238,22 @@ func initializePredicato(cfg *config.Config) (predicato.Predicato, error) {
 		return nil, fmt.Errorf("unsupported database driver: %s", cfg.Database.Driver)
 	}
 
-	// Initialize LLM client
-	var llmClient llm.Client
-	if cfg.LLM.APIKey != "" {
-		switch cfg.LLM.Provider {
+	// Initialize NLP client
+	var nlpClient nlp.Client
+	if cfg.NLP.APIKey != "" {
+		switch cfg.NLP.Provider {
 		case "openai":
-			llmConfig := llm.Config{
-				Model:       cfg.LLM.Model,
-				Temperature: &cfg.LLM.Temperature,
-				BaseURL:     cfg.LLM.BaseURL,
+			nlpConfig := nlp.Config{
+				Model:       cfg.NLP.Model,
+				Temperature: &cfg.NLP.Temperature,
+				BaseURL:     cfg.NLP.BaseURL,
 			}
-			baseLLMClient, err := llm.NewOpenAIClient(cfg.LLM.APIKey, llmConfig)
+			baseNLPClient, err := nlp.NewOpenAIClient(cfg.NLP.APIKey, nlpConfig)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create LLM client: %w", err)
+				return nil, fmt.Errorf("failed to create NLP client: %w", err)
 			}
 			// Wrap with retry client for automatic retry on errors
-			retryClient := llm.NewRetryClient(baseLLMClient, llm.DefaultRetryConfig())
+			retryClient := nlp.NewRetryClient(baseNLPClient, nlp.DefaultRetryConfig())
 
 			// Telemetry using Parquet
 			trackingPath := cfg.Telemetry.ParquetPath
@@ -271,12 +271,12 @@ func initializePredicato(cfg *config.Config) (predicato.Predicato, error) {
 			}
 
 			// Initialize Token Tracker
-			tracker, err := llm.NewTokenTracker(trackingPath)
+			tracker, err := nlp.NewTokenTracker(trackingPath)
 			if err != nil {
 				fmt.Printf("Warning: Failed to initialize token tracker: %v\n", err)
-				llmClient = retryClient
+				nlpClient = retryClient
 			} else {
-				llmClient = llm.NewTokenTrackingClient(retryClient, tracker)
+				nlpClient = nlp.NewTokenTrackingClient(retryClient, tracker)
 				fmt.Printf("Token tracking enabled at: %s\n", trackingPath)
 			}
 
@@ -294,7 +294,7 @@ func initializePredicato(cfg *config.Config) (predicato.Predicato, error) {
 				fmt.Printf("Error tracking enabled\n")
 			}
 		default:
-			return nil, fmt.Errorf("unsupported LLM provider: %s", cfg.LLM.Provider)
+			return nil, fmt.Errorf("unsupported NLP provider: %s", cfg.NLP.Provider)
 		}
 	}
 
@@ -320,14 +320,14 @@ func initializePredicato(cfg *config.Config) (predicato.Predicato, error) {
 	}
 
 	// Create and return Predicato client
-	client, err := predicato.NewClient(graphDriver, llmClient, embedderClient, predicatoConfig, logger)
+	client, err := predicato.NewClient(graphDriver, nlpClient, embedderClient, predicatoConfig, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Predicato client: %w", err)
 	}
 
 	fmt.Printf("Predicato initialized successfully with driver: %s\n", cfg.Database.Driver)
-	if llmClient != nil {
-		fmt.Printf("LLM provider: %s, model: %s\n", cfg.LLM.Provider, cfg.LLM.Model)
+	if nlpClient != nil {
+		fmt.Printf("NLP provider: %s, model: %s\n", cfg.NLP.Provider, cfg.NLP.Model)
 	}
 	if embedderClient != nil {
 		fmt.Printf("Embedding provider: %s, model: %s\n", cfg.Embedding.Provider, cfg.Embedding.Model)

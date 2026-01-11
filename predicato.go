@@ -9,7 +9,7 @@ import (
 	"github.com/soundprediction/predicato/pkg/community"
 	"github.com/soundprediction/predicato/pkg/driver"
 	"github.com/soundprediction/predicato/pkg/embedder"
-	"github.com/soundprediction/predicato/pkg/llm"
+	"github.com/soundprediction/predicato/pkg/nlp"
 	"github.com/soundprediction/predicato/pkg/search"
 	"github.com/soundprediction/predicato/pkg/types"
 	"github.com/soundprediction/predicato/pkg/utils/maintenance"
@@ -98,27 +98,27 @@ type Predicato interface {
 // Client is the main implementation of the Predicato interface.
 type Client struct {
 	driver    driver.GraphDriver
-	llm       llm.Client
+	nlp       nlp.Client
 	embedder  embedder.Client
 	searcher  *search.Searcher
 	community *community.Builder
 	config    *Config
 	logger    *slog.Logger
 
-	// Specialized LLM clients for different steps
+	// Specialized NLP clients for different steps
 	languageModels LanguageModels
 }
 
-// LanguageModels holds specialized LLM clients for different steps.
+// LanguageModels holds specialized NLP clients for different steps.
 type LanguageModels struct {
-	NodeExtraction llm.Client
-	NodeReflexion  llm.Client
-	NodeResolution llm.Client
-	NodeAttribute  llm.Client
-	EdgeExtraction llm.Client
-	EdgeResolution llm.Client
-	Summarization  llm.Client
-	TextGeneration llm.Client
+	NodeExtraction nlp.Client
+	NodeReflexion  nlp.Client
+	NodeResolution nlp.Client
+	NodeAttribute  nlp.Client
+	EdgeExtraction nlp.Client
+	EdgeResolution nlp.Client
+	Summarization  nlp.Client
+	TextGeneration nlp.Client
 }
 
 // Config holds configuration for the Predicato client.
@@ -134,7 +134,7 @@ type Config struct {
 	EdgeTypes   map[string]interface{}
 
 	EdgeMap map[string]map[string][]interface{}
-	// LanguageModels holds specialized LLM clients for different steps
+	// LanguageModels holds specialized NLP clients for different steps
 	LanguageModels LanguageModels
 }
 
@@ -168,7 +168,7 @@ type AddEpisodeOptions struct {
 }
 
 // NewClient creates a new Predicato client with the provided configuration.
-func NewClient(driver driver.GraphDriver, llmClient llm.Client, embedderClient embedder.Client, config *Config, logger *slog.Logger) (*Client, error) {
+func NewClient(driver driver.GraphDriver, nlpClient nlp.Client, embedderClient embedder.Client, config *Config, logger *slog.Logger) (*Client, error) {
 	if config == nil {
 		config = &Config{
 			GroupID:  "default",
@@ -182,12 +182,12 @@ func NewClient(driver driver.GraphDriver, llmClient llm.Client, embedderClient e
 		logger = slog.Default()
 	}
 
-	searcher := search.NewSearcher(driver, embedderClient, llmClient)
-	communityBuilder := community.NewBuilder(driver, llmClient, config.LanguageModels.Summarization, embedderClient)
+	searcher := search.NewSearcher(driver, embedderClient, nlpClient)
+	communityBuilder := community.NewBuilder(driver, nlpClient, config.LanguageModels.Summarization, embedderClient)
 
 	return &Client{
 		driver:         driver,
-		llm:            llmClient,
+		nlp:            nlpClient,
 		embedder:       embedderClient,
 		searcher:       searcher,
 		community:      communityBuilder,
@@ -202,9 +202,9 @@ func (c *Client) GetDriver() driver.GraphDriver {
 	return c.driver
 }
 
-// GetLLM returns the LLM client
-func (c *Client) GetLLM() llm.Client {
-	return c.llm
+// GetNLP returns the NLP client
+func (c *Client) GetNLP() nlp.Client {
+	return c.nlp
 }
 
 // GetEmbedder returns the embedder client

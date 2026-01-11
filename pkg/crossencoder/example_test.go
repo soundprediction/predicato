@@ -6,7 +6,7 @@ import (
 	"log"
 
 	"github.com/soundprediction/predicato/pkg/crossencoder"
-	"github.com/soundprediction/predicato/pkg/llm"
+	"github.com/soundprediction/predicato/pkg/nlp"
 )
 
 // ExampleNewClient demonstrates how to create different types of cross-encoder clients

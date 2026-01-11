@@ -9,6 +9,7 @@ import (
 
 // Client wraps go-rust-bert models for use in Predicato.
 type Client struct {
+	config             Config
 	nerModel           *rustbert.NERModel
 	summarizationModel *rustbert.SummarizationModel
 	qaModel            *rustbert.QAModel
@@ -23,23 +24,37 @@ type Config struct {
 }
 
 // NewClient creates a new RustBert client.
-// It initializes models lazily or based on provided IDs if we wanted,
-// but here we'll provide methods to load them.
-func NewClient() *Client {
-	return &Client{}
+func NewClient(cfg Config) *Client {
+	return &Client{
+		config: cfg,
+	}
 }
 
 // LoadNERModel loads the NER model.
 // If modelID is empty, it uses the default (BERT-based).
-// If modelID is a local path, it attempts to load from files (requires specific structure).
-// Note: The underlying binding might expects explicit file paths for custom models.
-// For simplicity, we'll expose loading default for now, or custom from files if full paths provided.
-// To keep it simple like GLiNER integration:
+// If modelID is set, it downloads artifacts and loads from files.
 func (c *Client) LoadNERModel() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.nerModel != nil {
+		return nil
+	}
+
+	if c.config.NERModelID != "" {
+		fmt.Printf("Loading custom NER model: %s\n", c.config.NERModelID)
+		modelPath, configPath, vocabPath, mergesPath, err := rustbert.DownloadArtifacts(c.config.NERModelID, "")
+		if err != nil {
+			return fmt.Errorf("failed to download artifacts for %s: %w", c.config.NERModelID, err)
+		}
+
+		// Assuming BERT for now as default custom model type if not specified
+		// TODO: Add ModelType to Config
+		m, err := rustbert.NewNERModelFromFiles(modelPath, configPath, vocabPath, mergesPath, rustbert.ModelTypeBert)
+		if err != nil {
+			return fmt.Errorf("failed to create custom NER model: %w", err)
+		}
+		c.nerModel = m
 		return nil
 	}
 

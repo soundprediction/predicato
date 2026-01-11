@@ -50,7 +50,7 @@ import (
 	"fmt"
 
 	"github.com/soundprediction/predicato/pkg/embedder"
-	"github.com/soundprediction/predicato/pkg/llm"
+	"github.com/soundprediction/predicato/pkg/nlp"
 )
 
 // Provider represents the type of cross-encoder provider

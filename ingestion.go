@@ -270,20 +270,20 @@ func (c *Client) addEpisodeChunked(ctx context.Context, episode types.Episode, o
 	}
 
 	// STEP 4: Initialize maintenance operations
-	nodeOps := maintenance.NewNodeOperations(c.driver, c.llm, c.embedder, prompts.NewLibrary())
-	nodeOps.ExtractionLLM = c.languageModels.NodeExtraction
-	nodeOps.ReflexionLLM = c.languageModels.NodeReflexion
-	nodeOps.ResolutionLLM = c.languageModels.NodeResolution
-	nodeOps.AttributeLLM = c.languageModels.NodeAttribute
+	nodeOps := maintenance.NewNodeOperations(c.driver, c.nlp, c.embedder, prompts.NewLibrary())
+	nodeOps.ExtractionNLP = c.languageModels.NodeExtraction
+	nodeOps.ReflexionNLP = c.languageModels.NodeReflexion
+	nodeOps.ResolutionNLP = c.languageModels.NodeResolution
+	nodeOps.AttributeNLP = c.languageModels.NodeAttribute
 	nodeOps.SkipReflexion = options.SkipReflexion
 	nodeOps.SkipResolution = options.SkipResolution
 	nodeOps.SkipAttributes = options.SkipAttributes
 	nodeOps.UseYAML = options.UseYAML
 	nodeOps.SetLogger(c.logger)
 
-	edgeOps := maintenance.NewEdgeOperations(c.driver, c.llm, c.embedder, prompts.NewLibrary())
-	edgeOps.ExtractionLLM = c.languageModels.EdgeExtraction
-	edgeOps.ResolutionLLM = c.languageModels.EdgeResolution
+	edgeOps := maintenance.NewEdgeOperations(c.driver, c.nlp, c.embedder, prompts.NewLibrary())
+	edgeOps.ExtractionNLP = c.languageModels.EdgeExtraction
+	edgeOps.ResolutionNLP = c.languageModels.EdgeResolution
 	edgeOps.SkipResolution = options.SkipEdgeResolution
 	edgeOps.UseYAML = options.UseYAML
 	edgeOps.SetLogger(c.logger)

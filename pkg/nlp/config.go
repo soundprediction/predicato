@@ -1,4 +1,4 @@
-package llm
+package nlp
 
 // ModelSize represents the size/complexity of the model to use
 type ModelSize string

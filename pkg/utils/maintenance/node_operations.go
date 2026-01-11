@@ -10,7 +10,8 @@ import (
 
 	"github.com/soundprediction/predicato/pkg/driver"
 	"github.com/soundprediction/predicato/pkg/embedder"
-	"github.com/soundprediction/predicato/pkg/llm"
+	"github.com/soundprediction/predicato/pkg/nlp.
+	"github.com/soundprediction/predicato/pkg/nlp"
 	"github.com/soundprediction/predicato/pkg/prompts"
 	"github.com/soundprediction/predicato/pkg/types"
 	"github.com/soundprediction/predicato/pkg/utils"
@@ -24,16 +25,16 @@ const (
 // NodeOperations provides node-related maintenance operations
 type NodeOperations struct {
 	driver   driver.GraphDriver
-	llm      llm.Client
+	nlp      nlp.Client
 	embedder embedder.Client
 	prompts  prompts.Library
 	logger   *slog.Logger
 
-	// Specialized LLM clients for different steps
-	ExtractionLLM llm.Client
-	ReflexionLLM  llm.Client
-	ResolutionLLM llm.Client
-	AttributeLLM  llm.Client
+	// Specialized NLP clients for different steps
+	ExtractionNLP nlp.Client
+	ReflexionNLP  nlp.Client
+	ResolutionNLP nlp.Client
+	AttributeNLP  nlp.Client
 
 	// Skip flags
 	SkipReflexion  bool
@@ -45,10 +46,10 @@ type NodeOperations struct {
 }
 
 // NewNodeOperations creates a new NodeOperations instance
-func NewNodeOperations(driver driver.GraphDriver, llm llm.Client, embedder embedder.Client, prompts prompts.Library) *NodeOperations {
+func NewNodeOperations(driver driver.GraphDriver, nlpClient nlp.Client, embedder embedder.Client, prompts prompts.Library) *NodeOperations {
 	return &NodeOperations{
 		driver:   driver,
-		llm:      llm,
+		nlp:      nlpClient,
 		embedder: embedder,
 		prompts:  prompts,
 		logger:   slog.Default(), // Use default logger, can be overridden
@@ -61,32 +62,32 @@ func (no *NodeOperations) SetLogger(logger *slog.Logger) {
 }
 
 // Helper methods to get the appropriate LLM client with fallback to default
-func (no *NodeOperations) getExtractionLLM() llm.Client {
-	if no.ExtractionLLM != nil {
-		return no.ExtractionLLM
+func (no *NodeOperations) getExtractionNLP() nlp.Client {
+	if no.ExtractionNLP != nil {
+		return no.ExtractionNLP
 	}
-	return no.llm
+	return no.nlp
 }
 
-func (no *NodeOperations) getReflexionLLM() llm.Client {
-	if no.ReflexionLLM != nil {
-		return no.ReflexionLLM
+func (no *NodeOperations) getReflexionNLP() nlp.Client {
+	if no.ReflexionNLP != nil {
+		return no.ReflexionNLP
 	}
-	return no.llm
+	return no.nlp
 }
 
-func (no *NodeOperations) getResolutionLLM() llm.Client {
-	if no.ResolutionLLM != nil {
-		return no.ResolutionLLM
+func (no *NodeOperations) getResolutionNLP() nlp.Client {
+	if no.ResolutionNLP != nil {
+		return no.ResolutionNLP
 	}
-	return no.llm
+	return no.nlp
 }
 
-func (no *NodeOperations) getAttributeLLM() llm.Client {
-	if no.AttributeLLM != nil {
-		return no.AttributeLLM
+func (no *NodeOperations) getAttributeNLP() nlp.Client {
+	if no.AttributeNLP != nil {
+		return no.AttributeNLP
 	}
-	return no.llm
+	return no.nlp
 }
 
 // ExtractNodes extracts entity nodes from episode content using LLM
@@ -171,9 +172,9 @@ func (no *NodeOperations) ExtractNodes(ctx context.Context, episode *types.Node,
 			}
 
 			// Use GenerateYAMLResponse
-			extractedEntitySlice, badResp, err = llm.GenerateYAMLResponse[prompts.ExtractedEntity](
+			extractedEntitySlice, badResp, err = nlp.GenerateYAMLResponse[prompts.ExtractedEntity](
 				ctx,
-				no.getExtractionLLM(),
+				no.getExtractionNLP(),
 				no.logger,
 				messages,
 				yamlParser,
@@ -186,9 +187,9 @@ func (no *NodeOperations) ExtractNodes(ctx context.Context, episode *types.Node,
 			}
 
 			// Use GenerateCSVResponse for robust CSV parsing with retries
-			extractedEntitySlice, badResp, err = llm.GenerateCSVResponse[prompts.ExtractedEntity](
+			extractedEntitySlice, badResp, err = nlp.GenerateCSVResponse[prompts.ExtractedEntity](
 				ctx,
-				no.getExtractionLLM(),
+				no.getExtractionNLP(),
 				no.logger,
 				messages,
 				csvParser,
@@ -325,8 +326,8 @@ func (no *NodeOperations) extractNodesReflexion(ctx context.Context, episode *ty
 	}
 
 	// Use GenerateCSVResponse for robust CSV parsing with retries
-	missedEntitiesSlice, badResp, err := llm.GenerateCSVResponse[prompts.MissedEntitiesTSV](
-		ctx, no.getReflexionLLM(), no.logger, messages, csvParser, 3,
+	missedEntitiesSlice, badResp, err := nlp.GenerateCSVResponse[prompts.MissedEntitiesTSV](
+		ctx, no.getReflexionNLP(), no.logger, messages, csvParser, 3,
 	)
 	if err != nil {
 		if badResp != nil {
@@ -459,9 +460,9 @@ func (no *NodeOperations) ResolveExtractedNodes(ctx context.Context, extractedNo
 	}
 
 	// Use GenerateCSVResponse for robust CSV parsing with retries
-	nodeDuplicateSlice, badResp, err := llm.GenerateCSVResponse[prompts.NodeDuplicate](
+	nodeDuplicateSlice, badResp, err := nlp.GenerateCSVResponse[prompts.NodeDuplicate](
 		ctx,
-		no.getResolutionLLM(),
+		no.getResolutionNLP(),
 		no.logger,
 		messages,
 		csvParser,
@@ -525,8 +526,8 @@ func (no *NodeOperations) ResolveExtractedNodes(ctx context.Context, extractedNo
 	log.Printf("Resolved %d nodes, found %d duplicates", len(resolvedNodes), len(nodeDuplicates))
 
 	// Filter duplicates using edge operations to remove those that already have IS_DUPLICATE_OF edges
-	edgeOps := NewEdgeOperations(no.driver, no.llm, no.embedder, no.prompts)
-	edgeOps.ResolutionLLM = no.getResolutionLLM()
+	edgeOps := NewEdgeOperations(no.driver, no.nlp, no.embedder, no.prompts)
+	edgeOps.ResolutionLLM = no.getResolutionNLP()
 	filteredDuplicates, err := edgeOps.FilterExistingDuplicateOfEdges(ctx, nodeDuplicates)
 	if err != nil {
 		log.Printf("Warning: failed to filter existing duplicate edges: %v", err)
@@ -615,9 +616,9 @@ func (no *NodeOperations) ExtractAttributesFromNodes(ctx context.Context, nodes 
 				}
 
 				// Use GenerateYAMLResponse
-				extractedAttributesSlice, badResp, err = llm.GenerateYAMLResponse[prompts.ExtractedNodeAttributes](
+				extractedAttributesSlice, badResp, err = nlp.GenerateYAMLResponse[prompts.ExtractedNodeAttributes](
 					ctx,
-					no.getAttributeLLM(),
+					no.getAttributeNLP(),
 					no.logger,
 					messages,
 					yamlParser,
@@ -630,9 +631,9 @@ func (no *NodeOperations) ExtractAttributesFromNodes(ctx context.Context, nodes 
 				}
 
 				// Use GenerateCSVResponse for robust CSV parsing with retries
-				extractedAttributesSlice, badResp, err = llm.GenerateCSVResponse[prompts.ExtractedNodeAttributes](
+				extractedAttributesSlice, badResp, err = nlp.GenerateCSVResponse[prompts.ExtractedNodeAttributes](
 					ctx,
-					no.getAttributeLLM(),
+					no.getAttributeNLP(),
 					no.logger,
 					messages,
 					csvParser,
