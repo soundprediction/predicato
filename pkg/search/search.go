@@ -90,15 +90,15 @@ type HybridSearchResult struct {
 type Searcher struct {
 	driver       driver.GraphDriver
 	embedder     embedder.Client
-	llm          nlp.Client
+	nlp          nlp.Client
 	crossEncoder crossencoder.Client
 }
 
-func NewSearcher(driver driver.GraphDriver, embedder embedder.Client, llm nlp.Client) *Searcher {
+func NewSearcher(driver driver.GraphDriver, embedder embedder.Client, nlpClient nlp.Client) *Searcher {
 	return &Searcher{
 		driver:       driver,
 		embedder:     embedder,
-		llm:          llm,
+		nlp:          nlpClient,
 		crossEncoder: nil, // Will be set separately if needed
 	}
 }
@@ -695,7 +695,7 @@ func (s *Searcher) crossEncoderRerankNodes(ctx context.Context, query string, no
 
 // fallbackLLMRerankNodes provides LLM-based reranking when cross-encoder is not available
 func (s *Searcher) fallbackLLMRerankNodes(ctx context.Context, query string, nodes []*types.Node, minScore float64, limit int) ([]*types.Node, []float64, error) {
-	if s.llm == nil {
+	if s.nlp == nil {
 		// Ultimate fallback to default scores
 		scores := make([]float64, min(limit, len(nodes)))
 		for i := range scores {
@@ -863,7 +863,7 @@ func (s *Searcher) crossEncoderRerankEdges(ctx context.Context, query string, ed
 
 // fallbackLLMRerankEdges provides LLM-based reranking when cross-encoder is not available
 func (s *Searcher) fallbackLLMRerankEdges(ctx context.Context, query string, edges []*types.Edge, minScore float64, limit int) ([]*types.Edge, []float64, error) {
-	if s.llm == nil {
+	if s.nlp == nil {
 		// Ultimate fallback to default scores
 		scores := make([]float64, min(limit, len(edges)))
 		for i := range scores {
