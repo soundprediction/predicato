@@ -65,28 +65,28 @@ func (no *NodeOperations) getExtractionNLP() nlp.Client {
 	if no.ExtractionNLP != nil {
 		return no.ExtractionNLP
 	}
-	return no.nlp
+	return no.nlProcessor
 }
 
 func (no *NodeOperations) getReflexionNLP() nlp.Client {
 	if no.ReflexionNLP != nil {
 		return no.ReflexionNLP
 	}
-	return no.nlp
+	return no.nlProcessor
 }
 
 func (no *NodeOperations) getResolutionNLP() nlp.Client {
 	if no.ResolutionNLP != nil {
 		return no.ResolutionNLP
 	}
-	return no.nlp
+	return no.nlProcessor
 }
 
 func (no *NodeOperations) getAttributeNLP() nlp.Client {
 	if no.AttributeNLP != nil {
 		return no.AttributeNLP
 	}
-	return no.nlp
+	return no.nlProcessor
 }
 
 // ExtractNodes extracts entity nodes from episode content using LLM
@@ -525,7 +525,7 @@ func (no *NodeOperations) ResolveExtractedNodes(ctx context.Context, extractedNo
 	log.Printf("Resolved %d nodes, found %d duplicates", len(resolvedNodes), len(nodeDuplicates))
 
 	// Filter duplicates using edge operations to remove those that already have IS_DUPLICATE_OF edges
-	edgeOps := NewEdgeOperations(no.driver, no.nlp, no.embedder, no.prompts)
+	edgeOps := NewEdgeOperations(no.driver, no.nlProcessor, no.embedder, no.prompts)
 	edgeOps.ResolutionNLP = no.getResolutionNLP()
 	filteredDuplicates, err := edgeOps.FilterExistingDuplicateOfEdges(ctx, nodeDuplicates)
 	if err != nil {

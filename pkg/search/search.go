@@ -695,7 +695,7 @@ func (s *Searcher) crossEncoderRerankNodes(ctx context.Context, query string, no
 
 // fallbackLLMRerankNodes provides LLM-based reranking when cross-encoder is not available
 func (s *Searcher) fallbackLLMRerankNodes(ctx context.Context, query string, nodes []*types.Node, minScore float64, limit int) ([]*types.Node, []float64, error) {
-	if s.nlp == nil {
+	if s.nlProcessor == nil {
 		// Ultimate fallback to default scores
 		scores := make([]float64, min(limit, len(nodes)))
 		for i := range scores {
@@ -747,7 +747,7 @@ Consider semantic relevance, topical alignment, and contextual importance.`
 			nlp.NewUserMessage(prompt),
 		}
 
-		response, err := s.nlp.Chat(ctx, messages)
+		response, err := s.nlProcessor.Chat(ctx, messages)
 		if err != nil {
 			// On error, assign default scores
 			for j := range batch {
@@ -863,7 +863,7 @@ func (s *Searcher) crossEncoderRerankEdges(ctx context.Context, query string, ed
 
 // fallbackLLMRerankEdges provides LLM-based reranking when cross-encoder is not available
 func (s *Searcher) fallbackLLMRerankEdges(ctx context.Context, query string, edges []*types.Edge, minScore float64, limit int) ([]*types.Edge, []float64, error) {
-	if s.nlp == nil {
+	if s.nlProcessor == nil {
 		// Ultimate fallback to default scores
 		scores := make([]float64, min(limit, len(edges)))
 		for i := range scores {
@@ -915,7 +915,7 @@ Consider semantic relevance, relationship importance, and contextual significanc
 			nlp.NewUserMessage(prompt),
 		}
 
-		response, err := s.nlp.Chat(ctx, messages)
+		response, err := s.nlProcessor.Chat(ctx, messages)
 		if err != nil {
 			// On error, assign default scores
 			for j := range batch {

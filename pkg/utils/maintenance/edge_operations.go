@@ -57,14 +57,14 @@ func (eo *EdgeOperations) getExtractionNLP() nlp.Client {
 	if eo.ExtractionNLP != nil {
 		return eo.ExtractionNLP
 	}
-	return eo.nlp
+	return eo.nlProcessor
 }
 
 func (eo *EdgeOperations) getResolutionNLP() nlp.Client {
 	if eo.ResolutionNLP != nil {
 		return eo.ResolutionNLP
 	}
-	return eo.nlp
+	return eo.nlProcessor
 }
 
 // BuildEpisodicEdges creates episodic edges from entity nodes to an episode

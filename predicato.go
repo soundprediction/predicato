@@ -204,7 +204,7 @@ func (c *Client) GetDriver() driver.GraphDriver {
 
 // GetNLP returns the NLP client
 func (c *Client) GetNLP() nlp.Client {
-	return c.nlp
+	return c.nlProcessor
 }
 
 // GetEmbedder returns the embedder client
