@@ -9,6 +9,7 @@ import (
 	"github.com/soundprediction/predicato/pkg/community"
 	"github.com/soundprediction/predicato/pkg/driver"
 	"github.com/soundprediction/predicato/pkg/embedder"
+	"github.com/soundprediction/predicato/pkg/facts"
 	"github.com/soundprediction/predicato/pkg/nlp"
 	"github.com/soundprediction/predicato/pkg/search"
 	"github.com/soundprediction/predicato/pkg/types"
@@ -104,6 +105,7 @@ type Client struct {
 	community   *community.Builder
 	config      *Config
 	logger      *slog.Logger
+	factsDB     facts.FactsDB
 
 	// Specialized NLP clients for different steps
 	nlpModels NlpModels
@@ -132,6 +134,9 @@ type Config struct {
 	// DefaultEntityTypes defines the default entity types to use when AddEpisodeOptions.EntityTypes is nil
 	EntityTypes map[string]interface{}
 	EdgeTypes   map[string]interface{}
+
+	// FactsDBURL is the connection string for the Dolt facts database
+	FactsDBURL string
 
 	EdgeMap map[string]map[string][]interface{}
 	// NlpModels holds specialized NLP clients for different steps
@@ -185,6 +190,18 @@ func NewClient(driver driver.GraphDriver, nlProcessor nlp.Client, embedderClient
 	searcher := search.NewSearcher(driver, embedderClient, nlProcessor)
 	communityBuilder := community.NewBuilder(driver, nlProcessor, config.NlpModels.Summarization, embedderClient)
 
+	var factsDB facts.FactsDB
+	if config.FactsDBURL != "" {
+		fdb, err := facts.NewDoltDB(config.FactsDBURL)
+		if err != nil {
+			return nil, err
+		}
+		if err := fdb.Initialize(context.Background()); err != nil {
+			return nil, err
+		}
+		factsDB = fdb
+	}
+
 	return &Client{
 		driver:      driver,
 		nlProcessor: nlProcessor,
@@ -193,6 +210,7 @@ func NewClient(driver driver.GraphDriver, nlProcessor nlp.Client, embedderClient
 		community:   communityBuilder,
 		config:      config,
 		logger:      logger,
+		factsDB:     factsDB,
 		nlpModels:   config.NlpModels,
 	}, nil
 }
