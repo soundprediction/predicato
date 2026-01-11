@@ -93,12 +93,12 @@ func ExampleOpenAIRerankerClient() {
 	// In practice, you would get this from environment variables or configuration
 
 	// Create LLM client (example - replace with actual implementation)
-	llmConfig := llm.Config{
+	llmConfig := nlp.Config{
 		Model: "gpt-4o-mini",
 	}
 
 	// This is a conceptual example - actual implementation depends on your LLM client
-	// llmClient := llm.NewOpenAIClient("your-api-key", llmConfig)
+	// llmClient := nlp.NewOpenAIClient("your-api-key", llmConfig)
 	//
 	// reranker := crossencoder.NewOpenAIRerankerClient(llmClient, crossencoder.Config{
 	//     MaxConcurrency: 3,

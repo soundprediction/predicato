@@ -10,7 +10,7 @@ import (
 	"github.com/soundprediction/predicato/pkg/types"
 )
 
-// LLMAdapter adapts the RustBert client to the llm.Client interface.
+// LLMAdapter adapts the RustBert client to the nlp.Client interface.
 type LLMAdapter struct {
 	client *Client
 	task   string // "summarization", "text_generation", "ner", "qa"
@@ -24,12 +24,12 @@ func NewLLMAdapter(client *Client, task string) *LLMAdapter {
 	}
 }
 
-// Chat implements the llm.Client interface.
+// Chat implements the nlp.Client interface.
 func (a *LLMAdapter) Chat(ctx context.Context, messages []types.Message) (*types.Response, error) {
 	// Simple concatenation of user messages for now
 	var inputBuilder strings.Builder
 	for _, msg := range messages {
-		if msg.Role == llm.RoleUser {
+		if msg.Role == nlp.RoleUser {
 			if inputBuilder.Len() > 0 {
 				inputBuilder.WriteString("\n")
 			}
@@ -81,14 +81,14 @@ func (a *LLMAdapter) Chat(ctx context.Context, messages []types.Message) (*types
 	}, nil
 }
 
-// ChatWithStructuredOutput implements the llm.Client interface.
+// ChatWithStructuredOutput implements the nlp.Client interface.
 func (a *LLMAdapter) ChatWithStructuredOutput(ctx context.Context, messages []types.Message, schema any) (*types.Response, error) {
 	// RustBert models don't support structured output schema enforcement natively yet.
 	// We just call chat and hope for the best (or the task inherently returns structure like NER).
 	return a.Chat(ctx, messages)
 }
 
-// Close implements the llm.Client interface.
+// Close implements the nlp.Client interface.
 func (a *LLMAdapter) Close() error {
 	// The underlying client is shared, so we generally don't close it here
 	// unless we own it. Application logic typically manages the rustbert.Client lifecycle.

@@ -90,11 +90,11 @@ type HybridSearchResult struct {
 type Searcher struct {
 	driver       driver.GraphDriver
 	embedder     embedder.Client
-	llm          llm.Client
+	llm          nlp.Client
 	crossEncoder crossencoder.Client
 }
 
-func NewSearcher(driver driver.GraphDriver, embedder embedder.Client, llm llm.Client) *Searcher {
+func NewSearcher(driver driver.GraphDriver, embedder embedder.Client, llm nlp.Client) *Searcher {
 	return &Searcher{
 		driver:       driver,
 		embedder:     embedder,
@@ -743,11 +743,11 @@ Please respond with only comma-separated scores for each node in order (e.g., "0
 Consider semantic relevance, topical alignment, and contextual importance.`
 
 		messages := []types.Message{
-			llm.NewSystemMessage("You are a relevance scoring system. Score how relevant each node is to the given query."),
-			llm.NewUserMessage(prompt),
+			nlp.NewSystemMessage("You are a relevance scoring system. Score how relevant each node is to the given query."),
+			nlp.NewUserMessage(prompt),
 		}
 
-		response, err := s.llm.Chat(ctx, messages)
+		response, err := s.nlp.Chat(ctx, messages)
 		if err != nil {
 			// On error, assign default scores
 			for j := range batch {
@@ -911,11 +911,11 @@ Please respond with only comma-separated scores for each edge in order (e.g., "0
 Consider semantic relevance, relationship importance, and contextual significance.`
 
 		messages := []types.Message{
-			llm.NewSystemMessage("You are a relevance scoring system. Score how relevant each relationship edge is to the given query."),
-			llm.NewUserMessage(prompt),
+			nlp.NewSystemMessage("You are a relevance scoring system. Score how relevant each relationship edge is to the given query."),
+			nlp.NewUserMessage(prompt),
 		}
 
-		response, err := s.llm.Chat(ctx, messages)
+		response, err := s.nlp.Chat(ctx, messages)
 		if err != nil {
 			// On error, assign default scores
 			for j := range batch {

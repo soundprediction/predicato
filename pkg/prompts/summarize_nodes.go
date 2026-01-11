@@ -58,8 +58,8 @@ Summaries are provided in TSV (tab-separated values) format:
 `, nodeSummariesTSV)
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
-		llm.NewSystemMessage(sysPrompt),
-		llm.NewUserMessage(userPrompt),
+		nlp.NewSystemMessage(sysPrompt),
+		nlp.NewUserMessage(userPrompt),
 	}, nil
 }
 
@@ -127,8 +127,8 @@ Guidelines:
 `, previousEpisodesTSV, episodeContent, nodeName, nodeSummary, attributesTSV)
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
-		llm.NewSystemMessage(sysPrompt),
-		llm.NewUserMessage(userPrompt),
+		nlp.NewSystemMessage(sysPrompt),
+		nlp.NewUserMessage(userPrompt),
 	}, nil
 }
 
@@ -159,8 +159,8 @@ Summary (in TSV format):
 `, summaryTSV)
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
-		llm.NewSystemMessage(sysPrompt),
-		llm.NewUserMessage(userPrompt),
+		nlp.NewSystemMessage(sysPrompt),
+		nlp.NewUserMessage(userPrompt),
 	}, nil
 }
 

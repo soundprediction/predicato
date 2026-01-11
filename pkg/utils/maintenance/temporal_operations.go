@@ -16,13 +16,13 @@ import (
 
 // TemporalOperations provides temporal analysis and edge dating operations
 type TemporalOperations struct {
-	llm     llm.Client
+	llm     nlp.Client
 	prompts prompts.Library
 	logger  *slog.Logger
 }
 
 // NewTemporalOperations creates a new TemporalOperations instance
-func NewTemporalOperations(llm llm.Client, prompts prompts.Library, logger *slog.Logger) *TemporalOperations {
+func NewTemporalOperations(llm nlp.Client, prompts prompts.Library, logger *slog.Logger) *TemporalOperations {
 	return &TemporalOperations{
 		llm:     llm,
 		prompts: prompts,
@@ -61,7 +61,7 @@ func (to *TemporalOperations) ExtractEdgeDates(ctx context.Context, edge *types.
 	}
 
 	// Use GenerateCSVResponse for robust CSV parsing with retries
-	edgeDatesSlice, badResp, err := llm.GenerateCSVResponse[prompts.EdgeDatesTSV](
+	edgeDatesSlice, badResp, err := nlp.GenerateCSVResponse[prompts.EdgeDatesTSV](
 		ctx, to.llm, to.logger, messages, csvParser, 0, // maxRetries (use default of 8)
 	)
 	if err != nil {
@@ -153,7 +153,7 @@ func (to *TemporalOperations) GetEdgeContradictions(ctx context.Context, newEdge
 	}
 
 	// Use GenerateCSVResponse for robust CSV parsing with retries
-	invalidatedSlice, badResp, err := llm.GenerateCSVResponse[prompts.InvalidatedEdgesTSV](
+	invalidatedSlice, badResp, err := nlp.GenerateCSVResponse[prompts.InvalidatedEdgesTSV](
 		ctx, to.llm, to.logger, messages, csvParser, 0, // maxRetries (use default of 8)
 	)
 	if err != nil {

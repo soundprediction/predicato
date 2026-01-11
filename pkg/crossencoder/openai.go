@@ -14,13 +14,13 @@ import (
 // This reranker uses the OpenAI API to run a simple boolean classifier prompt concurrently
 // for each passage. Log-probabilities are used to rank the passages.
 type OpenAIRerankerClient struct {
-	client    llm.Client
+	client    nlp.Client
 	config    Config
 	semaphore chan struct{} // Controls concurrency
 }
 
 // NewOpenAIRerankerClient creates a new OpenAI-based reranker client
-func NewOpenAIRerankerClient(llmClient llm.Client, config Config) *OpenAIRerankerClient {
+func NewOpenAIRerankerClient(llmClient nlp.Client, config Config) *OpenAIRerankerClient {
 	if config.Model == "" {
 		config.Model = "gpt-4o-mini"
 	}
@@ -97,8 +97,8 @@ func (c *OpenAIRerankerClient) Rank(ctx context.Context, query string, passages 
 // scorePassage scores a single passage against the query using OpenAI's logprobs
 func (c *OpenAIRerankerClient) scorePassage(ctx context.Context, query, passage string) (float64, error) {
 	messages := []types.Message{
-		llm.NewSystemMessage("You are an expert tasked with determining whether the passage is relevant to the query"),
-		llm.NewUserMessage(fmt.Sprintf(`Respond with "True" if PASSAGE is relevant to QUERY and "False" otherwise.
+		nlp.NewSystemMessage("You are an expert tasked with determining whether the passage is relevant to the query"),
+		nlp.NewUserMessage(fmt.Sprintf(`Respond with "True" if PASSAGE is relevant to QUERY and "False" otherwise.
 <PASSAGE>
 %s
 </PASSAGE>

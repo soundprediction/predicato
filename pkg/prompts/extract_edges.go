@@ -163,8 +163,8 @@ source_id\trelation_type\ttarget_id\tfact\tsummary\tvalid_at\tinvalid_at
 `, edgeTypesTSV, previousEpisodesTSV, episodeContent, nodesTSV, referenceTime, customPrompt)
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
-		llm.NewSystemMessage(sysPrompt),
-		llm.NewUserMessage(userPrompt),
+		nlp.NewSystemMessage(sysPrompt),
+		nlp.NewUserMessage(userPrompt),
 	}, nil
 }
 
@@ -218,8 +218,8 @@ determine if any facts haven't been extracted.
 `, previousEpisodesTSV, episodeContent, nodesTSV, extractedFacts)
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
-		llm.NewSystemMessage(sysPrompt),
-		llm.NewUserMessage(userPrompt),
+		nlp.NewSystemMessage(sysPrompt),
+		nlp.NewUserMessage(userPrompt),
 	}, nil
 }
 
@@ -252,8 +252,8 @@ Guidelines:
 `, episodeContent, referenceTime, fact)
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
-		llm.NewSystemMessage(sysPrompt),
-		llm.NewUserMessage(userPrompt),
+		nlp.NewSystemMessage(sysPrompt),
+		nlp.NewUserMessage(userPrompt),
 	}, nil
 }
 

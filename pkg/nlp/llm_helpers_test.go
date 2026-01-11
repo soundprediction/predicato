@@ -19,7 +19,7 @@ func ExampleGenerateJSONResponseWithContinuation() {
 	}
 
 	// Create LLM client (example - replace with actual client)
-	// llmClient, _ := llm.NewOpenAIClient("your-api-key", llm.Config{
+	// llmClient, _ := nlp.NewOpenAIClient("your-api-key", nlp.Config{
 	// 	Model: "gpt-4",
 	// })
 
@@ -104,7 +104,7 @@ func TestExtractJSONFromResponse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := llm.ExtractJSONFromResponse(tt.input)
+			result := nlp.ExtractJSONFromResponse(tt.input)
 			if result != tt.expected {
 				t.Errorf("ExtractJSONFromResponse() = %v, want %v", result, tt.expected)
 			}
@@ -145,7 +145,7 @@ func TestGenerateJSONWithContinuation_Success(t *testing.T) {
 		},
 	}
 
-	jsonStr, err := llm.GenerateJSONWithContinuation(
+	jsonStr, err := nlp.GenerateJSONWithContinuation(
 		context.Background(),
 		mockClient,
 		"Return JSON",
@@ -171,7 +171,7 @@ func TestGenerateJSONWithContinuation_Continuation(t *testing.T) {
 		},
 	}
 
-	jsonStr, err := llm.GenerateJSONWithContinuation(
+	jsonStr, err := nlp.GenerateJSONWithContinuation(
 		context.Background(),
 		mockClient,
 		"Return JSON",
@@ -206,7 +206,7 @@ func TestGenerateJSONResponseWithContinuation_StructValidation(t *testing.T) {
 	}
 
 	var result TestStruct
-	jsonStr, err := llm.GenerateJSONResponseWithContinuation(
+	jsonStr, err := nlp.GenerateJSONResponseWithContinuation(
 		context.Background(),
 		mockClient,
 		"Return JSON",
@@ -247,7 +247,7 @@ func TestGenerateJSONResponseWithContinuationMessages_Success(t *testing.T) {
 	}
 
 	var result TestStruct
-	jsonStr, err := llm.GenerateJSONResponseWithContinuationMessages(
+	jsonStr, err := nlp.GenerateJSONResponseWithContinuationMessages(
 		context.Background(),
 		mockClient,
 		messages,
@@ -288,7 +288,7 @@ func TestGenerateJSONResponseWithContinuationMessages_WithHistory(t *testing.T) 
 	}
 
 	var result TestStruct
-	jsonStr, err := llm.GenerateJSONResponseWithContinuationMessages(
+	jsonStr, err := nlp.GenerateJSONResponseWithContinuationMessages(
 		context.Background(),
 		mockClient,
 		messages,
@@ -317,13 +317,13 @@ func TestOpenAIGenericClient_LegacySignature(t *testing.T) {
 	// Test that the legacy signature still works
 	apiKey := "test-key"
 	temp := float32(0.7)
-	config := llm.Config{
+	config := nlp.Config{
 		Model:       "gpt-4o-mini",
 		BaseURL:     "https://api.openai.com",
 		Temperature: &temp,
 	}
 
-	client, err := llm.NewOpenAIGenericClient(apiKey, config)
+	client, err := nlp.NewOpenAIGenericClient(apiKey, config)
 	if err != nil {
 		t.Fatalf("Expected no error with legacy signature, got: %v", err)
 	}
@@ -344,14 +344,14 @@ func TestOpenAIGenericClient_LegacySignature(t *testing.T) {
 
 func TestOpenAIGenericClient_NewSignature(t *testing.T) {
 	// Test that the new signature works
-	config := &llm.LLMConfig{
+	config := &nlp.LLMConfig{
 		APIKey:      "test-key",
 		Model:       "gpt-4o-mini",
 		BaseURL:     "https://api.openai.com",
 		Temperature: 0.7,
 	}
 
-	client, err := llm.NewOpenAIGenericClient(config)
+	client, err := nlp.NewOpenAIGenericClient(config)
 	if err != nil {
 		t.Fatalf("Expected no error with new signature, got: %v", err)
 	}

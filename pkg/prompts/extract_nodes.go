@@ -205,8 +205,8 @@ reference entities. Only extract distinct entities from the CURRENT MESSAGE. Don
 	}
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
-		llm.NewSystemMessage(sysPrompt),
-		llm.NewUserMessage(userPrompt),
+		nlp.NewSystemMessage(sysPrompt),
+		nlp.NewUserMessage(userPrompt),
 	}, nil
 }
 
@@ -308,8 +308,8 @@ Guidelines:
 	}
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
-		llm.NewSystemMessage(sysPrompt),
-		llm.NewUserMessage(userPrompt),
+		nlp.NewSystemMessage(sysPrompt),
+		nlp.NewUserMessage(userPrompt),
 	}, nil
 }
 
@@ -431,8 +431,8 @@ Finish your response with a new line
 	}
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
-		llm.NewSystemMessage(sysPrompt),
-		llm.NewUserMessage(userPrompt),
+		nlp.NewSystemMessage(sysPrompt),
+		nlp.NewUserMessage(userPrompt),
 	}, nil
 }
 
@@ -484,8 +484,8 @@ Output ONLY the TSV data with a header row. Include one row per missed entity. I
 `, previousEpisodesTSV, episodeContent, extractedEntities)
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
-		llm.NewSystemMessage(sysPrompt),
-		llm.NewUserMessage(userPrompt),
+		nlp.NewSystemMessage(sysPrompt),
+		nlp.NewUserMessage(userPrompt),
 	}, nil
 }
 
@@ -545,8 +545,8 @@ Guidelines:
 `, previousEpisodesTSV, episodeContent, extractedEntities, entityTypesTSV)
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
-		llm.NewSystemMessage(sysPrompt),
-		llm.NewUserMessage(userPrompt),
+		nlp.NewSystemMessage(sysPrompt),
+		nlp.NewUserMessage(userPrompt),
 	}, nil
 }
 
@@ -594,8 +594,8 @@ Guidelines:
 `, previousEpisodesTSV, episodeContent, node)
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
-		llm.NewSystemMessage(sysPrompt),
-		llm.NewUserMessage(userPrompt),
+		nlp.NewSystemMessage(sysPrompt),
+		nlp.NewUserMessage(userPrompt),
 	}, nil
 }
 
@@ -645,8 +645,8 @@ Guidelines:
 `, previousEpisodesTSV, episodeContent, node)
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
-		llm.NewSystemMessage(sysPrompt),
-		llm.NewUserMessage(userPrompt),
+		nlp.NewSystemMessage(sysPrompt),
+		nlp.NewUserMessage(userPrompt),
 	}, nil
 }
 
@@ -775,8 +775,8 @@ Finish your response with a new line.
 	}
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
-		llm.NewSystemMessage(sysPrompt),
-		llm.NewUserMessage(userPrompt),
+		nlp.NewSystemMessage(sysPrompt),
+		nlp.NewUserMessage(userPrompt),
 	}, nil
 }
 

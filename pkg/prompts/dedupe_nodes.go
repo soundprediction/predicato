@@ -138,8 +138,8 @@ is a duplicate of, or a combination of the two).
 `, previousEpisodesTSV, episodeContent, extractedNodeTSV, entityTypeDescriptionTSV, existingNodesTSV)
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
-		llm.NewSystemMessage(sysPrompt),
-		llm.NewUserMessage(userPrompt),
+		nlp.NewSystemMessage(sysPrompt),
+		nlp.NewUserMessage(userPrompt),
 	}, nil
 }
 
@@ -245,8 +245,8 @@ Finish your response with a new line
 `, previousEpisodesTSV, episodeContent, extractedNodesTSV, existingNodesTSV)
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
-		llm.NewSystemMessage(sysPrompt),
-		llm.NewUserMessage(userPrompt),
+		nlp.NewSystemMessage(sysPrompt),
+		nlp.NewUserMessage(userPrompt),
 	}, nil
 }
 
@@ -302,8 +302,8 @@ conclude your response with a new line
 `, nodesTSV)
 	logPrompts(context["logger"].(*slog.Logger), sysPrompt, userPrompt)
 	return []types.Message{
-		llm.NewSystemMessage(sysPrompt),
-		llm.NewUserMessage(userPrompt),
+		nlp.NewSystemMessage(sysPrompt),
+		nlp.NewUserMessage(userPrompt),
 	}, nil
 }
 

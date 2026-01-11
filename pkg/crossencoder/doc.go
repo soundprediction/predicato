@@ -20,7 +20,7 @@ Uses OpenAI's API to run boolean classification prompts for each passage. The mo
 determines whether each passage is relevant to the query, and log-probabilities are
 used to compute relevance scores.
 
-	llmClient := llm.NewOpenAIClient("api-key", llm.Config{Model: "gpt-4o-mini"})
+	llmClient := nlp.NewOpenAIClient("api-key", nlp.Config{Model: "gpt-4o-mini"})
 	reranker := crossencoder.NewOpenAIRerankerClient(llmClient, crossencoder.Config{
 		MaxConcurrency: 5,
 	})

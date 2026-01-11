@@ -202,7 +202,7 @@ func (p *promptVersionImpl) Call(context map[string]interface{}) ([]types.Messag
 
 	// Add unicode preservation instruction to system messages
 	for i, msg := range messages {
-		if msg.Role == llm.RoleSystem {
+		if msg.Role == nlp.RoleSystem {
 			messages[i].Content += "\nDo not escape unicode characters.\n"
 		}
 	}

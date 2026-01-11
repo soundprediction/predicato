@@ -9,13 +9,13 @@ import (
 
 func TestRateLimitError(t *testing.T) {
 	t.Run("default message", func(t *testing.T) {
-		err := llm.NewRateLimitError()
+		err := nlp.NewRateLimitError()
 		assert.Equal(t, "rate limit exceeded. Please try again later", err.Error())
 	})
 
 	t.Run("custom message", func(t *testing.T) {
 		customMessage := "Custom rate limit message"
-		err := llm.NewRateLimitError(customMessage)
+		err := nlp.NewRateLimitError(customMessage)
 		assert.Equal(t, customMessage, err.Error())
 	})
 }
@@ -23,7 +23,7 @@ func TestRateLimitError(t *testing.T) {
 func TestRefusalError(t *testing.T) {
 	t.Run("message assignment", func(t *testing.T) {
 		message := "The LLM refused to respond to this prompt."
-		err := llm.NewRefusalError(message)
+		err := nlp.NewRefusalError(message)
 		assert.Equal(t, message, err.Error())
 	})
 }
@@ -31,21 +31,21 @@ func TestRefusalError(t *testing.T) {
 func TestEmptyResponseError(t *testing.T) {
 	t.Run("message assignment", func(t *testing.T) {
 		message := "The LLM returned an empty response."
-		err := llm.NewEmptyResponseError(message)
+		err := nlp.NewEmptyResponseError(message)
 		assert.Equal(t, message, err.Error())
 	})
 }
 
 func TestCommonErrors(t *testing.T) {
 	t.Run("error constants", func(t *testing.T) {
-		assert.NotNil(t, llm.ErrRateLimit)
-		assert.NotNil(t, llm.ErrRefusal)
-		assert.NotNil(t, llm.ErrEmptyResponse)
-		assert.NotNil(t, llm.ErrInvalidModel)
+		assert.NotNil(t, nlp.ErrRateLimit)
+		assert.NotNil(t, nlp.ErrRefusal)
+		assert.NotNil(t, nlp.ErrEmptyResponse)
+		assert.NotNil(t, nlp.ErrInvalidModel)
 
-		assert.Contains(t, llm.ErrRateLimit.Error(), "rate limit")
-		assert.Contains(t, llm.ErrRefusal.Error(), "refused")
-		assert.Contains(t, llm.ErrEmptyResponse.Error(), "empty")
-		assert.Contains(t, llm.ErrInvalidModel.Error(), "invalid model")
+		assert.Contains(t, nlp.ErrRateLimit.Error(), "rate limit")
+		assert.Contains(t, nlp.ErrRefusal.Error(), "refused")
+		assert.Contains(t, nlp.ErrEmptyResponse.Error(), "empty")
+		assert.Contains(t, nlp.ErrInvalidModel.Error(), "invalid model")
 	})
 }

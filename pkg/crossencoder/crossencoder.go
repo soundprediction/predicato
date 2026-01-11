@@ -11,7 +11,7 @@ local reranking, and mock implementations for testing.
 Usage:
 
 	// Using OpenAI reranker
-	llmClient := llm.NewOpenAIClient("api-key", llm.Config{Model: "gpt-4o-mini"})
+	llmClient := nlp.NewOpenAIClient("api-key", nlp.Config{Model: "gpt-4o-mini"})
 	reranker := crossencoder.NewOpenAIRerankerClient(llmClient, crossencoder.Config{
 		MaxConcurrency: 5,
 	})
@@ -80,7 +80,7 @@ const (
 type ClientConfig struct {
 	Provider              Provider                `json:"provider"`
 	Config                Config                  `json:"config"`
-	LLMClient             llm.Client              `json:"-"`                                // Not serialized, passed at runtime
+	LLMClient             nlp.Client              `json:"-"`                                // Not serialized, passed at runtime
 	EmbedderClient        embedder.Client         `json:"-"`                                // Required for embedding provider
 	RerankerConfig        *RerankerConfig         `json:"reranker_config,omitempty"`        // Jina-compatible reranker config
 	EmbeddingConfig       *EmbeddingConfig        `json:"embedding_config,omitempty"`       // Embedding-specific config

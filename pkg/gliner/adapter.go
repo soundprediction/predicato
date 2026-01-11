@@ -12,16 +12,16 @@ import (
 	"github.com/soundprediction/predicato/pkg/types"
 )
 
-// LLMAdapter wraps a gliner.Client to implement llm.Client interface
+// LLMAdapter wraps a gliner.Client to implement nlp.Client interface
 // It intercepts extraction prompts and uses GLiNER models
 // It delegates other prompts to a base LLM client
 type LLMAdapter struct {
 	glinerClient *Client
-	baseClient   llm.Client
+	baseClient   nlp.Client
 	logger       *slog.Logger
 }
 
-func NewLLMAdapter(glinerClient *Client, baseClient llm.Client) *LLMAdapter {
+func NewLLMAdapter(glinerClient *Client, baseClient nlp.Client) *LLMAdapter {
 	return &LLMAdapter{
 		glinerClient: glinerClient,
 		baseClient:   baseClient,
@@ -52,7 +52,7 @@ func (a *LLMAdapter) Chat(ctx context.Context, messages []types.Message) (*types
 	systemMsg := ""
 	lastUserMsg := ""
 	for _, m := range messages {
-		if m.Role == "system" { // llm.RoleSystem is constrained const, string comparison safe
+		if m.Role == "system" { // nlp.RoleSystem is constrained const, string comparison safe
 			systemMsg = m.Content
 		}
 		if m.Role == "user" {

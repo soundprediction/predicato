@@ -44,8 +44,8 @@ Steve Jobs founded Apple in California.
 </TEXT>
 `
 	messages := []types.Message{
-		{Role: llm.RoleSystem, Content: sysPrompt},
-		{Role: llm.RoleUser, Content: userPrompt},
+		{Role: nlp.RoleSystem, Content: sysPrompt},
+		{Role: nlp.RoleUser, Content: userPrompt},
 	}
 
 	resp, err := adapter.Chat(context.Background(), messages)
@@ -102,8 +102,8 @@ Steve Jobs founded Apple.
 </CURRENT_MESSAGE>
 `
 	messages := []types.Message{
-		{Role: llm.RoleSystem, Content: sysPrompt},
-		{Role: llm.RoleUser, Content: userPrompt},
+		{Role: nlp.RoleSystem, Content: sysPrompt},
+		{Role: nlp.RoleUser, Content: userPrompt},
 	}
 
 	// Should fail because relation extraction not loaded
