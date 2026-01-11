@@ -241,6 +241,15 @@ func (c *Client) AddEpisode(ctx context.Context, episode types.Episode, options 
 		maxCharacters = options.MaxCharacters
 	}
 
+	// If StagingDB is configured, use the decoupled pipeline
+	if c.stagingDB != nil {
+		c.logger.Info("Using StagingDB pipeline", "episode_id", episode.ID)
+		if err := c.ExtractToStaging(ctx, episode, options); err != nil {
+			return nil, fmt.Errorf("failed to extract to staging: %w", err)
+		}
+		return c.PromoteToGraph(ctx, episode.ID, options)
+	}
+
 	// Always use the bulk processing path for consistent, sophisticated deduplication
 	// If content is small, it will be processed as a single chunk
 	return c.addEpisodeChunked(ctx, episode, options, maxCharacters)
