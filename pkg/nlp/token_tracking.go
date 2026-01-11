@@ -185,3 +185,8 @@ func (c *TokenTrackingClient) ChatWithStructuredOutput(ctx context.Context, mess
 func (c *TokenTrackingClient) Close() error {
 	return c.client.Close()
 }
+
+// GetCapabilities returns the list of capabilities supported by this client.
+func (c *TokenTrackingClient) GetCapabilities() []TaskCapability {
+	return c.client.GetCapabilities()
+}

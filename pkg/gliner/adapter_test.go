@@ -19,6 +19,10 @@ func (m *mockLLM) ChatWithStructuredOutput(ctx context.Context, msgs []types.Mes
 }
 func (m *mockLLM) Close() error { return nil }
 
+func (m *mockLLM) GetCapabilities() []nlp.TaskCapability {
+	return []nlp.TaskCapability{nlp.TaskTextGeneration}
+}
+
 func TestAdapterNodeExtraction(t *testing.T) {
 	modelID := "onnx-community/gliner_small-v2.1"
 	c, err := NewClient(modelID)

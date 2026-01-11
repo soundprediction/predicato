@@ -85,3 +85,8 @@ func (c *CircuitBreakerClient) ChatWithStructuredOutput(ctx context.Context, mes
 func (c *CircuitBreakerClient) Close() error {
 	return c.client.Close()
 }
+
+// GetCapabilities returns the list of capabilities supported by this client.
+func (c *CircuitBreakerClient) GetCapabilities() []TaskCapability {
+	return c.client.GetCapabilities()
+}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/soundprediction/go-embedeverything/pkg/embedder"
+	"github.com/soundprediction/predicato/pkg/nlp"
 )
 
 // EmbedEverythingClient implements the Client interface for EmbedEverything.
@@ -62,4 +63,10 @@ func (e *EmbedEverythingClient) Dimensions() int {
 func (e *EmbedEverythingClient) Close() error {
 	e.client.Close()
 	return nil
+}
+
+// GetCapabilities returns the list of capabilities supported by this client.
+// GetCapabilities returns the list of capabilities supported by this client.
+func (e *EmbedEverythingClient) GetCapabilities() []nlp.TaskCapability {
+	return []nlp.TaskCapability{nlp.TaskEmbedding}
 }

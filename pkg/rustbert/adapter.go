@@ -94,3 +94,19 @@ func (a *LLMAdapter) Close() error {
 	// unless we own it. Application logic typically manages the rustbert.Client lifecycle.
 	return nil
 }
+
+// GetCapabilities returns the list of capabilities supported by this client.
+func (a *LLMAdapter) GetCapabilities() []nlp.TaskCapability {
+	switch a.task {
+	case "summarization":
+		return []nlp.TaskCapability{nlp.TaskSummarization}
+	case "text_generation", "generation":
+		return []nlp.TaskCapability{nlp.TaskTextGeneration}
+	case "ner":
+		return []nlp.TaskCapability{nlp.TaskNamedEntityRecognition}
+	case "qa":
+		return []nlp.TaskCapability{nlp.TaskQuestionAnswering}
+	default:
+		return []nlp.TaskCapability{}
+	}
+}

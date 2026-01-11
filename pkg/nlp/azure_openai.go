@@ -82,13 +82,13 @@ type azureOpenAIError struct {
 }
 
 // Chat implements the Client interface for Azure OpenAI.
-func (a *AzureOpenAIClient) Chat(ctx context.Context, messages []types.Message) (string, error) {
+func (a *AzureOpenAIClient) Chat(ctx context.Context, messages []types.Message) (*types.Response, error) {
 	if len(messages) == 0 {
-		return "", fmt.Errorf("no messages provided")
+		return nil, fmt.Errorf("no messages provided")
 	}
 
 	if a.deploymentID == "" {
-		return "", fmt.Errorf("deployment ID is required for Azure OpenAI")
+		return nil, fmt.Errorf("deployment ID is required for Azure OpenAI")
 	}
 
 	// Convert messages to Azure OpenAI format
@@ -109,7 +109,7 @@ func (a *AzureOpenAIClient) Chat(ctx context.Context, messages []types.Message) 
 
 	reqBody, err := json.Marshal(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	// Azure OpenAI URL format: https://{resource-name}.openai.azure.com/openai/deployments/{deployment-id}/chat/completions?api-version={api-version}
@@ -118,7 +118,7 @@ func (a *AzureOpenAIClient) Chat(ctx context.Context, messages []types.Message) 
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(reqBody))
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
@@ -126,33 +126,41 @@ func (a *AzureOpenAIClient) Chat(ctx context.Context, messages []types.Message) 
 
 	resp, err := a.httpClient.Do(httpReq)
 	if err != nil {
-		return "", fmt.Errorf("failed to make request: %w", err)
+		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read response: %w", err)
+		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var azureResp azureOpenAIResponse
 	if err := json.Unmarshal(body, &azureResp); err != nil {
-		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	if azureResp.Error != nil {
-		return "", fmt.Errorf("API error: %s", azureResp.Error.Message)
+		return nil, fmt.Errorf("API error: %s", azureResp.Error.Message)
 	}
 
 	if len(azureResp.Choices) == 0 {
-		return "", fmt.Errorf("no choices in response")
+		return nil, fmt.Errorf("no choices in response")
 	}
 
-	return azureResp.Choices[0].Message.Content, nil
+	// TODO: Capture actual token usage if available in response
+	return &types.Response{
+		Content: azureResp.Choices[0].Message.Content,
+	}, nil
+}
+
+// GetCapabilities returns the list of capabilities supported by this client.
+func (a *AzureOpenAIClient) GetCapabilities() []TaskCapability {
+	return []TaskCapability{TaskTextGeneration}
 }
 
 // ChatWithStructuredOutput implements structured output for Azure OpenAI.
@@ -169,14 +177,11 @@ func (a *AzureOpenAIClient) ChatWithStructuredOutput(ctx context.Context, messag
 		Content: fmt.Sprintf("Please respond with valid JSON that matches this schema: %s", string(schemaBytes)),
 	})
 
-	content, err := a.Chat(ctx, modifiedMessages)
+	resp, err := a.Chat(ctx, modifiedMessages)
 	if err != nil {
 		return nil, err
 	}
 
-	// AzureOpenAIClient.Chat currently only returns string, so we construct a minimal Response object
-	// TODO: Update AzureOpenAIClient.Chat to return *types.Response to capture token usage
-	return &types.Response{
-		Content: content,
-	}, nil
+	// AzureOpenAIClient.Chat now returns *types.Response
+	return resp, nil
 }

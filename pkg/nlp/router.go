@@ -108,3 +108,13 @@ func (r *RouterClient) Close() error {
 	}
 	return nil
 }
+
+// GetCapabilities returns the list of capabilities supported by this client.
+func (r *RouterClient) GetCapabilities() []TaskCapability {
+	// For router, we can return the union of capabilities, or just delegation to default.
+	// safe approach: return default client's capabilities.
+	if r.defaultClient != nil {
+		return r.defaultClient.GetCapabilities()
+	}
+	return []TaskCapability{}
+}

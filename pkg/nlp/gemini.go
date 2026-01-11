@@ -76,9 +76,9 @@ type geminiError struct {
 }
 
 // Chat implements the Client interface for Gemini.
-func (g *GeminiClient) Chat(ctx context.Context, messages []types.Message) (string, error) {
+func (g *GeminiClient) Chat(ctx context.Context, messages []types.Message) (*types.Response, error) {
 	if len(messages) == 0 {
-		return "", fmt.Errorf("no messages provided")
+		return nil, fmt.Errorf("no messages provided")
 	}
 
 	// Convert messages to Gemini format
@@ -125,7 +125,7 @@ func (g *GeminiClient) Chat(ctx context.Context, messages []types.Message) (stri
 
 	reqBody, err := json.Marshal(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	url := fmt.Sprintf("%s/v1beta/models/%s:generateContent?key=%s",
@@ -133,40 +133,48 @@ func (g *GeminiClient) Chat(ctx context.Context, messages []types.Message) (stri
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(reqBody))
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	resp, err := g.httpClient.Do(httpReq)
 	if err != nil {
-		return "", fmt.Errorf("failed to make request: %w", err)
+		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read response: %w", err)
+		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var geminiResp geminiResponse
 	if err := json.Unmarshal(body, &geminiResp); err != nil {
-		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	if geminiResp.Error != nil {
-		return "", fmt.Errorf("API error: %s", geminiResp.Error.Message)
+		return nil, fmt.Errorf("API error: %s", geminiResp.Error.Message)
 	}
 
 	if len(geminiResp.Candidates) == 0 || len(geminiResp.Candidates[0].Content.Parts) == 0 {
-		return "", fmt.Errorf("no content in response")
+		return nil, fmt.Errorf("no content in response")
 	}
 
-	return geminiResp.Candidates[0].Content.Parts[0].Text, nil
+	// TODO: Capture actual token usage if available in response
+	return &types.Response{
+		Content: geminiResp.Candidates[0].Content.Parts[0].Text,
+	}, nil
+}
+
+// GetCapabilities returns the list of capabilities supported by this client.
+func (g *GeminiClient) GetCapabilities() []TaskCapability {
+	return []TaskCapability{TaskTextGeneration}
 }
 
 // ChatWithStructuredOutput implements structured output for Gemini.
@@ -183,14 +191,11 @@ func (g *GeminiClient) ChatWithStructuredOutput(ctx context.Context, messages []
 		Content: fmt.Sprintf("Please respond with valid JSON that matches this schema: %s", string(schemaBytes)),
 	})
 
-	content, err := g.Chat(ctx, modifiedMessages)
+	resp, err := g.Chat(ctx, modifiedMessages)
 	if err != nil {
 		return nil, err
 	}
 
-	// GeminiClient.Chat currently only returns string, so we construct a minimal Response object
-	// TODO: Update GeminiClient.Chat to return *types.Response to capture token usage
-	return &types.Response{
-		Content: content,
-	}, nil
+	// GeminiClient.Chat now returns *types.Response
+	return resp, nil
 }

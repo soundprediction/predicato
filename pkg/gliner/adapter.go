@@ -33,6 +33,7 @@ func (a *LLMAdapter) SetLogger(l *slog.Logger) {
 	a.logger = l
 }
 
+// Close implements Client
 func (a *LLMAdapter) Close() error {
 	if a.glinerClient != nil {
 		a.glinerClient.Close()
@@ -41,6 +42,31 @@ func (a *LLMAdapter) Close() error {
 		return a.baseClient.Close()
 	}
 	return nil
+}
+
+// GetCapabilities returns the list of capabilities supported by this client.
+func (a *LLMAdapter) GetCapabilities() []nlp.TaskCapability {
+	// Start with NER and Relation Extraction capabilities from GLiNER
+	caps := []nlp.TaskCapability{nlp.TaskNamedEntityRecognition, nlp.TaskRelationExtraction}
+
+	// Delegate to base client for other capabilities if available
+	if a.baseClient != nil {
+		baseCaps := a.baseClient.GetCapabilities()
+		for _, cap := range baseCaps {
+			// Avoid duplicates
+			found := false
+			for _, existing := range caps {
+				if existing == cap {
+					found = true
+					break
+				}
+			}
+			if !found {
+				caps = append(caps, cap)
+			}
+		}
+	}
+	return caps
 }
 
 func (a *LLMAdapter) Chat(ctx context.Context, messages []types.Message) (*types.Response, error) {

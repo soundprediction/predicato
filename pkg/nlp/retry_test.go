@@ -41,6 +41,10 @@ func (m *mockClient) Close() error {
 	return nil
 }
 
+func (m *mockClient) GetCapabilities() []TaskCapability {
+	return []TaskCapability{TaskTextGeneration}
+}
+
 func TestRetryClient_SuccessOnFirstAttempt(t *testing.T) {
 	mock := &mockClient{
 		failUntilCall: 0,

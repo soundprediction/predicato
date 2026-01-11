@@ -14,6 +14,9 @@ type Client interface {
 	// ChatWithStructuredOutput sends a chat completion request with structured output.
 	ChatWithStructuredOutput(ctx context.Context, messages []types.Message, schema any) (*types.Response, error)
 
+	// GetCapabilities returns the list of capabilities supported by this client.
+	GetCapabilities() []TaskCapability
+
 	// Close cleans up any resources.
 	Close() error
 }

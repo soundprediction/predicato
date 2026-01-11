@@ -273,6 +273,11 @@ func (c *OpenAIGenericClient) Close() error {
 	return nil
 }
 
+// GetCapabilities returns the list of capabilities supported by this client.
+func (c *OpenAIGenericClient) GetCapabilities() []TaskCapability {
+	return []TaskCapability{TaskTextGeneration}
+}
+
 // GetClient returns the underlying OpenAI client for advanced usage
 func (c *OpenAIGenericClient) GetClient() *openai.Client {
 	return c.client
