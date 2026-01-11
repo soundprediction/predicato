@@ -241,11 +241,11 @@ func (c *Client) AddEpisode(ctx context.Context, episode types.Episode, options 
 		maxCharacters = options.MaxCharacters
 	}
 
-	// If StagingDB is configured, use the decoupled pipeline
-	if c.stagingDB != nil {
-		c.logger.Info("Using StagingDB pipeline", "episode_id", episode.ID)
-		if err := c.ExtractToStaging(ctx, episode, options); err != nil {
-			return nil, fmt.Errorf("failed to extract to staging: %w", err)
+	// If FactsDB is configured, use the decoupled pipeline
+	if c.factsDB != nil {
+		c.logger.Info("Using FactsDB pipeline", "episode_id", episode.ID)
+		if err := c.ExtractToFacts(ctx, episode, options); err != nil {
+			return nil, fmt.Errorf("failed to extract to facts: %w", err)
 		}
 		return c.PromoteToGraph(ctx, episode.ID, options)
 	}

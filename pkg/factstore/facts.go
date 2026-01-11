@@ -1,4 +1,4 @@
-package staging
+package factstore
 
 import (
 	"context"
@@ -38,8 +38,8 @@ type ExtractedEdge struct {
 	ChunkIndex     int     `json:"chunk_index"`
 }
 
-// StagingDB defines the interface for the intermediate knowledge storage.
-type StagingDB interface {
+// FactsDB defines the interface for the intermediate knowledge storage.
+type FactsDB interface {
 	// Initialize ensures the database schema exists.
 	Initialize(ctx context.Context) error
 

@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/soundprediction/predicato/pkg/facts"
 	"github.com/soundprediction/predicato/pkg/prompts"
-	"github.com/soundprediction/predicato/pkg/staging"
 	"github.com/soundprediction/predicato/pkg/types"
 	"github.com/soundprediction/predicato/pkg/utils/maintenance"
 )
 
-// ExtractToStaging extracts knowledge from an episode and saves it to the staging database.
-func (c *Client) ExtractToStaging(ctx context.Context, episode types.Episode, options *AddEpisodeOptions) error {
-	if c.stagingDB == nil {
-		return fmt.Errorf("staging DB not configured")
+// ExtractToFacts extracts knowledge from an episode and saves it to the facts database.
+func (c *Client) ExtractToFacts(ctx context.Context, episode types.Episode, options *AddEpisodeOptions) error {
+	if c.factsDB == nil {
+		return fmt.Errorf("facts DB not configured")
 	}
 
 	if options == nil {
@@ -54,14 +54,14 @@ func (c *Client) ExtractToStaging(ctx context.Context, episode types.Episode, op
 		return err
 	}
 
-	// 5. Prepare Staging Data (Nodes)
+	// 5. Prepare Facts Data (Nodes)
 	var flattenedNodes []*types.Node
-	var stgNodes []*staging.ExtractedNode
+	var factsNodes []*facts.ExtractedNode
 
 	for chunkIdx, nodes := range extractedNodesByChunk {
 		for _, n := range nodes {
 			flattenedNodes = append(flattenedNodes, n)
-			stgNodes = append(stgNodes, &staging.ExtractedNode{
+			factsNodes = append(factsNodes, &facts.ExtractedNode{
 				ID:          n.Uuid,
 				SourceID:    episode.ID,
 				Name:        n.Name,
@@ -73,7 +73,7 @@ func (c *Client) ExtractToStaging(ctx context.Context, episode types.Episode, op
 		}
 	}
 
-	// 6. Extract Edges (Raw) and Prepare Staging Data
+	// 6. Extract Edges (Raw) and Prepare Facts Data
 	edgeOps := maintenance.NewEdgeOperations(c.driver, c.nlProcessor, c.embedder, prompts.NewLibrary())
 	edgeOps.ExtractionNLP = c.nlpModels.EdgeExtraction
 	edgeOps.ResolutionNLP = c.nlpModels.EdgeResolution
@@ -92,7 +92,7 @@ func (c *Client) ExtractToStaging(ctx context.Context, episode types.Episode, op
 		}
 	}
 
-	var stgEdges []*staging.ExtractedEdge
+	var factsEdges []*facts.ExtractedEdge
 
 	for chunkIdx, nodes := range extractedNodesByChunk {
 		if len(nodes) > 0 {
@@ -103,7 +103,7 @@ func (c *Client) ExtractToStaging(ctx context.Context, episode types.Episode, op
 			}
 
 			for _, e := range extracted {
-				// Resolve Names for Staging
+				// Resolve Names for Facts DB
 				// e.SourceNodeID and e.TargetNodeID are UUIDs from the extraction context (nodes + previous)
 
 				var sourceName, targetName string
@@ -142,7 +142,7 @@ func (c *Client) ExtractToStaging(ctx context.Context, episode types.Episode, op
 					}
 				}
 
-				stgEdges = append(stgEdges, &staging.ExtractedEdge{
+				factsEdges = append(factsEdges, &facts.ExtractedEdge{
 					ID:             e.Uuid,
 					SourceID:       episode.ID,
 					SourceNodeName: sourceName,
@@ -156,8 +156,8 @@ func (c *Client) ExtractToStaging(ctx context.Context, episode types.Episode, op
 		}
 	}
 
-	// 7. Save to Staging
-	source := &staging.Source{
+	// 7. Save to Facts
+	source := &facts.Source{
 		ID:        episode.ID,
 		Name:      episode.Name,
 		Content:   episode.Content,
@@ -165,35 +165,35 @@ func (c *Client) ExtractToStaging(ctx context.Context, episode types.Episode, op
 		Metadata:  episode.Metadata,
 		CreatedAt: episode.CreatedAt,
 	}
-	if err := c.stagingDB.SaveSource(ctx, source); err != nil {
+	if err := c.factsDB.SaveSource(ctx, source); err != nil {
 		return err
 	}
 
-	return c.stagingDB.SaveExtractedKnowledge(ctx, episode.ID, stgNodes, stgEdges)
+	return c.factsDB.SaveExtractedKnowledge(ctx, episode.ID, factsNodes, factsEdges)
 }
 
-// PromoteToGraph reads extracted knowledge from staging and ingests it into the graph.
+// PromoteToGraph reads extracted knowledge from facts DB and ingests it into the graph.
 func (c *Client) PromoteToGraph(ctx context.Context, sourceID string, options *AddEpisodeOptions) (*types.AddEpisodeResults, error) {
-	if c.stagingDB == nil {
-		return nil, fmt.Errorf("staging DB not configured")
+	if c.factsDB == nil {
+		return nil, fmt.Errorf("facts DB not configured")
 	}
 
 	if options == nil {
 		options = &AddEpisodeOptions{}
 	}
 
-	// 1. Load from Staging
-	source, err := c.stagingDB.GetSource(ctx, sourceID)
+	// 1. Load from Facts
+	source, err := c.factsDB.GetSource(ctx, sourceID)
 	if err != nil {
 		return nil, err
 	}
 
-	extNodes, err := c.stagingDB.GetExtractedNodes(ctx, sourceID)
+	extNodes, err := c.factsDB.GetExtractedNodes(ctx, sourceID)
 	if err != nil {
 		return nil, err
 	}
 
-	extEdges, err := c.stagingDB.GetExtractedEdges(ctx, sourceID)
+	extEdges, err := c.factsDB.GetExtractedEdges(ctx, sourceID)
 	if err != nil {
 		return nil, err
 	}

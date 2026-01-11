@@ -9,9 +9,9 @@ import (
 	"github.com/soundprediction/predicato/pkg/community"
 	"github.com/soundprediction/predicato/pkg/driver"
 	"github.com/soundprediction/predicato/pkg/embedder"
+	"github.com/soundprediction/predicato/pkg/facts"
 	"github.com/soundprediction/predicato/pkg/nlp"
 	"github.com/soundprediction/predicato/pkg/search"
-	"github.com/soundprediction/predicato/pkg/staging"
 	"github.com/soundprediction/predicato/pkg/types"
 	"github.com/soundprediction/predicato/pkg/utils/maintenance"
 )
@@ -105,7 +105,7 @@ type Client struct {
 	community   *community.Builder
 	config      *Config
 	logger      *slog.Logger
-	stagingDB   staging.StagingDB
+	factsDB     facts.FactsDB
 
 	// Specialized NLP clients for different steps
 	nlpModels NlpModels
@@ -135,8 +135,8 @@ type Config struct {
 	EntityTypes map[string]interface{}
 	EdgeTypes   map[string]interface{}
 
-	// StagingDBURL is the connection string for the Dolt staging database
-	StagingDBURL string
+	// FactsDBURL is the connection string for the Dolt facts database
+	FactsDBURL string
 
 	EdgeMap map[string]map[string][]interface{}
 	// NlpModels holds specialized NLP clients for different steps
@@ -190,19 +190,16 @@ func NewClient(driver driver.GraphDriver, nlProcessor nlp.Client, embedderClient
 	searcher := search.NewSearcher(driver, embedderClient, nlProcessor)
 	communityBuilder := community.NewBuilder(driver, nlProcessor, config.NlpModels.Summarization, embedderClient)
 
-	var stagingDB staging.StagingDB
-	if config.StagingDBURL != "" {
-		stg, err := staging.NewDoltDB(config.StagingDBURL)
+	var factsDB facts.FactsDB
+	if config.FactsDBURL != "" {
+		fdb, err := facts.NewDoltDB(config.FactsDBURL)
 		if err != nil {
-			// Log error but don't fail, or fail?
-			// Since we want this new functionality, maybe we should log.
-			// But NewClient returns error.
 			return nil, err
 		}
-		if err := stg.Initialize(context.Background()); err != nil {
+		if err := fdb.Initialize(context.Background()); err != nil {
 			return nil, err
 		}
-		stagingDB = stg
+		factsDB = fdb
 	}
 
 	return &Client{
@@ -213,7 +210,7 @@ func NewClient(driver driver.GraphDriver, nlProcessor nlp.Client, embedderClient
 		community:   communityBuilder,
 		config:      config,
 		logger:      logger,
-		stagingDB:   stagingDB,
+		factsDB:     factsDB,
 		nlpModels:   config.NlpModels,
 	}, nil
 }

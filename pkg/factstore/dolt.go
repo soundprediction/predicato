@@ -1,4 +1,4 @@
-package staging
+package factstore
 
 import (
 	"context"
@@ -9,13 +9,13 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-// DoltDB implements StagingDB using a Dolt SQL database.
+// DoltDB implements FactsDB using a Dolt SQL database.
 type DoltDB struct {
 	db *sql.DB
 }
 
 // NewDoltDB creates a new DoltDB instance.
-// connectionString should be a valid DSN, e.g., "root@tcp(127.0.0.1:3306)/predicato_staging"
+// connectionString should be a valid DSN, e.g., "root@tcp(127.0.0.1:3306)/predicato_facts"
 func NewDoltDB(connectionString string) (*DoltDB, error) {
 	db, err := sql.Open("mysql", connectionString)
 	if err != nil {
