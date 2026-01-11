@@ -20,10 +20,10 @@ const (
 
 // Builder provides community building operations for knowledge graphs
 type Builder struct {
-	driver     driver.GraphDriver
-	llm        nlp.Client
-	summarizer nlp.Client
-	embedder   embedder.Client
+	driver      driver.GraphDriver
+	nlProcessor nlp.Client
+	summarizer  nlp.Client
+	embedder    embedder.Client
 }
 
 // NewBuilder creates a new community builder
@@ -33,10 +33,10 @@ func NewBuilder(driver driver.GraphDriver, nlProcessor nlp.Client, summarizerCli
 		summarizerClient = nlProcessor
 	}
 	return &Builder{
-		driver:     driver,
-		llm:        nlProcessor,
-		summarizer: summarizerClient,
-		embedder:   embedderClient,
+		driver:      driver,
+		nlProcessor: nlProcessor,
+		summarizer:  summarizerClient,
+		embedder:    embedderClient,
 	}
 }
 
