@@ -721,7 +721,7 @@ func (c *Client) deduplicateEntitiesAcrossChunks(ctx context.Context, episodeID 
 
 	clients := &utils.Clients{
 		Driver:   c.driver,
-		LLM:      c.llm,
+		NLP:      c.nlp,
 		Embedder: c.embedder,
 		Prompts:  prompts.NewLibrary(),
 	}

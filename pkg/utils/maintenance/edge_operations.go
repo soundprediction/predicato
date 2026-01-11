@@ -20,14 +20,14 @@ import (
 // EdgeOperations provides edge-related maintenance operations
 type EdgeOperations struct {
 	driver   driver.GraphDriver
-	llm      llm.Client
+	nlp      nlp.Client
 	embedder embedder.Client
 	prompts  prompts.Library
 	logger   *slog.Logger
 
-	// Specialized LLM clients
-	ExtractionLLM llm.Client
-	ResolutionLLM llm.Client
+	// Specialized NLP clients
+	ExtractionNLP nlp.Client
+	ResolutionNLP nlp.Client
 
 	// Skip flags
 	SkipResolution bool
@@ -37,10 +37,10 @@ type EdgeOperations struct {
 }
 
 // NewEdgeOperations creates a new EdgeOperations instance
-func NewEdgeOperations(driver driver.GraphDriver, llm llm.Client, embedder embedder.Client, prompts prompts.Library) *EdgeOperations {
+func NewEdgeOperations(driver driver.GraphDriver, nlpClient nlp.Client, embedder embedder.Client, prompts prompts.Library) *EdgeOperations {
 	return &EdgeOperations{
 		driver:   driver,
-		llm:      llm,
+		nlp:      nlpClient,
 		embedder: embedder,
 		prompts:  prompts,
 		logger:   slog.Default(), // Use default logger, can be overridden
@@ -53,18 +53,18 @@ func (eo *EdgeOperations) SetLogger(logger *slog.Logger) {
 }
 
 // Helper methods to get the appropriate LLM client with fallback to default
-func (eo *EdgeOperations) getExtractionLLM() llm.Client {
-	if eo.ExtractionLLM != nil {
-		return eo.ExtractionLLM
+func (eo *EdgeOperations) getExtractionNLP() nlp.Client {
+	if eo.ExtractionNLP != nil {
+		return eo.ExtractionNLP
 	}
-	return eo.llm
+	return eo.nlp
 }
 
-func (eo *EdgeOperations) getResolutionLLM() llm.Client {
-	if eo.ResolutionLLM != nil {
-		return eo.ResolutionLLM
+func (eo *EdgeOperations) getResolutionNLP() nlp.Client {
+	if eo.ResolutionNLP != nil {
+		return eo.ResolutionNLP
 	}
-	return eo.llm
+	return eo.nlp
 }
 
 // BuildEpisodicEdges creates episodic edges from entity nodes to an episode
@@ -231,9 +231,9 @@ func (eo *EdgeOperations) extractEdgesBatch(ctx context.Context, episode *types.
 	}
 
 	// Use GenerateCSVResponse for robust CSV parsing with retries
-	extractedEdgeSlice, badResp, err := llm.GenerateCSVResponse[prompts.ExtractedEdge](
+	extractedEdgeSlice, badResp, err := nlp.GenerateCSVResponse[prompts.ExtractedEdge](
 		ctx,
-		eo.getExtractionLLM(),
+		eo.getExtractionNLP(),
 		eo.logger,
 		messages,
 		csvParser,
@@ -674,9 +674,9 @@ func (eo *EdgeOperations) resolveExtractedEdge(ctx context.Context, extractedEdg
 		}
 
 		// Use GenerateYAMLResponse
-		edgeDuplicateTSVSlice, badResp, err = llm.GenerateYAMLResponse[prompts.EdgeDuplicateTSV](
+		edgeDuplicateTSVSlice, badResp, err = nlp.GenerateYAMLResponse[prompts.EdgeDuplicateTSV](
 			ctx,
-			eo.getResolutionLLM(),
+			eo.getResolutionNLP(),
 			eo.logger,
 			messages,
 			yamlParser,
@@ -684,9 +684,9 @@ func (eo *EdgeOperations) resolveExtractedEdge(ctx context.Context, extractedEdg
 		)
 	} else {
 		// Use GenerateCSVResponse
-		edgeDuplicateTSVSlice, badResp, err = llm.GenerateCSVResponse[prompts.EdgeDuplicateTSV](
+		edgeDuplicateTSVSlice, badResp, err = nlp.GenerateCSVResponse[prompts.EdgeDuplicateTSV](
 			ctx,
-			eo.getResolutionLLM(),
+			eo.getResolutionNLP(),
 			eo.logger,
 			messages,
 			csvParser,

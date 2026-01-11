@@ -23,7 +23,7 @@ type NodeOperations interface {
 // Clients represents the set of clients needed for bulk operations
 type Clients struct {
 	Driver   driver.GraphDriver
-	LLM      llm.Client
+	NLP      nlp.Client
 	Embedder embedder.Client
 	Prompts  prompts.Library
 }
@@ -339,7 +339,7 @@ func extractFromSingleEpisode(
 		return nil, fmt.Errorf("failed to create entity extraction prompt: %w", err)
 	}
 
-	entityResponse, err := clients.LLM.Chat(ctx, entityMessages)
+	entityResponse, err := clients.NLP.Chat(ctx, entityMessages)
 	prompts.LogResponses(logger, *entityResponse)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract entities: %w", err)
@@ -376,7 +376,7 @@ func extractFromSingleEpisode(
 		return nil, fmt.Errorf("failed to create edge extraction prompt: %w", err)
 	}
 
-	edgeResponse, err := clients.LLM.Chat(ctx, edgeMessages)
+	edgeResponse, err := clients.NLP.Chat(ctx, edgeMessages)
 	prompts.LogResponses(logger, *edgeResponse)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract edges: %w \nprompt: %s \nresponse: \n %s", err, edgeMessages[1].Content, edgeResponse.Content)
@@ -701,7 +701,7 @@ func DedupeEdgesBulk(
 	}
 
 	// Use LLM to confirm duplicates (simplified)
-	if len(duplicatePairs) > 0 && clients != nil && clients.LLM != nil {
+	if len(duplicatePairs) > 0 && clients != nil && clients.NLP != nil {
 		confirmedPairs := make([][]string, 0, len(duplicatePairs))
 
 		for _, pair := range duplicatePairs {
@@ -723,7 +723,7 @@ func DedupeEdgesBulk(
 
 				dedupeMessages, err := clients.Prompts.DedupeEdges().Edge().Call(dedupeContext)
 				if err == nil {
-					response, err := clients.LLM.Chat(ctx, dedupeMessages)
+					response, err := clients.NLP.Chat(ctx, dedupeMessages)
 					prompts.LogResponses(logger, *response)
 					if err == nil && strings.Contains(strings.ToLower(response.Content), "duplicate") {
 						confirmedPairs = append(confirmedPairs, pair)

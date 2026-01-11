@@ -10,7 +10,6 @@ import (
 
 	"github.com/soundprediction/predicato/pkg/driver"
 	"github.com/soundprediction/predicato/pkg/embedder"
-	"github.com/soundprediction/predicato/pkg/nlp.
 	"github.com/soundprediction/predicato/pkg/nlp"
 	"github.com/soundprediction/predicato/pkg/prompts"
 	"github.com/soundprediction/predicato/pkg/types"
@@ -527,7 +526,7 @@ func (no *NodeOperations) ResolveExtractedNodes(ctx context.Context, extractedNo
 
 	// Filter duplicates using edge operations to remove those that already have IS_DUPLICATE_OF edges
 	edgeOps := NewEdgeOperations(no.driver, no.nlp, no.embedder, no.prompts)
-	edgeOps.ResolutionLLM = no.getResolutionNLP()
+	edgeOps.ResolutionNLP = no.getResolutionNLP()
 	filteredDuplicates, err := edgeOps.FilterExistingDuplicateOfEdges(ctx, nodeDuplicates)
 	if err != nil {
 		log.Printf("Warning: failed to filter existing duplicate edges: %v", err)
