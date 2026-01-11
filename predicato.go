@@ -168,7 +168,7 @@ type AddEpisodeOptions struct {
 }
 
 // NewClient creates a new Predicato client with the provided configuration.
-func NewClient(driver driver.GraphDriver, nlpClient nlp.Client, embedderClient embedder.Client, config *Config, logger *slog.Logger) (*Client, error) {
+func NewClient(driver driver.GraphDriver, nlProcessor nlp.Client, embedderClient embedder.Client, config *Config, logger *slog.Logger) (*Client, error) {
 	if config == nil {
 		config = &Config{
 			GroupID:  "default",
@@ -182,12 +182,12 @@ func NewClient(driver driver.GraphDriver, nlpClient nlp.Client, embedderClient e
 		logger = slog.Default()
 	}
 
-	searcher := search.NewSearcher(driver, embedderClient, nlpClient)
-	communityBuilder := community.NewBuilder(driver, nlpClient, config.LanguageModels.Summarization, embedderClient)
+	searcher := search.NewSearcher(driver, embedderClient, nlProcessor)
+	communityBuilder := community.NewBuilder(driver, nlProcessor, config.LanguageModels.Summarization, embedderClient)
 
 	return &Client{
 		driver:         driver,
-		nlp:            nlpClient,
+		nlp:            nlProcessor,
 		embedder:       embedderClient,
 		searcher:       searcher,
 		community:      communityBuilder,

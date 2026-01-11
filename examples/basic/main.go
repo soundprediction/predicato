@@ -94,8 +94,8 @@ func main() {
 		log.Fatalf("Failed to create LLM client: %v", err)
 	}
 	// Wrap with retry client for automatic retry on errors
-	llmClient := llm.NewRetryClient(baseLLMClient, llm.DefaultRetryConfig())
-	defer llmClient.Close()
+	nlProcessor := llm.NewRetryClient(baseLLMClient, llm.DefaultRetryConfig())
+	defer nlProcessor.Close()
 	fmt.Printf("   ✅ OpenAI LLM client created with retry support (model: %s)\n", llmConfig.Model)
 
 	// Create embedder client
@@ -115,7 +115,7 @@ func main() {
 		TimeZone: time.UTC,
 	}
 
-	client, err := predicato.NewClient(neo4jDriver, llmClient, embedderClient, config, nil)
+	client, err := predicato.NewClient(neo4jDriver, nlProcessor, embedderClient, config, nil)
 	if err != nil {
 		log.Fatalf("Failed to create Predicato client: %v", err)
 	}

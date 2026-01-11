@@ -239,7 +239,7 @@ func initializePredicato(cfg *config.Config) (predicato.Predicato, error) {
 	}
 
 	// Initialize NLP client
-	var nlpClient nlp.Client
+	var nlProcessor nlp.Client
 	if cfg.NLP.APIKey != "" {
 		switch cfg.NLP.Provider {
 		case "openai":
@@ -274,9 +274,9 @@ func initializePredicato(cfg *config.Config) (predicato.Predicato, error) {
 			tracker, err := nlp.NewTokenTracker(trackingPath)
 			if err != nil {
 				fmt.Printf("Warning: Failed to initialize token tracker: %v\n", err)
-				nlpClient = retryClient
+				nlProcessor = retryClient
 			} else {
-				nlpClient = nlp.NewTokenTrackingClient(retryClient, tracker)
+				nlProcessor = nlp.NewTokenTrackingClient(retryClient, tracker)
 				fmt.Printf("Token tracking enabled at: %s\n", trackingPath)
 			}
 
@@ -320,13 +320,13 @@ func initializePredicato(cfg *config.Config) (predicato.Predicato, error) {
 	}
 
 	// Create and return Predicato client
-	client, err := predicato.NewClient(graphDriver, nlpClient, embedderClient, predicatoConfig, logger)
+	client, err := predicato.NewClient(graphDriver, nlProcessor, embedderClient, predicatoConfig, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Predicato client: %w", err)
 	}
 
 	fmt.Printf("Predicato initialized successfully with driver: %s\n", cfg.Database.Driver)
-	if nlpClient != nil {
+	if nlProcessor != nil {
 		fmt.Printf("NLP provider: %s, model: %s\n", cfg.NLP.Provider, cfg.NLP.Model)
 	}
 	if embedderClient != nil {

@@ -253,8 +253,8 @@ func runPredicatoIntegrationExample() error {
 		return fmt.Errorf("failed to create Ollama client: %w", err)
 	}
 	// Wrap with retry client for automatic retry on errors
-	llmClient := llm.NewRetryClient(baseLLMClient, llm.DefaultRetryConfig())
-	defer llmClient.Close()
+	nlProcessor := llm.NewRetryClient(baseLLMClient, llm.DefaultRetryConfig())
+	defer nlProcessor.Close()
 
 	// For embeddings, we'll still use OpenAI since most local solutions
 	// don't have great embedding models yet, but you could also use
@@ -280,7 +280,7 @@ func runPredicatoIntegrationExample() error {
 	logger := slog.New(predicatoLogger.NewColorHandler(os.Stderr, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
-	predicatoClient, err := predicato.NewClient(neo4jDriver, llmClient, embedderClient, config, logger)
+	predicatoClient, err := predicato.NewClient(neo4jDriver, nlProcessor, embedderClient, config, logger)
 	if err != nil {
 		return fmt.Errorf("failed to create Predicato client: %w", err)
 	}

@@ -158,7 +158,7 @@ func NewMCPServer(config *Config) (*MCPServer, error) {
 	}
 
 	// Create NLP client
-	var nlpClient nlp.Client
+	var nlProcessor nlp.Client
 	if config.OpenAIAPIKey != "" {
 		nlpConfig := nlp.Config{
 			Model:       config.NLPModel,
@@ -169,7 +169,7 @@ func NewMCPServer(config *Config) (*MCPServer, error) {
 			return nil, fmt.Errorf("failed to create NLP client: %w", err)
 		}
 		// Wrap with retry client for automatic retry on errors
-		nlpClient = nlp.NewRetryClient(baseNLPClient, nlp.DefaultRetryConfig())
+		nlProcessor = nlp.NewRetryClient(baseNLPClient, nlp.DefaultRetryConfig())
 	}
 
 	// Create embedder client
@@ -187,7 +187,7 @@ func NewMCPServer(config *Config) (*MCPServer, error) {
 		TimeZone: time.UTC,
 	}
 
-	client, err := predicato.NewClient(graphDriver, nlpClient, embedderClient, predicatoConfig, logger)
+	client, err := predicato.NewClient(graphDriver, nlProcessor, embedderClient, predicatoConfig, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Predicato client: %w", err)
 	}

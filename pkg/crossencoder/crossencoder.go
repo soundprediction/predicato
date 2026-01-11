@@ -11,8 +11,8 @@ local reranking, and mock implementations for testing.
 Usage:
 
 	// Using OpenAI reranker
-	llmClient := nlp.NewOpenAIClient("api-key", nlp.Config{Model: "gpt-4o-mini"})
-	reranker := crossencoder.NewOpenAIRerankerClient(llmClient, crossencoder.Config{
+	nlProcessor := nlp.NewOpenAIClient("api-key", nlp.Config{Model: "gpt-4o-mini"})
+	reranker := crossencoder.NewOpenAIRerankerClient(nlProcessor, crossencoder.Config{
 		MaxConcurrency: 5,
 	})
 

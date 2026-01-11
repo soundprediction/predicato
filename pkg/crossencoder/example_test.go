@@ -98,9 +98,9 @@ func ExampleOpenAIRerankerClient() {
 	}
 
 	// This is a conceptual example - actual implementation depends on your LLM client
-	// llmClient := nlp.NewOpenAIClient("your-api-key", llmConfig)
+	// nlProcessor := nlp.NewOpenAIClient("your-api-key", llmConfig)
 	//
-	// reranker := crossencoder.NewOpenAIRerankerClient(llmClient, crossencoder.Config{
+	// reranker := crossencoder.NewOpenAIRerankerClient(nlProcessor, crossencoder.Config{
 	//     MaxConcurrency: 3,
 	// })
 	// defer reranker.Close()

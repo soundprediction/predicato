@@ -37,10 +37,10 @@ type EdgeOperations struct {
 }
 
 // NewEdgeOperations creates a new EdgeOperations instance
-func NewEdgeOperations(driver driver.GraphDriver, nlpClient nlp.Client, embedder embedder.Client, prompts prompts.Library) *EdgeOperations {
+func NewEdgeOperations(driver driver.GraphDriver, nlProcessor nlp.Client, embedder embedder.Client, prompts prompts.Library) *EdgeOperations {
 	return &EdgeOperations{
 		driver:   driver,
-		nlp:      nlpClient,
+		nlp:      nlProcessor,
 		embedder: embedder,
 		prompts:  prompts,
 		logger:   slog.Default(), // Use default logger, can be overridden

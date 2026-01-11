@@ -19,7 +19,7 @@ func ExampleGenerateJSONResponseWithContinuation() {
 	}
 
 	// Create LLM client (example - replace with actual client)
-	// llmClient, _ := nlp.NewOpenAIClient("your-api-key", nlp.Config{
+	// nlProcessor, _ := nlp.NewOpenAIClient("your-api-key", nlp.Config{
 	// 	Model: "gpt-4",
 	// })
 
@@ -27,7 +27,7 @@ func ExampleGenerateJSONResponseWithContinuation() {
 	// var result PregnancyTips
 	// jsonStr, err := GenerateJSONResponseWithContinuation(
 	// 	context.Background(),
-	// 	llmClient,
+	// 	nlProcessor,
 	// 	"You are a helpful assistant that returns only valid JSON.",
 	// 	"Generate a JSON object with pregnancy nutrition tips",
 	// 	&result,
@@ -49,7 +49,7 @@ func ExampleGenerateJSONWithContinuation() {
 
 	// jsonStr, err := GenerateJSONWithContinuation(
 	// 	context.Background(),
-	// 	llmClient,
+	// 	nlProcessor,
 	// 	"Return only valid JSON.",
 	// 	"List 5 pregnancy exercises as JSON array",
 	// 	3,

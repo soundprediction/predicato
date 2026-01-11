@@ -20,7 +20,7 @@ type GeminiRerankerClient struct {
 }
 
 // NewGeminiRerankerClient creates a new Gemini-based reranker client
-func NewGeminiRerankerClient(llmClient nlp.Client, config Config) *GeminiRerankerClient {
+func NewGeminiRerankerClient(nlProcessor nlp.Client, config Config) *GeminiRerankerClient {
 	if config.Model == "" {
 		config.Model = "gemini-1.5-flash"
 	}
@@ -29,7 +29,7 @@ func NewGeminiRerankerClient(llmClient nlp.Client, config Config) *GeminiReranke
 	}
 
 	return &GeminiRerankerClient{
-		client:    llmClient,
+		client:    nlProcessor,
 		config:    config,
 		semaphore: make(chan struct{}, config.MaxConcurrency),
 	}

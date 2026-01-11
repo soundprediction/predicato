@@ -94,11 +94,11 @@ type Searcher struct {
 	crossEncoder crossencoder.Client
 }
 
-func NewSearcher(driver driver.GraphDriver, embedder embedder.Client, nlpClient nlp.Client) *Searcher {
+func NewSearcher(driver driver.GraphDriver, embedder embedder.Client, nlProcessor nlp.Client) *Searcher {
 	return &Searcher{
 		driver:       driver,
 		embedder:     embedder,
-		nlp:          nlpClient,
+		nlp:          nlProcessor,
 		crossEncoder: nil, // Will be set separately if needed
 	}
 }

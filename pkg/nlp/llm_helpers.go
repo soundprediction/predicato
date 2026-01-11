@@ -39,7 +39,7 @@ func calculateProgressiveTimeout(attempt int) time.Duration {
 //
 // Parameters:
 //   - ctx: Context for the LLM call
-//   - llmClient: The LLM client to use
+//   - nlProcessor: The LLM client to use
 //   - systemPrompt: The initial system/instruction prompt
 //   - userPrompt: The user's request prompt
 //   - targetStruct: A pointer to the struct to unmarshal JSON into (for validation)
@@ -57,7 +57,7 @@ func calculateProgressiveTimeout(attempt int) time.Duration {
 //	}
 //	var result MyStruct
 //	jsonStr, err := GenerateJSONResponseWithContinuation(
-//	    ctx, llmClient,
+//	    ctx, nlProcessor,
 //	    "You are a JSON generator. Return only valid JSON.",
 //	    "Generate a list of 10 pregnancy tips",
 //	    &result,
@@ -82,7 +82,7 @@ func StripHtmlTags(s string) string {
 }
 func GenerateJSONResponseWithContinuation(
 	ctx context.Context,
-	llmClient Client,
+	nlProcessor Client,
 	systemPrompt string,
 	userPrompt string,
 	targetStruct interface{},
@@ -94,7 +94,7 @@ func GenerateJSONResponseWithContinuation(
 		{Role: "user", Content: userPrompt},
 	}
 
-	return GenerateJSONResponseWithContinuationMessages(ctx, llmClient, messages, targetStruct, maxRetries)
+	return GenerateJSONResponseWithContinuationMessages(ctx, nlProcessor, messages, targetStruct, maxRetries)
 }
 
 func isValidJson(s string) (bool, error) {
@@ -145,7 +145,7 @@ func truncateToLastCloseBrace(s string) string {
 //
 // Parameters:
 //   - ctx: Context for the LLM call
-//   - llmClient: The LLM client to use
+//   - nlProcessor: The LLM client to use
 //   - messages: The initial message history
 //   - targetStruct: A pointer to the struct to unmarshal JSON into (for validation)
 //   - maxRetries: Maximum number of continuation attempts (default 3 if <= 0)
@@ -155,7 +155,7 @@ func truncateToLastCloseBrace(s string) string {
 //   - Error if all retries fail or if there's a critical error
 func GenerateJSONResponseWithContinuationMessages(
 	ctx context.Context,
-	llmClient Client,
+	nlProcessor Client,
 	messages []types.Message,
 	targetStruct interface{},
 	maxRetries int,
@@ -181,7 +181,7 @@ func GenerateJSONResponseWithContinuationMessages(
 		attemptCtx, cancel := context.WithTimeout(ctx, timeout)
 
 		// fmt.Printf("workingMessages[1].Content: %v\n", workingMessages[1].Content)
-		response, err := llmClient.Chat(attemptCtx, workingMessages)
+		response, err := nlProcessor.Chat(attemptCtx, workingMessages)
 		cancel()
 
 		if err != nil {
@@ -238,7 +238,7 @@ func GenerateJSONResponseWithContinuationMessages(
 // and just ensures valid JSON is returned.
 func GenerateJSONWithContinuation(
 	ctx context.Context,
-	llmClient Client,
+	nlProcessor Client,
 	systemPrompt string,
 	userPrompt string,
 	maxRetries int,
@@ -262,7 +262,7 @@ func GenerateJSONWithContinuation(
 		attemptCtx, cancel := context.WithTimeout(ctx, timeout)
 
 		// Make LLM call
-		response, err := llmClient.Chat(attemptCtx, messages)
+		response, err := nlProcessor.Chat(attemptCtx, messages)
 		cancel()
 		if err != nil {
 			lastError = fmt.Errorf("LLM call failed on attempt %d: %w", attempt+1, err)
@@ -368,7 +368,7 @@ type CSVParserFunc[T any] func(csvContent string) ([]*T, error)
 //
 // Parameters:
 //   - ctx: Context for the LLM call
-//   - llmClient: The LLM client to use
+//   - nlProcessor: The LLM client to use
 //   - logger: Logger for debugging (can be nil)
 //   - messages: The initial message history
 //   - csvParser: Function to parse CSV content into []T
@@ -399,7 +399,7 @@ type CSVParserFunc[T any] func(csvContent string) ([]*T, error)
 //	}
 //
 //	entities, badResp, err := GenerateCSVResponse[Entity](
-//	    ctx, llmClient, logger,
+//	    ctx, nlProcessor, logger,
 //	    []types.Message{
 //	        {Role: "system", Content: "You are a CSV generator."},
 //	        {Role: "user", Content: "Generate entity data in TSV format."},
@@ -409,7 +409,7 @@ type CSVParserFunc[T any] func(csvContent string) ([]*T, error)
 //	)
 func GenerateCSVResponse[T any](
 	ctx context.Context,
-	llmClient Client,
+	nlProcessor Client,
 	logger *slog.Logger,
 	messages []types.Message,
 	csvParser CSVParserFunc[T],
@@ -432,7 +432,7 @@ func GenerateCSVResponse[T any](
 		attemptCtx, cancel := context.WithTimeout(ctx, timeout)
 
 		// Make LLM call
-		response, err := llmClient.Chat(attemptCtx, workingMessages)
+		response, err := nlProcessor.Chat(attemptCtx, workingMessages)
 		cancel()
 		if err != nil {
 			lastError = fmt.Errorf("LLM call failed on attempt %d: %w", attempt+1, err)
@@ -563,7 +563,7 @@ type YAMLParserFunc[T any] func(yamlContent string) ([]*T, error)
 // It handles retries with continuation prompts when parsing fails.
 func GenerateYAMLResponse[T any](
 	ctx context.Context,
-	llmClient Client,
+	nlProcessor Client,
 	logger *slog.Logger,
 	messages []types.Message,
 	yamlParser YAMLParserFunc[T],
@@ -582,7 +582,7 @@ func GenerateYAMLResponse[T any](
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		// Make LLM call
-		response, err := llmClient.Chat(ctx, workingMessages)
+		response, err := nlProcessor.Chat(ctx, workingMessages)
 		if err != nil {
 			lastError = fmt.Errorf("LLM call failed on attempt %d: %w", attempt+1, err)
 			lastResponse = response

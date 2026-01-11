@@ -27,14 +27,14 @@ type Builder struct {
 }
 
 // NewBuilder creates a new community builder
-func NewBuilder(driver driver.GraphDriver, llmClient nlp.Client, summarizerClient nlp.Client, embedderClient embedder.Client) *Builder {
+func NewBuilder(driver driver.GraphDriver, nlProcessor nlp.Client, summarizerClient nlp.Client, embedderClient embedder.Client) *Builder {
 	// Fallback to main LLM if summarizer is nil
 	if summarizerClient == nil {
-		summarizerClient = llmClient
+		summarizerClient = nlProcessor
 	}
 	return &Builder{
 		driver:     driver,
-		llm:        llmClient,
+		llm:        nlProcessor,
 		summarizer: summarizerClient,
 		embedder:   embedderClient,
 	}

@@ -22,7 +22,7 @@ type TemporalOperations struct {
 }
 
 // NewTemporalOperations creates a new TemporalOperations instance
-func NewTemporalOperations(llm nlp.Client, prompts prompts.Library, logger *slog.Logger) *TemporalOperations {
+func NewTemporalOperations(nlProcessor nlp.Client, prompts prompts.Library, logger *slog.Logger) *TemporalOperations {
 	return &TemporalOperations{
 		llm:     llm,
 		prompts: prompts,

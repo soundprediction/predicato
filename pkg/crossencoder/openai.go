@@ -20,7 +20,7 @@ type OpenAIRerankerClient struct {
 }
 
 // NewOpenAIRerankerClient creates a new OpenAI-based reranker client
-func NewOpenAIRerankerClient(llmClient nlp.Client, config Config) *OpenAIRerankerClient {
+func NewOpenAIRerankerClient(nlProcessor nlp.Client, config Config) *OpenAIRerankerClient {
 	if config.Model == "" {
 		config.Model = "gpt-4o-mini"
 	}
@@ -29,7 +29,7 @@ func NewOpenAIRerankerClient(llmClient nlp.Client, config Config) *OpenAIReranke
 	}
 
 	return &OpenAIRerankerClient{
-		client:    llmClient,
+		client:    nlProcessor,
 		config:    config,
 		semaphore: make(chan struct{}, config.MaxConcurrency),
 	}

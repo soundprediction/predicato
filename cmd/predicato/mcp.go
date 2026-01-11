@@ -374,7 +374,7 @@ func NewMCPServer(config *MCPConfig) (*MCPServer, error) {
 	}
 
 	// Create LLM client - only if we have an API key or base URL
-	var llmClient llm.Client
+	var nlProcessor llm.Client
 	if config.OpenAIAPIKey != "" || config.LLMBaseURL != "" {
 		llmConfig := llm.Config{
 			Model:       config.LLMModel,
@@ -412,9 +412,9 @@ func NewMCPServer(config *MCPConfig) (*MCPServer, error) {
 		tracker, err := llm.NewTokenTracker(trackingPath)
 		if err != nil {
 			logger.Warn("Failed to initialize token tracker", "error", err)
-			llmClient = retryClient
+			nlProcessor = retryClient
 		} else {
-			llmClient = llm.NewTokenTrackingClient(retryClient, tracker)
+			nlProcessor = llm.NewTokenTrackingClient(retryClient, tracker)
 			logger.Info("Token tracking enabled", "path", trackingPath)
 		}
 
@@ -455,7 +455,7 @@ func NewMCPServer(config *MCPConfig) (*MCPServer, error) {
 		TimeZone: time.UTC,
 	}
 
-	client, err := predicato.NewClient(graphDriver, llmClient, embedderClient, predicatoConfig, logger)
+	client, err := predicato.NewClient(graphDriver, nlProcessor, embedderClient, predicatoConfig, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Predicato client: %w", err)
 	}

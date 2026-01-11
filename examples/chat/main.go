@@ -110,7 +110,7 @@ func initializeClients(apiKey, userID, globalDBPath, userDBDir string, skipGloba
 	}
 
 	// Wrap with retry logic
-	llmClient := llm.NewRetryClient(baseLLMClient, llm.DefaultRetryConfig())
+	nlProcessor := llm.NewRetryClient(baseLLMClient, llm.DefaultRetryConfig())
 	fmt.Printf("   ✅ LLM client created (model: %s)\n", llmConfig.Model)
 
 	// Create embedder client
@@ -136,7 +136,7 @@ func initializeClients(apiKey, userID, globalDBPath, userDBDir string, skipGloba
 					GroupID:  "global-knowledge",
 					TimeZone: time.UTC,
 				}
-				globalPredicatoClient, err = predicato.NewClient(ladybugDriver, llmClient, embedderClient, globalConfig, nil)
+				globalPredicatoClient, err = predicato.NewClient(ladybugDriver, nlProcessor, embedderClient, globalConfig, nil)
 				if err != nil {
 					fmt.Printf("   ⚠️  Failed to create global client: %v\n", err)
 					globalPredicatoClient = nil
@@ -167,7 +167,7 @@ func initializeClients(apiKey, userID, globalDBPath, userDBDir string, skipGloba
 		GroupID:  fmt.Sprintf("user-%s-chat", userID),
 		TimeZone: time.UTC,
 	}
-	userPredicatoClient, err := predicato.NewClient(userLadybugDriver, llmClient, embedderClient, userConfig, nil)
+	userPredicatoClient, err := predicato.NewClient(userLadybugDriver, nlProcessor, embedderClient, userConfig, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user client: %w", err)
 	}
@@ -176,7 +176,7 @@ func initializeClients(apiKey, userID, globalDBPath, userDBDir string, skipGloba
 	return &ChatClients{
 		GlobalPredicato: globalPredicatoClient,
 		UserPredicato:   userPredicatoClient,
-		LLM:             llmClient,
+		LLM:             nlProcessor,
 		Context:         ctx,
 	}, nil
 }

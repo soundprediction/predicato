@@ -45,10 +45,10 @@ type NodeOperations struct {
 }
 
 // NewNodeOperations creates a new NodeOperations instance
-func NewNodeOperations(driver driver.GraphDriver, nlpClient nlp.Client, embedder embedder.Client, prompts prompts.Library) *NodeOperations {
+func NewNodeOperations(driver driver.GraphDriver, nlProcessor nlp.Client, embedder embedder.Client, prompts prompts.Library) *NodeOperations {
 	return &NodeOperations{
 		driver:   driver,
-		nlp:      nlpClient,
+		nlp:      nlProcessor,
 		embedder: embedder,
 		prompts:  prompts,
 		logger:   slog.Default(), // Use default logger, can be overridden

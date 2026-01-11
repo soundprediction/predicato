@@ -1302,7 +1302,7 @@ func (c *Client) AddTriplet(ctx context.Context, sourceNode *types.Node, edge *t
 	}
 
 	// Step 3: Resolve extracted nodes (lines 1031-1034)
-	nodeOps := maintenance.NewNodeOperations(c.driver, c.llm, c.embedder, prompts.NewLibrary())
+	nodeOps := maintenance.NewNodeOperations(c.driver, c.nlp, c.embedder, prompts.NewLibrary())
 	nodeOps.SetLogger(c.logger)
 	nodes, uuidMap, _, err := nodeOps.ResolveExtractedNodes(ctx, []*types.Node{sourceNode, targetNode}, nil, nil, nil)
 	if err != nil {
@@ -1314,7 +1314,7 @@ func (c *Client) AddTriplet(ctx context.Context, sourceNode *types.Node, edge *t
 	updatedEdge := edge // The edge is updated in-place
 
 	// Step 5: Get existing edges between nodes (lines 1038-1040)
-	edgeOps := maintenance.NewEdgeOperations(c.driver, c.llm, c.embedder, prompts.NewLibrary())
+	edgeOps := maintenance.NewEdgeOperations(c.driver, c.nlp, c.embedder, prompts.NewLibrary())
 	edgeOps.SetLogger(c.logger)
 	validEdges, err := edgeOps.GetBetweenNodes(ctx, updatedEdge.SourceID, updatedEdge.TargetID)
 	if err != nil {
@@ -1411,7 +1411,7 @@ func (c *Client) AddTriplet(ctx context.Context, sourceNode *types.Node, edge *t
 // resolveExtractedEdgeExact is an exact translation of Python's resolve_extracted_edge function
 func (c *Client) resolveExtractedEdgeExact(ctx context.Context, extractedEdge *types.Edge, relatedEdges []*types.Edge, existingEdges []*types.Edge, episode *types.Node, createEmbeddings bool) (*types.Edge, []*types.Edge, error) {
 	// Use the EdgeOperations to resolve the edge exactly as in Python
-	edgeOps := maintenance.NewEdgeOperations(c.driver, c.llm, c.embedder, prompts.NewLibrary())
+	edgeOps := maintenance.NewEdgeOperations(c.driver, c.nlp, c.embedder, prompts.NewLibrary())
 	edgeOps.SetLogger(c.logger)
 
 	// The Go implementation wraps the private resolveExtractedEdge method
