@@ -9,7 +9,7 @@ import (
 	"github.com/soundprediction/predicato/pkg/community"
 	"github.com/soundprediction/predicato/pkg/driver"
 	"github.com/soundprediction/predicato/pkg/embedder"
-	"github.com/soundprediction/predicato/pkg/facts"
+	"github.com/soundprediction/predicato/pkg/factstore"
 	"github.com/soundprediction/predicato/pkg/nlp"
 	"github.com/soundprediction/predicato/pkg/search"
 	"github.com/soundprediction/predicato/pkg/types"
@@ -105,7 +105,7 @@ type Client struct {
 	community   *community.Builder
 	config      *Config
 	logger      *slog.Logger
-	factsDB     facts.FactsDB
+	factStore   factstore.FactsDB
 
 	// Specialized NLP clients for different steps
 	nlpModels NlpModels
@@ -190,16 +190,16 @@ func NewClient(driver driver.GraphDriver, nlProcessor nlp.Client, embedderClient
 	searcher := search.NewSearcher(driver, embedderClient, nlProcessor)
 	communityBuilder := community.NewBuilder(driver, nlProcessor, config.NlpModels.Summarization, embedderClient)
 
-	var factsDB facts.FactsDB
+	var factStore factstore.FactsDB
 	if config.FactsDBURL != "" {
-		fdb, err := facts.NewDoltDB(config.FactsDBURL)
+		fdb, err := factstore.NewDoltDB(config.FactsDBURL)
 		if err != nil {
 			return nil, err
 		}
 		if err := fdb.Initialize(context.Background()); err != nil {
 			return nil, err
 		}
-		factsDB = fdb
+		factStore = fdb
 	}
 
 	return &Client{
@@ -210,7 +210,7 @@ func NewClient(driver driver.GraphDriver, nlProcessor nlp.Client, embedderClient
 		community:   communityBuilder,
 		config:      config,
 		logger:      logger,
-		factsDB:     factsDB,
+		factStore:   factStore,
 		nlpModels:   config.NlpModels,
 	}, nil
 }

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/soundprediction/predicato/pkg/facts"
+	"github.com/soundprediction/predicato/pkg/factstore"
 	"github.com/soundprediction/predicato/pkg/prompts"
 	"github.com/soundprediction/predicato/pkg/types"
 	"github.com/soundprediction/predicato/pkg/utils/maintenance"
@@ -13,7 +13,7 @@ import (
 
 // ExtractToFacts extracts knowledge from an episode and saves it to the facts database.
 func (c *Client) ExtractToFacts(ctx context.Context, episode types.Episode, options *AddEpisodeOptions) error {
-	if c.factsDB == nil {
+	if c.factStore == nil {
 		return fmt.Errorf("facts DB not configured")
 	}
 
@@ -56,12 +56,12 @@ func (c *Client) ExtractToFacts(ctx context.Context, episode types.Episode, opti
 
 	// 5. Prepare Facts Data (Nodes)
 	var flattenedNodes []*types.Node
-	var factsNodes []*facts.ExtractedNode
+	var factsNodes []*factstore.ExtractedNode
 
 	for chunkIdx, nodes := range extractedNodesByChunk {
 		for _, n := range nodes {
 			flattenedNodes = append(flattenedNodes, n)
-			factsNodes = append(factsNodes, &facts.ExtractedNode{
+			factsNodes = append(factsNodes, &factstore.ExtractedNode{
 				ID:          n.Uuid,
 				SourceID:    episode.ID,
 				Name:        n.Name,
@@ -92,7 +92,7 @@ func (c *Client) ExtractToFacts(ctx context.Context, episode types.Episode, opti
 		}
 	}
 
-	var factsEdges []*facts.ExtractedEdge
+	var factsEdges []*factstore.ExtractedEdge
 
 	for chunkIdx, nodes := range extractedNodesByChunk {
 		if len(nodes) > 0 {
@@ -142,7 +142,7 @@ func (c *Client) ExtractToFacts(ctx context.Context, episode types.Episode, opti
 					}
 				}
 
-				factsEdges = append(factsEdges, &facts.ExtractedEdge{
+				factsEdges = append(factsEdges, &factstore.ExtractedEdge{
 					ID:             e.Uuid,
 					SourceID:       episode.ID,
 					SourceNodeName: sourceName,
@@ -157,7 +157,7 @@ func (c *Client) ExtractToFacts(ctx context.Context, episode types.Episode, opti
 	}
 
 	// 7. Save to Facts
-	source := &facts.Source{
+	source := &factstore.Source{
 		ID:        episode.ID,
 		Name:      episode.Name,
 		Content:   episode.Content,
@@ -165,16 +165,16 @@ func (c *Client) ExtractToFacts(ctx context.Context, episode types.Episode, opti
 		Metadata:  episode.Metadata,
 		CreatedAt: episode.CreatedAt,
 	}
-	if err := c.factsDB.SaveSource(ctx, source); err != nil {
+	if err := c.factStore.SaveSource(ctx, source); err != nil {
 		return err
 	}
 
-	return c.factsDB.SaveExtractedKnowledge(ctx, episode.ID, factsNodes, factsEdges)
+	return c.factStore.SaveExtractedKnowledge(ctx, episode.ID, factsNodes, factsEdges)
 }
 
 // PromoteToGraph reads extracted knowledge from facts DB and ingests it into the graph.
 func (c *Client) PromoteToGraph(ctx context.Context, sourceID string, options *AddEpisodeOptions) (*types.AddEpisodeResults, error) {
-	if c.factsDB == nil {
+	if c.factStore == nil {
 		return nil, fmt.Errorf("facts DB not configured")
 	}
 
@@ -183,17 +183,17 @@ func (c *Client) PromoteToGraph(ctx context.Context, sourceID string, options *A
 	}
 
 	// 1. Load from Facts
-	source, err := c.factsDB.GetSource(ctx, sourceID)
+	source, err := c.factStore.GetSource(ctx, sourceID)
 	if err != nil {
 		return nil, err
 	}
 
-	extNodes, err := c.factsDB.GetExtractedNodes(ctx, sourceID)
+	extNodes, err := c.factStore.GetExtractedNodes(ctx, sourceID)
 	if err != nil {
 		return nil, err
 	}
 
-	extEdges, err := c.factsDB.GetExtractedEdges(ctx, sourceID)
+	extEdges, err := c.factStore.GetExtractedEdges(ctx, sourceID)
 	if err != nil {
 		return nil, err
 	}

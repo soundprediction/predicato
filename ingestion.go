@@ -115,7 +115,7 @@ func chunkParagraph(para string, maxChars int) []string {
 
 		// Try to find a good break point within maxChars
 		chunkEnd := maxChars
-		breakPoint := -1
+		var breakPoint int
 
 		// Minimum chunk size to avoid tiny fragments (at least 1/3 of maxChars)
 		minChunkSize := maxChars / 3
@@ -242,7 +242,7 @@ func (c *Client) AddEpisode(ctx context.Context, episode types.Episode, options 
 	}
 
 	// If FactsDB is configured, use the decoupled pipeline
-	if c.factsDB != nil {
+	if c.factStore != nil {
 		c.logger.Info("Using FactsDB pipeline", "episode_id", episode.ID)
 		if err := c.ExtractToFacts(ctx, episode, options); err != nil {
 			return nil, fmt.Errorf("failed to extract to facts: %w", err)
@@ -1322,19 +1322,7 @@ func (c *Client) AddTriplet(ctx context.Context, sourceNode *types.Node, edge *t
 	utils.ResolveEdgePointers([]*types.Edge{edge}, uuidMap)
 	updatedEdge := edge // The edge is updated in-place
 
-	// Step 5: Get existing edges between nodes (lines 1038-1040)
-	edgeOps := maintenance.NewEdgeOperations(c.driver, c.nlProcessor, c.embedder, prompts.NewLibrary())
-	edgeOps.SetLogger(c.logger)
-	validEdges, err := edgeOps.GetBetweenNodes(ctx, updatedEdge.SourceID, updatedEdge.TargetID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get edges between nodes: %w", err)
-	}
-
 	// Step 6: Search for related edges with edge UUID filters (lines 1042-1050)
-	var edgeUUIDs []string
-	for _, validEdge := range validEdges {
-		edgeUUIDs = append(edgeUUIDs, validEdge.Uuid)
-	}
 
 	searchFilters := &search.SearchFilters{
 		EdgeTypes: []types.EdgeType{types.EntityEdgeType}, // Filter for entity edges
