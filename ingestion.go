@@ -147,6 +147,7 @@ func chunkParagraph(para string, maxChars int) []string {
 
 // Add processes episodes and adds them to the knowledge graph.
 func (c *Client) Add(ctx context.Context, episodes []types.Episode, options *AddEpisodeOptions) (*types.AddBulkEpisodeResults, error) {
+	// Check if this batch is completely empty
 	if len(episodes) == 0 {
 		return &types.AddBulkEpisodeResults{}, nil
 	}
@@ -1490,7 +1491,7 @@ func (c *Client) getOrCreateSourceNode(ctx context.Context, sourceName string, g
 	}
 
 	// If we found an existing source node with exact name match, return it
-	if searchResults != nil && len(searchResults) > 0 {
+	if len(searchResults) > 0 {
 		for _, node := range searchResults {
 			if node.Name == sourceName && node.Type == types.SourceNodeType {
 				c.logger.Debug("Found existing source node", "source", sourceName, "node_id", node.Uuid)

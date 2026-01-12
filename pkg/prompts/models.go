@@ -16,6 +16,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/soundprediction/predicato/pkg/nlp"
 	"github.com/soundprediction/predicato/pkg/types"
 )
@@ -537,4 +538,73 @@ func ToPromptYAML(data interface{}) (string, error) {
 		return "", err
 	}
 	return buf.String(), nil
+}
+
+// ToPromptTOML serializes data to TOML for use in prompts.
+func ToPromptTOML(data interface{}) (string, error) {
+	b, err := toml.Marshal(data)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+// PromptFormat defines the strategy for formatting prompt data.
+type PromptFormat struct {
+	Name        string                            // e.g., "YAML", "TOML", "TSV"
+	Description string                            // e.g., "provided in YAML format"
+	Marshal     func(interface{}) (string, error) // Serialization function
+}
+
+// GetPromptFormat determines the prompt format strategy from the context.
+func GetPromptFormat(context map[string]interface{}) PromptFormat {
+	if val, ok := context["use_yaml"]; ok {
+		if b, ok := val.(bool); ok && b {
+			return PromptFormat{
+				Name:        "YAML",
+				Description: "provided in YAML format",
+				Marshal:     ToPromptYAML,
+			}
+		}
+	}
+
+	if val, ok := context["use_toml"]; ok {
+		if b, ok := val.(bool); ok && b {
+			return PromptFormat{
+				Name:        "TOML",
+				Description: "provided in TOML format",
+				Marshal:     ToPromptTOML,
+			}
+		}
+	}
+
+	// Default to TSV
+	ensureASCII := true
+	if val, ok := context["ensure_ascii"]; ok {
+		if b, ok := val.(bool); ok {
+			ensureASCII = b
+		}
+	}
+
+	return PromptFormat{
+		Name:        "TSV",
+		Description: "provided in TSV (tab-separated values) format",
+		Marshal: func(v interface{}) (string, error) {
+			return ToPromptCSV(v, ensureASCII)
+		},
+	}
+}
+
+// FormatContext serializes a map of data using the provided format.
+// Returns a map of serialized strings and any error encountered.
+func FormatContext[T any](format PromptFormat, data map[string]T) (map[string]string, error) {
+	result := make(map[string]string, len(data))
+	for k, v := range data {
+		s, err := format.Marshal(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal %s: %w", k, err)
+		}
+		result[k] = s
+	}
+	return result, nil
 }
