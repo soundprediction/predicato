@@ -168,22 +168,34 @@ func overrideConfigWithFlags(cmd *cobra.Command, cfg *config.Config) {
 
 	// NLP flags
 	if cmd.Flags().Changed("nlp-provider") {
-		cfg.NLP.Provider, _ = cmd.Flags().GetString("nlp-provider")
+		m := cfg.NLP.Models["default"]
+		m.Provider, _ = cmd.Flags().GetString("nlp-provider")
+		cfg.NLP.Models["default"] = m
 	}
 	if cmd.Flags().Changed("nlp-model") {
-		cfg.NLP.Model, _ = cmd.Flags().GetString("nlp-model")
+		m := cfg.NLP.Models["default"]
+		m.Model, _ = cmd.Flags().GetString("nlp-model")
+		cfg.NLP.Models["default"] = m
 	}
 	if cmd.Flags().Changed("nlp-api-key") {
-		cfg.NLP.APIKey, _ = cmd.Flags().GetString("nlp-api-key")
+		m := cfg.NLP.Models["default"]
+		m.APIKey, _ = cmd.Flags().GetString("nlp-api-key")
+		cfg.NLP.Models["default"] = m
 	}
 	if cmd.Flags().Changed("nlp-base-url") {
-		cfg.NLP.BaseURL, _ = cmd.Flags().GetString("nlp-base-url")
+		m := cfg.NLP.Models["default"]
+		m.BaseURL, _ = cmd.Flags().GetString("nlp-base-url")
+		cfg.NLP.Models["default"] = m
 	}
 	if cmd.Flags().Changed("nlp-temperature") {
-		cfg.NLP.Temperature, _ = cmd.Flags().GetFloat32("nlp-temperature")
+		m := cfg.NLP.Models["default"]
+		m.Temperature, _ = cmd.Flags().GetFloat32("nlp-temperature")
+		cfg.NLP.Models["default"] = m
 	}
 	if cmd.Flags().Changed("nlp-max-tokens") {
-		cfg.NLP.MaxTokens, _ = cmd.Flags().GetInt("nlp-max-tokens")
+		m := cfg.NLP.Models["default"]
+		m.MaxTokens, _ = cmd.Flags().GetInt("nlp-max-tokens")
+		cfg.NLP.Models["default"] = m
 	}
 
 	// Embedding flags
@@ -240,15 +252,16 @@ func initializePredicato(cfg *config.Config) (predicato.Predicato, error) {
 
 	// Initialize NLP client
 	var nlProcessor nlp.Client
-	if cfg.NLP.APIKey != "" {
-		switch cfg.NLP.Provider {
+	defaultModel := cfg.NLP.Models["default"]
+	if defaultModel.APIKey != "" {
+		switch defaultModel.Provider {
 		case "openai":
 			nlpConfig := nlp.Config{
-				Model:       cfg.NLP.Model,
-				Temperature: &cfg.NLP.Temperature,
-				BaseURL:     cfg.NLP.BaseURL,
+				Model:       defaultModel.Model,
+				Temperature: &defaultModel.Temperature,
+				BaseURL:     defaultModel.BaseURL,
 			}
-			baseNLPClient, err := nlp.NewOpenAIClient(cfg.NLP.APIKey, nlpConfig)
+			baseNLPClient, err := nlp.NewOpenAIClient(defaultModel.APIKey, nlpConfig)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create NLP client: %w", err)
 			}
@@ -294,7 +307,7 @@ func initializePredicato(cfg *config.Config) (predicato.Predicato, error) {
 				fmt.Printf("Error tracking enabled\n")
 			}
 		default:
-			return nil, fmt.Errorf("unsupported NLP provider: %s", cfg.NLP.Provider)
+			return nil, fmt.Errorf("unsupported NLP provider: %s", defaultModel.Provider)
 		}
 	}
 
@@ -327,7 +340,7 @@ func initializePredicato(cfg *config.Config) (predicato.Predicato, error) {
 
 	fmt.Printf("Predicato initialized successfully with driver: %s\n", cfg.Database.Driver)
 	if nlProcessor != nil {
-		fmt.Printf("NLP provider: %s, model: %s\n", cfg.NLP.Provider, cfg.NLP.Model)
+		fmt.Printf("NLP provider: %s, model: %s\n", defaultModel.Provider, defaultModel.Model)
 	}
 	if embedderClient != nil {
 		fmt.Printf("Embedding provider: %s, model: %s\n", cfg.Embedding.Provider, cfg.Embedding.Model)

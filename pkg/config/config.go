@@ -21,11 +21,11 @@ type Config struct {
 	// NLP configuration
 	NLP NLPConfig `mapstructure:"nlp"`
 
-	// Embedding configuration
-	Embedding EmbeddingConfig `mapstructure:"embedding"`
-
 	// Telemetry configuration
 	Telemetry TelemetryConfig `mapstructure:"telemetry"`
+
+	// Embedding configuration
+	Embedding EmbeddingConfig `mapstructure:"embedding"`
 
 	// Alert configuration
 	Alert AlertConfig `mapstructure:"alert"`
@@ -57,6 +57,7 @@ type CircuitBreakerConfig struct {
 // TelemetryConfig holds telemetry configuration
 type TelemetryConfig struct {
 	ParquetPath string `mapstructure:"parquet_path"`
+	DbURL       string `mapstructure:"db_url"`
 }
 
 // LogConfig holds logging configuration
@@ -83,28 +84,15 @@ type DatabaseConfig struct {
 
 // NLPConfig holds NLP configuration
 type NLPConfig struct {
-	// Deprecated: Use Providers map instead
-	Provider string `mapstructure:"provider"`
-	// Deprecated: Use Providers map instead
-	Model string `mapstructure:"model"`
-	// Deprecated: Use Providers map instead
-	APIKey string `mapstructure:"api_key"`
-	// Deprecated: Use Providers map instead
-	BaseURL string `mapstructure:"base_url"`
-	// Deprecated: Use Providers map instead
-	Temperature float32 `mapstructure:"temperature"`
-	// Deprecated: Use Providers map instead
-	MaxTokens int `mapstructure:"max_tokens"`
-
-	// Providers is a map of provider configurations (e.g. "openai", "anthropic", "local")
-	Providers map[string]ProviderConfig `mapstructure:"providers"`
+	// Models is a map of model configurations (e.g. "default", "embedding", "summary")
+	Models map[string]NLPModelConfig `mapstructure:"models"`
 
 	// RouterRules defines how to route requests
 	RouterRules []RouterRule `mapstructure:"router_rules"`
 }
 
-// ProviderConfig holds configuration for a specific provider
-type ProviderConfig struct {
+// NLPModelConfig holds configuration for a specific model
+type NLPModelConfig struct {
 	Provider    string  `mapstructure:"provider"` // type: openai, anthropic
 	Model       string  `mapstructure:"model"`
 	APIKey      string  `mapstructure:"api_key"`
@@ -162,14 +150,15 @@ func setDefaults() {
 	viper.SetDefault("database.password", "")
 	viper.SetDefault("database.database", "")
 
-	// NLP defaults
-	viper.SetDefault("nlp.provider", "openai")
-	viper.SetDefault("nlp.model", "gpt-4")
-	viper.SetDefault("nlp.temperature", 0.1)
-	viper.SetDefault("nlp.max_tokens", 2048)
+	viper.SetDefault("nlp.models.default.provider", "rustbert")
+	viper.SetDefault("nlp.models.default.base_url", "rustbert://generator")
+	viper.SetDefault("nlp.models.default.model", "gpt2")
+	viper.SetDefault("nlp.models.default.temperature", 0.7)
+	viper.SetDefault("nlp.models.default.max_tokens", 256)
 
-	viper.SetDefault("embedding.provider", "openai")
-	viper.SetDefault("embedding.model", "text-embedding-3-small")
+	viper.SetDefault("nlp.models.embedding.provider", "embedeverything")
+	viper.SetDefault("nlp.models.embedding.base_url", "embedeverything://")
+	viper.SetDefault("nlp.models.embedding.model", "all-MiniLM-L6-v2")
 
 	// Telemetry defaults
 	home, err := os.UserHomeDir()
@@ -181,14 +170,35 @@ func setDefaults() {
 
 // overrideWithEnv overrides config with environment variables
 func overrideWithEnv(config *Config) {
-	// NLP API Key
+	// Initialize Models map if nil
+	if config.NLP.Models == nil {
+		config.NLP.Models = make(map[string]NLPModelConfig)
+	}
+
+	// Helper to get or create model config
+	getModel := func(name string) NLPModelConfig {
+		if c, ok := config.NLP.Models[name]; ok {
+			return c
+		}
+		return NLPModelConfig{}
+	}
+
+	// Update default model from env
+	defaultModel := getModel("default")
 	if apiKey := os.Getenv("OPENAI_API_KEY"); apiKey != "" {
-		config.NLP.APIKey = apiKey
-		config.Embedding.APIKey = apiKey
+		defaultModel.APIKey = apiKey
 	}
-	if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" && config.NLP.Provider == "anthropic" {
-		config.NLP.APIKey = apiKey
+	if apiKey := os.Getenv("ANTHROPIC_API_KEY"); apiKey != "" && defaultModel.Provider == "anthropic" {
+		defaultModel.APIKey = apiKey
 	}
+	config.NLP.Models["default"] = defaultModel
+
+	// Update embedding model from env
+	embeddingModel := getModel("embedding")
+	if apiKey := os.Getenv("OPENAI_API_KEY"); apiKey != "" {
+		embeddingModel.APIKey = apiKey
+	}
+	config.NLP.Models["embedding"] = embeddingModel
 
 	// Database credentials
 	if uri := os.Getenv("NEO4J_URI"); uri != "" {

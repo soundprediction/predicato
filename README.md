@@ -11,9 +11,11 @@ A temporal knowledge graph library for Go that extracts, organizes, and queries 
 * **Internal Embedding & Reranking**: CPU-based embedding and reranking using go-embedeverything (Go bindings for the Rust embedanything package). Suitable for small models without requiring external API calls.
 * **Cost Tracking**: Token usage tracking and cost calculation with serverless pricing models.
 * **Routing**: Provider fallback, circuit breaking, and configurable routing rules.
+* **Fact Store:** Built-in DoltDB integration for versioned, SQL-queryable storage of extracted facts and sources, separate from the graph database.
 * **Storage Options**:
     * Embedded ladybugDB for in-process graph storage
     * BadgerDB caching layer for embeddings and LLM responses
+    * DoltDB for fact storage (MySQL-compatible, versioned)
 * **Telemetry**: Error tracking with DB persistence
 
 
@@ -390,13 +392,21 @@ curl -X POST http://localhost:8080/api/v1/search \
 
 See [cmd/README.md](cmd/README.md) for detailed CLI documentation.
 
+* **Fact Store:**:
+    * Separate storage for raw extracted facts, sources, and entities before they are resolved into the graph.
+    * Uses **DoltDB** (embedded or server) for version control of your data.
+    * SQL-accessible: Query your raw facts using standard SQL.
+    * Supports `file://` connection strings for embedded, zero-config local storage.
+
 ## Architecture
 
 The library is structured into several key packages:
 
 - **`predicato.go`**: Main client interface and configuration
 - **`pkg/driver/`**: Graph database drivers (ladybug, Memgraph, Neo4j)
+- **`pkg/factstore/`**: Fact storage implementation using DoltDB
 - **`pkg/llm/`**: Language model clients (OpenAI-compatible APIs)
+- **`pkg/nlp/`**: NLP Model Registry and shared interfaces
 - **`pkg/embedder/`**: Embedding model clients (OpenAI, Gemini, Voyage)
 - **`pkg/search/`**: Hybrid search functionality
 - **`pkg/types/`**: Core types for nodes, edges, and data structures
