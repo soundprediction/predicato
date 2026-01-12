@@ -66,9 +66,9 @@ type anthropicError struct {
 }
 
 // Chat implements the Client interface for Anthropic.
-func (a *AnthropicClient) Chat(ctx context.Context, messages []types.Message) (string, error) {
+func (a *AnthropicClient) Chat(ctx context.Context, messages []types.Message) (*types.Response, error) {
 	if len(messages) == 0 {
-		return "", fmt.Errorf("no messages provided")
+		return nil, fmt.Errorf("no messages provided")
 	}
 
 	// Convert messages to Anthropic format
@@ -97,12 +97,12 @@ func (a *AnthropicClient) Chat(ctx context.Context, messages []types.Message) (s
 
 	reqBody, err := json.Marshal(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", a.config.BaseURL+"/v1/messages", bytes.NewReader(reqBody))
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
@@ -111,33 +111,41 @@ func (a *AnthropicClient) Chat(ctx context.Context, messages []types.Message) (s
 
 	resp, err := a.httpClient.Do(httpReq)
 	if err != nil {
-		return "", fmt.Errorf("failed to make request: %w", err)
+		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read response: %w", err)
+		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var anthropicResp anthropicResponse
 	if err := json.Unmarshal(body, &anthropicResp); err != nil {
-		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	if anthropicResp.Error != nil {
-		return "", fmt.Errorf("API error: %s", anthropicResp.Error.Message)
+		return nil, fmt.Errorf("API error: %s", anthropicResp.Error.Message)
 	}
 
 	if len(anthropicResp.Content) == 0 {
-		return "", fmt.Errorf("no content in response")
+		return nil, fmt.Errorf("no content in response")
 	}
 
-	return anthropicResp.Content[0].Text, nil
+	// TODO: Capture actual token usage if available in response
+	return &types.Response{
+		Content: anthropicResp.Content[0].Text,
+	}, nil
+}
+
+// GetCapabilities returns the list of capabilities supported by this client.
+func (a *AnthropicClient) GetCapabilities() []TaskCapability {
+	return []TaskCapability{TaskTextGeneration}
 }
 
 // ChatWithStructuredOutput implements structured output for Anthropic.
@@ -155,14 +163,11 @@ func (a *AnthropicClient) ChatWithStructuredOutput(ctx context.Context, messages
 		Content: fmt.Sprintf("Please respond with valid JSON that matches this schema: %s", string(schemaBytes)),
 	})
 
-	content, err := a.Chat(ctx, modifiedMessages)
+	resp, err := a.Chat(ctx, modifiedMessages)
 	if err != nil {
 		return nil, err
 	}
 
-	// AnthropicClient.Chat currently only returns string, so we construct a minimal Response object
-	// TODO: Update AnthropicClient.Chat to return *types.Response to capture token usage
-	return &types.Response{
-		Content: content,
-	}, nil
+	// AnthropicClient.Chat now returns *types.Response
+	return resp, nil
 }

@@ -148,6 +148,11 @@ func (r *RetryClient) Close() error {
 	return r.client.Close()
 }
 
+// GetCapabilities returns the list of capabilities supported by this client.
+func (r *RetryClient) GetCapabilities() []TaskCapability {
+	return r.client.GetCapabilities()
+}
+
 // calculateDelay calculates the delay for a given retry attempt using exponential backoff
 func (r *RetryClient) calculateDelay(attempt int) time.Duration {
 	// Calculate exponential backoff: InitialDelay * (BackoffMultiplier ^ (attempt - 1))

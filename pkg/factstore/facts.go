@@ -56,8 +56,27 @@ type FactsDB interface {
 	GetExtractedNodes(ctx context.Context, sourceID string) ([]*ExtractedNode, error)
 
 	// GetExtractedEdges retrieves extracted edges for a source.
+	// GetExtractedEdges retrieves extracted edges for a source.
 	GetExtractedEdges(ctx context.Context, sourceID string) ([]*ExtractedEdge, error)
+
+	// GetAllSources retrieves all sources.
+	GetAllSources(ctx context.Context, limit int) ([]*Source, error)
+
+	// GetAllNodes retrieves all nodes (with optional limit).
+	GetAllNodes(ctx context.Context, limit int) ([]*ExtractedNode, error)
+
+	// GetAllEdges retrieves all edges (with optional limit).
+	GetAllEdges(ctx context.Context, limit int) ([]*ExtractedEdge, error)
+
+	// GetStats retrieves statistics about the fact store.
+	GetStats(ctx context.Context) (*Stats, error)
 
 	// Close closes the database connection.
 	Close() error
+}
+
+type Stats struct {
+	SourceCount int64
+	NodeCount   int64
+	EdgeCount   int64
 }

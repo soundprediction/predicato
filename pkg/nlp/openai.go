@@ -137,6 +137,11 @@ func (c *OpenAIClient) Close() error {
 	return nil
 }
 
+// GetCapabilities returns the list of capabilities supported by this client.
+func (c *OpenAIClient) GetCapabilities() []TaskCapability {
+	return []TaskCapability{TaskTextGeneration}
+}
+
 func (c *OpenAIClient) buildChatRequest(messages []types.Message, structuredOutput bool, schema any) openai.ChatCompletionRequest {
 	openaiMessages := make([]openai.ChatCompletionMessage, len(messages))
 	for i, msg := range messages {

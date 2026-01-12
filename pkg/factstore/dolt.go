@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/dolthub/driver"
 )
 
 // DoltDB implements FactsDB using a Dolt SQL database.
@@ -15,9 +15,9 @@ type DoltDB struct {
 }
 
 // NewDoltDB creates a new DoltDB instance.
-// connectionString should be a valid DSN, e.g., "root@tcp(127.0.0.1:3306)/predicato_facts"
+// connectionString should be a valid Dolt DSN, e.g., "file:///path/to/databases?commitname=User&commitemail=user@example.com&database=mydb"
 func NewDoltDB(connectionString string) (*DoltDB, error) {
-	db, err := sql.Open("mysql", connectionString)
+	db, err := sql.Open("dolt", connectionString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database connection: %w", err)
 	}
@@ -30,6 +30,14 @@ func NewDoltDB(connectionString string) (*DoltDB, error) {
 }
 
 func (d *DoltDB) Initialize(ctx context.Context) error {
+	// Ensure the database exists and we are using it
+	if _, err := d.db.ExecContext(ctx, "CREATE DATABASE IF NOT EXISTS facts"); err != nil {
+		return fmt.Errorf("failed to create database 'facts': %w", err)
+	}
+	if _, err := d.db.ExecContext(ctx, "USE facts"); err != nil {
+		return fmt.Errorf("failed to use database 'facts': %w", err)
+	}
+
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS sources (
 			id VARCHAR(255) PRIMARY KEY,
@@ -191,6 +199,112 @@ func (d *DoltDB) GetExtractedEdges(ctx context.Context, sourceID string) ([]*Ext
 		edges = append(edges, &e)
 	}
 	return edges, nil
+}
+
+func (d *DoltDB) GetAllSources(ctx context.Context, limit int) ([]*Source, error) {
+	query := "SELECT id, name, content, group_id, metadata, created_at FROM sources ORDER BY created_at DESC"
+	var rows *sql.Rows
+	var err error
+	if limit > 0 {
+		query += " LIMIT ?"
+		rows, err = d.db.QueryContext(ctx, query, limit)
+	} else {
+		rows, err = d.db.QueryContext(ctx, query)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to query sources: %w", err)
+	}
+	defer rows.Close()
+
+	var sources []*Source
+	for rows.Next() {
+		var s Source
+		var metadataBytes []byte
+		if err := rows.Scan(&s.ID, &s.Name, &s.Content, &s.GroupID, &metadataBytes, &s.CreatedAt); err != nil {
+			return nil, err
+		}
+		if len(metadataBytes) > 0 {
+			if err := json.Unmarshal(metadataBytes, &s.Metadata); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal metadata: %w", err)
+			}
+		}
+		sources = append(sources, &s)
+	}
+	return sources, nil
+}
+
+func (d *DoltDB) GetAllNodes(ctx context.Context, limit int) ([]*ExtractedNode, error) {
+	query := "SELECT id, source_id, name, type, description, embedding, chunk_index FROM extracted_nodes"
+	var rows *sql.Rows
+	var err error
+	if limit > 0 {
+		query += " LIMIT ?"
+		rows, err = d.db.QueryContext(ctx, query, limit)
+	} else {
+		rows, err = d.db.QueryContext(ctx, query)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to query nodes: %w", err)
+	}
+	defer rows.Close()
+
+	var nodes []*ExtractedNode
+	for rows.Next() {
+		var n ExtractedNode
+		var embeddingBytes []byte
+		if err := rows.Scan(&n.ID, &n.SourceID, &n.Name, &n.Type, &n.Description, &embeddingBytes, &n.ChunkIndex); err != nil {
+			return nil, err
+		}
+		if len(embeddingBytes) > 0 {
+			if err := json.Unmarshal(embeddingBytes, &n.Embedding); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal embedding: %w", err)
+			}
+		}
+		nodes = append(nodes, &n)
+	}
+	return nodes, nil
+}
+
+func (d *DoltDB) GetAllEdges(ctx context.Context, limit int) ([]*ExtractedEdge, error) {
+	query := "SELECT id, source_id, source_node_name, target_node_name, relation, description, weight, chunk_index FROM extracted_edges"
+	var rows *sql.Rows
+	var err error
+	if limit > 0 {
+		query += " LIMIT ?"
+		rows, err = d.db.QueryContext(ctx, query, limit)
+	} else {
+		rows, err = d.db.QueryContext(ctx, query)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to query edges: %w", err)
+	}
+	defer rows.Close()
+
+	var edges []*ExtractedEdge
+	for rows.Next() {
+		var e ExtractedEdge
+		if err := rows.Scan(&e.ID, &e.SourceID, &e.SourceNodeName, &e.TargetNodeName, &e.Relation, &e.Description, &e.Weight, &e.ChunkIndex); err != nil {
+			return nil, err
+		}
+		edges = append(edges, &e)
+	}
+	return edges, nil
+}
+
+func (d *DoltDB) GetStats(ctx context.Context) (*Stats, error) {
+	stats := &Stats{}
+
+	if err := d.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM sources").Scan(&stats.SourceCount); err != nil {
+		return nil, fmt.Errorf("failed to count sources: %w", err)
+	}
+	if err := d.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM extracted_nodes").Scan(&stats.NodeCount); err != nil {
+		return nil, fmt.Errorf("failed to count nodes: %w", err)
+	}
+	if err := d.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM extracted_edges").Scan(&stats.EdgeCount); err != nil {
+		return nil, fmt.Errorf("failed to count edges: %w", err)
+	}
+
+	return stats, nil
 }
 
 func (d *DoltDB) Close() error {

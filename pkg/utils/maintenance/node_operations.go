@@ -603,9 +603,9 @@ func (no *NodeOperations) ExtractAttributesFromNodes(ctx context.Context, nodes 
 			extractedAttributesSlice = []prompts.ExtractedNodeAttributes{}
 		} else {
 			// Call batch extraction prompt
-			messages, err := no.prompts.ExtractNodes().ExtractAttributesBatch().Call(promptContext)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create batch extraction prompt: %w", err)
+			messages, callErr := no.prompts.ExtractNodes().ExtractAttributesBatch().Call(promptContext)
+			if callErr != nil {
+				return nil, fmt.Errorf("failed to create batch extraction prompt: %w", callErr)
 			}
 
 			if no.UseYAML {
