@@ -229,8 +229,9 @@ func runPredicatoIntegrationExample() error {
 
 	neo4jPassword := os.Getenv("NEO4J_PASSWORD")
 	if neo4jPassword == "" {
-		fmt.Println("Warning: NEO4J_PASSWORD not set, using 'password'")
-		neo4jPassword = "password"
+		fmt.Println("Warning: NEO4J_PASSWORD not set, skipping Neo4j integration example")
+		fmt.Println("Set NEO4J_PASSWORD environment variable to run this example")
+		return nil
 	}
 
 	neo4jDriver, err := driver.NewMemgraphDriver(neo4jURI, neo4jUser, neo4jPassword, "neo4j")

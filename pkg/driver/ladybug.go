@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -101,7 +102,10 @@ type writeResult struct {
 	err    error
 }
 
-// LadybugDriver implements the GraphDriver interface for Ladybug databases exactly like Python implementation
+// LadybugDriver implements the GraphDriver interface for Ladybug databases exactly like Python implementation.
+// IMPORTANT: Close() must be called to release resources. The driver spawns a background goroutine
+// for write operations that will not terminate until Close() is called. Use defer driver.Close()
+// immediately after creating the driver to ensure proper cleanup.
 type LadybugDriver struct {
 	provider     GraphProvider
 	db           *ladybug.Database
@@ -426,6 +430,21 @@ func NewLadybugDriverWithConfig(config *LadybugDriverConfig) (*LadybugDriver, er
 	_, err = client.Query("LOAD EXTENSION FTS;")
 	if err != nil && !strings.Contains(err.Error(), "already loaded") {
 		log.Printf("Warning: Failed to load FTS extension on main connection: %v", err)
+	}
+
+	// Set up a finalizer to clean up temp directories if Close() is never called.
+	// This is a best-effort cleanup - finalizers are not guaranteed to run.
+	if driver.tempDbPath != "" {
+		runtime.SetFinalizer(driver, func(d *LadybugDriver) {
+			if d.tempDbPath != "" && !d.closed {
+				tempDir := filepath.Dir(d.tempDbPath)
+				if err := os.RemoveAll(tempDir); err != nil {
+					log.Printf("Finalizer: Failed to clean up temp database at %s: %v", tempDir, err)
+				} else {
+					log.Printf("Finalizer: Cleaned up orphaned temp database at %s", tempDir)
+				}
+			}
+		})
 	}
 
 	return driver, nil
@@ -2099,6 +2118,22 @@ func (k *LadybugDriver) CreateIndices(ctx context.Context) error {
 	return nil
 }
 
+// Allowed node and edge labels for GetStats queries (prevents query injection)
+var (
+	allowedNodeLabels = map[string]bool{
+		"Entity":         true,
+		"Episodic":       true,
+		"Community":      true,
+		"RelatesToNode_": true,
+		"Source":         true,
+	}
+	allowedEdgeLabels = map[string]bool{
+		"RELATES_TO": true,
+		"MENTIONS":   true,
+		"HAS_MEMBER": true,
+	}
+)
+
 // GetStats returns graph statistics
 func (k *LadybugDriver) GetStats(ctx context.Context, groupID string) (*GraphStats, error) {
 	stats := &GraphStats{
@@ -2107,10 +2142,9 @@ func (k *LadybugDriver) GetStats(ctx context.Context, groupID string) (*GraphSta
 		LastUpdated: time.Now(),
 	}
 
-	// Get node counts by table
-	nodeTables := []string{"Entity", "Episodic", "Community", "RelatesToNode_"}
-	for _, table := range nodeTables {
-		query := fmt.Sprintf("MATCH (n:%s) RETURN count(n) as count", table)
+	// Get node counts by table (using validated labels only)
+	for label := range allowedNodeLabels {
+		query := fmt.Sprintf("MATCH (n:%s) RETURN count(n) as count", label)
 		result, _, _, err := k.ExecuteQuery(query, nil)
 		if err != nil {
 			continue
@@ -2118,16 +2152,15 @@ func (k *LadybugDriver) GetStats(ctx context.Context, groupID string) (*GraphSta
 
 		if resultList, ok := result.([]map[string]interface{}); ok && len(resultList) > 0 {
 			if count, ok := resultList[0]["count"].(int64); ok {
-				stats.NodesByType[table] = count
+				stats.NodesByType[label] = count
 				stats.NodeCount += count
 			}
 		}
 	}
 
-	// Get edge counts by relationship type
-	edgeTables := []string{"RELATES_TO", "MENTIONS", "HAS_MEMBER"}
-	for _, table := range edgeTables {
-		query := fmt.Sprintf("MATCH ()-[r:%s]->() RETURN count(r) as count", table)
+	// Get edge counts by relationship type (using validated labels only)
+	for label := range allowedEdgeLabels {
+		query := fmt.Sprintf("MATCH ()-[r:%s]->() RETURN count(r) as count", label)
 		result, _, _, err := k.ExecuteQuery(query, nil)
 		if err != nil {
 			continue
@@ -2135,7 +2168,7 @@ func (k *LadybugDriver) GetStats(ctx context.Context, groupID string) (*GraphSta
 
 		if resultList, ok := result.([]map[string]interface{}); ok && len(resultList) > 0 {
 			if count, ok := resultList[0]["count"].(int64); ok {
-				stats.EdgesByType[table] = count
+				stats.EdgesByType[label] = count
 				stats.EdgeCount += count
 			}
 		}
