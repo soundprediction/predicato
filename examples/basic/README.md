@@ -1,6 +1,6 @@
-# Basic Go-Predicato Example (Neo4j + OpenAI)
+# Basic Predicato Example (Neo4j + OpenAI)
 
-This example demonstrates using go-predicato with external services: Neo4j database and OpenAI APIs.
+This example demonstrates using predicato with external services: Neo4j database and OpenAI APIs.
 
 > **Note**: For the recommended minimal setup, see the [ladybug + Ollama example](../ladybug_ollama/) which requires no external dependencies.
 
@@ -68,7 +68,7 @@ This example shows how to:
 
 When run successfully, you'll see output similar to:
 ```
-🚀 Starting go-predicato basic example
+🚀 Starting predicato basic example
    Neo4j URI: bolt://localhost:7687
    Neo4j User: neo4j
 

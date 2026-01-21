@@ -1,6 +1,6 @@
 # Checkpoint Package
 
-This package provides checkpoint/resume functionality for the `addEpisodeChunked` pipeline in go-predicato. It allows you to save the state of a partially processed episode and resume from where it left off if processing fails due to temporary issues (like LLM timeouts, rate limits, or network errors).
+This package provides checkpoint/resume functionality for the `addEpisodeChunked` pipeline in predicato. It allows you to save the state of a partially processed episode and resume from where it left off if processing fails due to temporary issues (like LLM timeouts, rate limits, or network errors).
 
 ## Features
 
@@ -48,7 +48,7 @@ The `EpisodeCheckpoint` struct stores:
 ```go
 import (
     "context"
-    "github.com/soundprediction/go-predicato/pkg/checkpoint"
+    "github.com/soundprediction/predicato/pkg/checkpoint"
 )
 
 // Create checkpoint manager

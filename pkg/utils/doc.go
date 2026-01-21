@@ -1,4 +1,4 @@
-// Package utils provides utility functions for the go-predicato library.
+// Package utils provides utility functions for the predicato library.
 //
 // This package contains helper functions for various operations including:
 //   - Date and time utilities (datetime.go)

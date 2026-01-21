@@ -157,7 +157,7 @@ go test ./pkg/crossencoder/... -run Example
 
 ## Integration
 
-The crossencoder package integrates with the search functionality in go-predicato to provide reranking capabilities for:
+The crossencoder package integrates with the search functionality in predicato to provide reranking capabilities for:
 
 - Node search results
 - Edge search results  

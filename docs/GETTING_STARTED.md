@@ -1,6 +1,6 @@
-# Getting Started with go-predicato
+# Getting Started with predicato
 
-This guide will help you get started with go-predicato, a temporal knowledge graph library for Go.
+This guide will help you get started with predicato, a temporal knowledge graph library for Go.
 
 ## Prerequisites
 
@@ -8,12 +8,12 @@ This guide will help you get started with go-predicato, a temporal knowledge gra
 - **Optional**: External graph database (Neo4j or FalkorDB)
 - **Optional**: LLM API access (OpenAI, Ollama, vLLM, or any OpenAI-compatible service)
 
-> **Note**: go-predicato works out-of-the-box with embedded ladybug database and no external dependencies!
+> **Note**: predicato works out-of-the-box with embedded ladybug database and no external dependencies!
 
 ## Installation
 
 ```bash
-go get github.com/soundprediction/go-predicato
+go get github.com/soundprediction/predicato
 ```
 
 ## Quick Start Options
@@ -30,8 +30,8 @@ import (
     "log"
     "time"
 
-    "github.com/soundprediction/go-predicato"
-    "github.com/soundprediction/go-predicato/pkg/driver"
+    "github.com/soundprediction/predicato"
+    "github.com/soundprediction/predicato/pkg/driver"
 )
 
 func main() {
@@ -147,9 +147,9 @@ import (
     "log"
     "time"
 
-    "github.com/soundprediction/go-predicato"
-    "github.com/soundprediction/go-predicato/pkg/driver"
-    "github.com/soundprediction/go-predicato/pkg/types"
+    "github.com/soundprediction/predicato"
+    "github.com/soundprediction/predicato/pkg/driver"
+    "github.com/soundprediction/predicato/pkg/types"
 )
 
 func main() {
@@ -207,11 +207,11 @@ import (
     "os"
     "time"
 
-    "github.com/soundprediction/go-predicato"
-    "github.com/soundprediction/go-predicato/pkg/driver"
-    "github.com/soundprediction/go-predicato/pkg/embedder"
-    "github.com/soundprediction/go-predicato/pkg/llm"
-    "github.com/soundprediction/go-predicato/pkg/types"
+    "github.com/soundprediction/predicato"
+    "github.com/soundprediction/predicato/pkg/driver"
+    "github.com/soundprediction/predicato/pkg/embedder"
+    "github.com/soundprediction/predicato/pkg/llm"
+    "github.com/soundprediction/predicato/pkg/types"
 )
 
 func main() {

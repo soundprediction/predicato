@@ -1,4 +1,4 @@
-// Package main demonstrates basic usage of go-predicato with OpenAI LLM and Neo4j database.
+// Package main demonstrates basic usage of predicato with OpenAI LLM and Neo4j database.
 //
 // This example shows how to:
 // - Create and configure a Predicato client with Neo4j and OpenAI
@@ -68,7 +68,7 @@ func main() {
 
 	ctx := context.Background()
 
-	fmt.Println("🚀 Starting go-predicato basic example")
+	fmt.Println("🚀 Starting predicato basic example")
 	fmt.Printf("   Neo4j URI: %s\n", neo4jURI)
 	fmt.Printf("   Neo4j User: %s\n", neo4jUser)
 	fmt.Println()

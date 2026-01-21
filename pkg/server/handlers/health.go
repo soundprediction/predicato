@@ -35,7 +35,7 @@ func NewHealthHandler(g predicato.Predicato) *HealthHandler {
 func (h *HealthHandler) HealthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":    "healthy",
-		"service":   "go-predicato",
+		"service":   "predicato",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 		"version":   Version,
 	})
@@ -48,7 +48,7 @@ func (h *HealthHandler) ReadinessCheck(c *gin.Context) {
 
 	response := gin.H{
 		"status":    "ready",
-		"service":   "go-predicato",
+		"service":   "predicato",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 		"checks":    gin.H{},
 	}
@@ -138,7 +138,7 @@ func (h *HealthHandler) LivenessCheck(c *gin.Context) {
 	// Simple liveness check - just confirm the service is running
 	c.JSON(http.StatusOK, gin.H{
 		"status":    "alive",
-		"service":   "go-predicato",
+		"service":   "predicato",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 	})
 }
@@ -151,7 +151,7 @@ func (h *HealthHandler) DetailedHealthCheck(c *gin.Context) {
 	startTime := time.Now()
 	response := gin.H{
 		"status":  "healthy",
-		"service": "go-predicato",
+		"service": "predicato",
 		"version": Version,
 		"build_info": gin.H{
 			"git_commit": GitCommit,

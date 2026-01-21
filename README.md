@@ -1,4 +1,4 @@
-# go-predicato
+# predicato
 
 A temporal knowledge graph library for Go that extracts, organizes, and queries predicate logic from unstructured content.
 
@@ -35,7 +35,7 @@ A temporal knowledge graph library for Go that extracts, organizes, and queries 
 ## Installation
 
 ```bash
-go get github.com/soundprediction/go-predicato
+go get github.com/soundprediction/predicato
 ```
 
 **Note:** If building from source, you must run `go generate` to download the ladybug library and use the `system_ladybug` build tag:
@@ -96,8 +96,8 @@ import (
     "log"
     "time"
 
-    "github.com/soundprediction/go-predicato"
-    "github.com/soundprediction/go-predicato/pkg/driver"
+    "github.com/soundprediction/predicato"
+    "github.com/soundprediction/predicato/pkg/driver"
 )
 
 func main() {
@@ -149,10 +149,10 @@ import (
     "log"
     "time"
 
-    "github.com/soundprediction/go-predicato"
-    "github.com/soundprediction/go-predicato/pkg/driver"
-    "github.com/soundprediction/go-predicato/pkg/embedder"
-    "github.com/soundprediction/go-predicato/pkg/llm"
+    "github.com/soundprediction/predicato"
+    "github.com/soundprediction/predicato/pkg/driver"
+    "github.com/soundprediction/predicato/pkg/embedder"
+    "github.com/soundprediction/predicato/pkg/llm"
 )
 
 func main() {
@@ -232,10 +232,10 @@ import (
     "log"
     "time"
 
-    "github.com/soundprediction/go-predicato"
-    "github.com/soundprediction/go-predicato/pkg/crossencoder"
-    "github.com/soundprediction/go-predicato/pkg/driver"
-    "github.com/soundprediction/go-predicato/pkg/embedder"
+    "github.com/soundprediction/predicato"
+    "github.com/soundprediction/predicato/pkg/crossencoder"
+    "github.com/soundprediction/predicato/pkg/driver"
+    "github.com/soundprediction/predicato/pkg/embedder"
 )
 
 func main() {
@@ -448,7 +448,7 @@ Implemented features:
 
 ## Robustness & Reliability
 
-`go-predicato` is built for production reliability with specific features to handle failure modes:
+`predicato` is built for production reliability with specific features to handle failure modes:
 
 *   **Automatic WAL Recovery**: When using the embedded ladybug database, the driver automatically detects WAL (Write-Ahead Log) corruption that can occur after hard crashes (e.g., OOM kills, power loss). It moves the corrupt WAL file to a backup location and self-heals the database, ensuring your application restarts successfully without manual intervention.
 *   **Concurrency Safety**: The internal driver architecture enforces serial access to the embedded database, guaranteeing thread safety even when hundreds of workers are accessing the same client instance. Write operations are queued and processed asynchronously to prevent lock contention.

@@ -1,6 +1,6 @@
 # Maintenance Package
 
-The maintenance package provides comprehensive utilities for maintaining and operating on graph nodes, edges, and temporal relationships in go-predicato. This package is a complete Go implementation of the Python predicato maintenance utilities found in `utils/maintenance/`.
+The maintenance package provides comprehensive utilities for maintaining and operating on graph nodes, edges, and temporal relationships in predicato. This package is a complete Go implementation of the Python predicato maintenance utilities found in `utils/maintenance/`.
 
 ## Overview
 

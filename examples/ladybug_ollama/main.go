@@ -24,7 +24,7 @@ import (
 func main() {
 	ctx := context.Background()
 
-	log.Println("🚀 Starting go-predicato example with Ladybug + Ollama (OpenAI-compatible)")
+	log.Println("🚀 Starting predicato example with Ladybug + Ollama (OpenAI-compatible)")
 	log.Println("   This example demonstrates a fully local setup:")
 	log.Println("   - Ladybug: embedded graph database")
 	log.Println("   - Ollama: local LLM inference via OpenAI-compatible API")

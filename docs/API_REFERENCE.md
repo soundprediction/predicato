@@ -1,6 +1,6 @@
-# go-predicato API Reference
+# predicato API Reference
 
-This document provides a comprehensive reference for the `go-predicato` API, covering advanced configuration, search capabilities, and graph maintenance operations.
+This document provides a comprehensive reference for the `predicato` API, covering advanced configuration, search capabilities, and graph maintenance operations.
 
 ## Client Configuration
 
@@ -52,7 +52,7 @@ Each config type (`NodeConfig`, etc.) accepts a list of `SearchMethods`:
 
 ### Reranking Strategies
 
-`go-predicato` supports several reranking algorithms to refine search results:
+`predicato` supports several reranking algorithms to refine search results:
 
 *   `"rrf"` (**Reciprocal Rank Fusion**): Combines results from multiple search methods (e.g., BM25 + Cosine) without requiring improved embeddings. Robust and zero-config.
 *   `"mmr"` (**Maximal Marginal Relevance**): Optimizes for diversity. detailed by `MMRLambda` (0.0 = diverse, 1.0 = relevant). Great for RAG to avoid redundant context.
@@ -78,7 +78,7 @@ type SearchFilters struct {
 
 ### Community Detection
 
-`go-predicato` allows you to detect and materialize communities within your graph using the **Label Propagation Algorithm (LPA)**.
+`predicato` allows you to detect and materialize communities within your graph using the **Label Propagation Algorithm (LPA)**.
 
 ```go
 // Detect communities, summarize them using LLM, and write Community Nodes back to the graph.
@@ -101,7 +101,7 @@ err := client.CreateIndices(ctx)
 
 ## Robustness & Recovery
 
-`go-predicato` includes built-in mechanisms to handle real-world failure modes.
+`predicato` includes built-in mechanisms to handle real-world failure modes.
 
 ### WAL Recovery
 
