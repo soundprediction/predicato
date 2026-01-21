@@ -88,6 +88,9 @@ func (c *Client) RemoveEpisode(ctx context.Context, episodeUUID string) error {
 			"uuid": node.Uuid,
 		})
 		if err != nil {
+			c.logger.Warn("failed to check episode count for node, skipping deletion",
+				"node_uuid", node.Uuid,
+				"error", err)
 			continue // Skip on error, don't delete
 		}
 
