@@ -392,8 +392,13 @@ func (c *Client) addEpisodeChunked(ctx context.Context, episode types.Episode, o
 	if err != nil {
 		return nil, err
 	}
-	result.Communities = communities
-	result.CommunityEdges = communityEdges
+	// Ensure slices are never nil for consistent behavior
+	if communities != nil {
+		result.Communities = communities
+	}
+	if communityEdges != nil {
+		result.CommunityEdges = communityEdges
+	}
 
 	// STEP 14: Persist community nodes and edges using bulk operation
 	if len(communities) > 0 || len(communityEdges) > 0 {
