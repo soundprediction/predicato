@@ -79,7 +79,10 @@ func (m *MemgraphDriver) GetNode(ctx context.Context, nodeID, groupID string) (*
 		return nil, fmt.Errorf("node not found")
 	}
 
-	node := nodeValue.(dbtype.Node)
+	node, ok := nodeValue.(dbtype.Node)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type for node: got %T, expected dbtype.Node", nodeValue)
+	}
 	return m.nodeFromDBNode(node), nil
 }
 
@@ -244,7 +247,10 @@ func (m *MemgraphDriver) GetNodes(ctx context.Context, nodeIDs []string, groupID
 		if !found {
 			continue
 		}
-		node := nodeValue.(dbtype.Node)
+		node, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		nodes = append(nodes, m.nodeFromDBNode(node))
 	}
 
@@ -289,11 +295,23 @@ func (m *MemgraphDriver) GetEdge(ctx context.Context, edgeID, groupID string) (*
 		return nil, fmt.Errorf("edge not found")
 	}
 
-	relation := relationValue.(dbtype.Relationship)
-	sourceID, _ := record.Get("source_id")
-	targetID, _ := record.Get("target_id")
+	relation, ok := relationValue.(dbtype.Relationship)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type for relationship: got %T, expected dbtype.Relationship", relationValue)
+	}
+	sourceIDValue, _ := record.Get("source_id")
+	targetIDValue, _ := record.Get("target_id")
 
-	return m.edgeFromDBRelation(relation, sourceID.(string), targetID.(string)), nil
+	sourceID, ok := sourceIDValue.(string)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type for source_id: got %T, expected string", sourceIDValue)
+	}
+	targetID, ok := targetIDValue.(string)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type for target_id: got %T, expected string", targetIDValue)
+	}
+
+	return m.edgeFromDBRelation(relation, sourceID, targetID), nil
 }
 
 // EdgeExists checks if an edge exists in the database.
@@ -495,11 +513,22 @@ func (m *MemgraphDriver) GetEdges(ctx context.Context, edgeIDs []string, groupID
 		if !found {
 			continue
 		}
-		relation := relationValue.(dbtype.Relationship)
-		sourceID, _ := record.Get("source_id")
-		targetID, _ := record.Get("target_id")
+		relation, ok := relationValue.(dbtype.Relationship)
+		if !ok {
+			continue // Skip invalid type
+		}
+		sourceIDValue, _ := record.Get("source_id")
+		targetIDValue, _ := record.Get("target_id")
+		sourceID, ok := sourceIDValue.(string)
+		if !ok {
+			continue
+		}
+		targetID, ok := targetIDValue.(string)
+		if !ok {
+			continue
+		}
 
-		edges = append(edges, m.edgeFromDBRelation(relation, sourceID.(string), targetID.(string)))
+		edges = append(edges, m.edgeFromDBRelation(relation, sourceID, targetID))
 	}
 
 	return edges, nil
@@ -541,7 +570,10 @@ func (m *MemgraphDriver) GetNeighbors(ctx context.Context, nodeID, groupID strin
 		if !found {
 			continue
 		}
-		node := nodeValue.(dbtype.Node)
+		node, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		nodes = append(nodes, m.nodeFromDBNode(node))
 	}
 
@@ -605,7 +637,10 @@ func (m *MemgraphDriver) GetRelatedNodes(ctx context.Context, nodeID, groupID st
 		if !found {
 			continue
 		}
-		node := nodeValue.(dbtype.Node)
+		node, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		nodes = append(nodes, m.nodeFromDBNode(node))
 	}
 
@@ -654,7 +689,10 @@ func (m *MemgraphDriver) SearchNodesByEmbedding(ctx context.Context, embedding [
 		if !found {
 			continue
 		}
-		dbNode := nodeValue.(dbtype.Node)
+		dbNode, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		node := m.nodeFromDBNode(dbNode)
 
 		// Parse embedding from JSON
@@ -731,10 +769,21 @@ func (m *MemgraphDriver) SearchEdgesByEmbedding(ctx context.Context, embedding [
 		if !found {
 			continue
 		}
-		dbRelation := relationValue.(dbtype.Relationship)
-		sourceID, _ := record.Get("source_id")
-		targetID, _ := record.Get("target_id")
-		edge := m.edgeFromDBRelation(dbRelation, sourceID.(string), targetID.(string))
+		dbRelation, ok := relationValue.(dbtype.Relationship)
+		if !ok {
+			continue // Skip invalid type
+		}
+		sourceIDValue, _ := record.Get("source_id")
+		targetIDValue, _ := record.Get("target_id")
+		sourceID, ok := sourceIDValue.(string)
+		if !ok {
+			continue
+		}
+		targetID, ok := targetIDValue.(string)
+		if !ok {
+			continue
+		}
+		edge := m.edgeFromDBRelation(dbRelation, sourceID, targetID)
 
 		// Parse embedding from JSON
 		if embeddingStr, ok := dbRelation.Props["embedding"].(string); ok {
@@ -915,7 +964,10 @@ func (m *MemgraphDriver) GetNodesInTimeRange(ctx context.Context, start, end tim
 		if !found {
 			continue
 		}
-		node := nodeValue.(dbtype.Node)
+		node, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		nodes = append(nodes, m.nodeFromDBNode(node))
 	}
 
@@ -956,11 +1008,22 @@ func (m *MemgraphDriver) GetEdgesInTimeRange(ctx context.Context, start, end tim
 		if !found {
 			continue
 		}
-		relation := relationValue.(dbtype.Relationship)
-		sourceID, _ := record.Get("source_id")
-		targetID, _ := record.Get("target_id")
+		relation, ok := relationValue.(dbtype.Relationship)
+		if !ok {
+			continue // Skip invalid type
+		}
+		sourceIDValue, _ := record.Get("source_id")
+		targetIDValue, _ := record.Get("target_id")
+		sourceID, ok := sourceIDValue.(string)
+		if !ok {
+			continue
+		}
+		targetID, ok := targetIDValue.(string)
+		if !ok {
+			continue
+		}
 
-		edges = append(edges, m.edgeFromDBRelation(relation, sourceID.(string), targetID.(string)))
+		edges = append(edges, m.edgeFromDBRelation(relation, sourceID, targetID))
 	}
 
 	return edges, nil
@@ -1036,7 +1099,10 @@ func (m *MemgraphDriver) RetrieveEpisodes(
 		if !found {
 			continue
 		}
-		node := nodeValue.(dbtype.Node)
+		node, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		episodes = append(episodes, m.nodeFromDBNode(node))
 	}
 
@@ -1080,7 +1146,10 @@ func (m *MemgraphDriver) GetCommunities(ctx context.Context, groupID string, lev
 		if !found {
 			continue
 		}
-		node := nodeValue.(dbtype.Node)
+		node, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		nodes = append(nodes, m.nodeFromDBNode(node))
 	}
 
@@ -1461,7 +1530,10 @@ func (m *MemgraphDriver) SearchNodes(ctx context.Context, query, groupID string,
 		if !found {
 			continue
 		}
-		node := nodeValue.(dbtype.Node)
+		node, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		nodes = append(nodes, m.nodeFromDBNode(node))
 	}
 
@@ -1514,11 +1586,22 @@ func (m *MemgraphDriver) SearchEdges(ctx context.Context, query, groupID string,
 		if !found {
 			continue
 		}
-		relation := relationValue.(dbtype.Relationship)
-		sourceID, _ := record.Get("source_id")
-		targetID, _ := record.Get("target_id")
+		relation, ok := relationValue.(dbtype.Relationship)
+		if !ok {
+			continue // Skip invalid type
+		}
+		sourceIDValue, _ := record.Get("source_id")
+		targetIDValue, _ := record.Get("target_id")
+		sourceID, ok := sourceIDValue.(string)
+		if !ok {
+			continue
+		}
+		targetID, ok := targetIDValue.(string)
+		if !ok {
+			continue
+		}
 
-		edges = append(edges, m.edgeFromDBRelation(relation, sourceID.(string), targetID.(string)))
+		edges = append(edges, m.edgeFromDBRelation(relation, sourceID, targetID))
 	}
 
 	return edges, nil
@@ -2357,7 +2440,10 @@ func (m *MemgraphDriver) GetEntityNodesByGroup(ctx context.Context, groupID stri
 			continue
 		}
 
-		node := nodeValue.(dbtype.Node)
+		node, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		nodes = append(nodes, m.nodeFromDBNode(node))
 	}
 

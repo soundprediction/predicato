@@ -78,7 +78,10 @@ func (n *Neo4jDriver) GetNode(ctx context.Context, nodeID, groupID string) (*typ
 		return nil, fmt.Errorf("node not found")
 	}
 
-	node := nodeValue.(dbtype.Node)
+	node, ok := nodeValue.(dbtype.Node)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type for node: got %T, expected dbtype.Node", nodeValue)
+	}
 	return n.nodeFromDBNode(node), nil
 }
 
@@ -243,7 +246,10 @@ func (n *Neo4jDriver) GetNodes(ctx context.Context, nodeIDs []string, groupID st
 		if !found {
 			continue
 		}
-		node := nodeValue.(dbtype.Node)
+		node, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		nodes = append(nodes, n.nodeFromDBNode(node))
 	}
 
@@ -288,11 +294,23 @@ func (n *Neo4jDriver) GetEdge(ctx context.Context, edgeID, groupID string) (*typ
 		return nil, fmt.Errorf("edge not found")
 	}
 
-	relation := relationValue.(dbtype.Relationship)
-	sourceID, _ := record.Get("source_id")
-	targetID, _ := record.Get("target_id")
+	relation, ok := relationValue.(dbtype.Relationship)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type for relationship: got %T, expected dbtype.Relationship", relationValue)
+	}
+	sourceIDValue, _ := record.Get("source_id")
+	targetIDValue, _ := record.Get("target_id")
 
-	return n.edgeFromDBRelation(relation, sourceID.(string), targetID.(string)), nil
+	sourceID, ok := sourceIDValue.(string)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type for source_id: got %T, expected string", sourceIDValue)
+	}
+	targetID, ok := targetIDValue.(string)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type for target_id: got %T, expected string", targetIDValue)
+	}
+
+	return n.edgeFromDBRelation(relation, sourceID, targetID), nil
 }
 
 // EdgeExists checks if an edge exists in the database.
@@ -494,11 +512,22 @@ func (n *Neo4jDriver) GetEdges(ctx context.Context, edgeIDs []string, groupID st
 		if !found {
 			continue
 		}
-		relation := relationValue.(dbtype.Relationship)
-		sourceID, _ := record.Get("source_id")
-		targetID, _ := record.Get("target_id")
+		relation, ok := relationValue.(dbtype.Relationship)
+		if !ok {
+			continue // Skip invalid type
+		}
+		sourceIDValue, _ := record.Get("source_id")
+		targetIDValue, _ := record.Get("target_id")
+		sourceID, ok := sourceIDValue.(string)
+		if !ok {
+			continue
+		}
+		targetID, ok := targetIDValue.(string)
+		if !ok {
+			continue
+		}
 
-		edges = append(edges, n.edgeFromDBRelation(relation, sourceID.(string), targetID.(string)))
+		edges = append(edges, n.edgeFromDBRelation(relation, sourceID, targetID))
 	}
 
 	return edges, nil
@@ -540,7 +569,10 @@ func (n *Neo4jDriver) GetNeighbors(ctx context.Context, nodeID, groupID string, 
 		if !found {
 			continue
 		}
-		node := nodeValue.(dbtype.Node)
+		node, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		nodes = append(nodes, n.nodeFromDBNode(node))
 	}
 
@@ -604,7 +636,10 @@ func (n *Neo4jDriver) GetRelatedNodes(ctx context.Context, nodeID, groupID strin
 		if !found {
 			continue
 		}
-		node := nodeValue.(dbtype.Node)
+		node, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		nodes = append(nodes, n.nodeFromDBNode(node))
 	}
 
@@ -653,7 +688,10 @@ func (n *Neo4jDriver) SearchNodesByEmbedding(ctx context.Context, embedding []fl
 		if !found {
 			continue
 		}
-		dbNode := nodeValue.(dbtype.Node)
+		dbNode, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		node := n.nodeFromDBNode(dbNode)
 
 		// Parse embedding from JSON
@@ -730,10 +768,21 @@ func (n *Neo4jDriver) SearchEdgesByEmbedding(ctx context.Context, embedding []fl
 		if !found {
 			continue
 		}
-		dbRelation := relationValue.(dbtype.Relationship)
-		sourceID, _ := record.Get("source_id")
-		targetID, _ := record.Get("target_id")
-		edge := n.edgeFromDBRelation(dbRelation, sourceID.(string), targetID.(string))
+		dbRelation, ok := relationValue.(dbtype.Relationship)
+		if !ok {
+			continue // Skip invalid type
+		}
+		sourceIDValue, _ := record.Get("source_id")
+		targetIDValue, _ := record.Get("target_id")
+		sourceID, ok := sourceIDValue.(string)
+		if !ok {
+			continue
+		}
+		targetID, ok := targetIDValue.(string)
+		if !ok {
+			continue
+		}
+		edge := n.edgeFromDBRelation(dbRelation, sourceID, targetID)
 
 		// Parse embedding from JSON
 		if embeddingStr, ok := dbRelation.Props["embedding"].(string); ok {
@@ -914,7 +963,10 @@ func (n *Neo4jDriver) GetNodesInTimeRange(ctx context.Context, start, end time.T
 		if !found {
 			continue
 		}
-		node := nodeValue.(dbtype.Node)
+		node, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		nodes = append(nodes, n.nodeFromDBNode(node))
 	}
 
@@ -955,11 +1007,22 @@ func (n *Neo4jDriver) GetEdgesInTimeRange(ctx context.Context, start, end time.T
 		if !found {
 			continue
 		}
-		relation := relationValue.(dbtype.Relationship)
-		sourceID, _ := record.Get("source_id")
-		targetID, _ := record.Get("target_id")
+		relation, ok := relationValue.(dbtype.Relationship)
+		if !ok {
+			continue // Skip invalid type
+		}
+		sourceIDValue, _ := record.Get("source_id")
+		targetIDValue, _ := record.Get("target_id")
+		sourceID, ok := sourceIDValue.(string)
+		if !ok {
+			continue
+		}
+		targetID, ok := targetIDValue.(string)
+		if !ok {
+			continue
+		}
 
-		edges = append(edges, n.edgeFromDBRelation(relation, sourceID.(string), targetID.(string)))
+		edges = append(edges, n.edgeFromDBRelation(relation, sourceID, targetID))
 	}
 
 	return edges, nil
@@ -1035,7 +1098,10 @@ func (n *Neo4jDriver) RetrieveEpisodes(
 		if !found {
 			continue
 		}
-		node := nodeValue.(dbtype.Node)
+		node, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		episodes = append(episodes, n.nodeFromDBNode(node))
 	}
 
@@ -1079,7 +1145,10 @@ func (n *Neo4jDriver) GetCommunities(ctx context.Context, groupID string, level 
 		if !found {
 			continue
 		}
-		node := nodeValue.(dbtype.Node)
+		node, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		nodes = append(nodes, n.nodeFromDBNode(node))
 	}
 
@@ -1459,7 +1528,10 @@ func (n *Neo4jDriver) SearchNodes(ctx context.Context, query, groupID string, op
 		if !found {
 			continue
 		}
-		node := nodeValue.(dbtype.Node)
+		node, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		nodes = append(nodes, n.nodeFromDBNode(node))
 	}
 
@@ -1512,11 +1584,22 @@ func (n *Neo4jDriver) SearchEdges(ctx context.Context, query, groupID string, op
 		if !found {
 			continue
 		}
-		relation := relationValue.(dbtype.Relationship)
-		sourceID, _ := record.Get("source_id")
-		targetID, _ := record.Get("target_id")
+		relation, ok := relationValue.(dbtype.Relationship)
+		if !ok {
+			continue // Skip invalid type
+		}
+		sourceIDValue, _ := record.Get("source_id")
+		targetIDValue, _ := record.Get("target_id")
+		sourceID, ok := sourceIDValue.(string)
+		if !ok {
+			continue
+		}
+		targetID, ok := targetIDValue.(string)
+		if !ok {
+			continue
+		}
 
-		edges = append(edges, n.edgeFromDBRelation(relation, sourceID.(string), targetID.(string)))
+		edges = append(edges, n.edgeFromDBRelation(relation, sourceID, targetID))
 	}
 
 	return edges, nil
@@ -2355,7 +2438,10 @@ func (n *Neo4jDriver) GetEntityNodesByGroup(ctx context.Context, groupID string)
 			continue
 		}
 
-		node := nodeValue.(dbtype.Node)
+		node, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		nodes = append(nodes, n.nodeFromDBNode(node))
 	}
 

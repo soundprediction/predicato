@@ -4,6 +4,45 @@
 
 The `predicato` package is a knowledge graph framework designed for building and querying dynamic knowledge graphs that evolve over time.
 
+## Building
+
+**IMPORTANT**: This project uses CGO and requires the LadybugDB native library. Use the Makefile for building:
+
+```bash
+# Build everything (recommended)
+make build
+
+# Build the CLI binary
+make build-cli
+
+# Run tests
+make test
+
+# Run server
+make run-server
+```
+
+### Manual Build Steps
+
+If you need to build manually:
+
+```bash
+# Download the ladybug native library (required before building)
+go generate ./cmd/main.go
+
+# Build with the system_ladybug tag
+go build -tags system_ladybug ./...
+
+# Build the CLI
+go build -tags system_ladybug -o bin/predicato ./cmd/main.go
+```
+
+**Note**: The `go generate` command downloads `liblbug.so` to `cmd/lib-ladybug/`. If you see linker errors like `cannot find -llbug`, run `go generate ./cmd/main.go` first.
+
+See the `Makefile` for all available build targets (`make help`).
+
+**Known Issue**: Building `./...` (all packages including examples) may fail with linker errors because the examples need their own copy of `liblbug.so`. Use `make build-cli` to build the main CLI, or run `go generate` in each example directory before building.
+
 ## Context and Background
 
 ### Technical Considerations
