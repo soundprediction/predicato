@@ -964,7 +964,10 @@ func (m *MemgraphDriver) GetNodesInTimeRange(ctx context.Context, start, end tim
 		if !found {
 			continue
 		}
-		node := nodeValue.(dbtype.Node)
+		node, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		nodes = append(nodes, m.nodeFromDBNode(node))
 	}
 
@@ -1096,7 +1099,10 @@ func (m *MemgraphDriver) RetrieveEpisodes(
 		if !found {
 			continue
 		}
-		node := nodeValue.(dbtype.Node)
+		node, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		episodes = append(episodes, m.nodeFromDBNode(node))
 	}
 
@@ -1140,7 +1146,10 @@ func (m *MemgraphDriver) GetCommunities(ctx context.Context, groupID string, lev
 		if !found {
 			continue
 		}
-		node := nodeValue.(dbtype.Node)
+		node, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		nodes = append(nodes, m.nodeFromDBNode(node))
 	}
 
@@ -1521,7 +1530,10 @@ func (m *MemgraphDriver) SearchNodes(ctx context.Context, query, groupID string,
 		if !found {
 			continue
 		}
-		node := nodeValue.(dbtype.Node)
+		node, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		nodes = append(nodes, m.nodeFromDBNode(node))
 	}
 
@@ -2428,7 +2440,10 @@ func (m *MemgraphDriver) GetEntityNodesByGroup(ctx context.Context, groupID stri
 			continue
 		}
 
-		node := nodeValue.(dbtype.Node)
+		node, ok := nodeValue.(dbtype.Node)
+		if !ok {
+			continue // Skip invalid type
+		}
 		nodes = append(nodes, m.nodeFromDBNode(node))
 	}
 
