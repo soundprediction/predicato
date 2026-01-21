@@ -1,4 +1,4 @@
-// Package main demonstrates how to build an interactive chat application using go-predicato
+// Package main demonstrates how to build an interactive chat application using predicato
 // with both global knowledge base and user-specific episodic memory.
 //
 // This example shows how to:

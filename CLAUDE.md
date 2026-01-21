@@ -1,8 +1,8 @@
-# Go-Predicato Project Instructions
+# Predicato Project Instructions
 
 ## Overview
 
-The `go-predicato` package is a knowledge graph framework designed for building and querying dynamic knowledge graphs that evolve over time.
+The `predicato` package is a knowledge graph framework designed for building and querying dynamic knowledge graphs that evolve over time.
 
 ## Context and Background
 

@@ -1,6 +1,6 @@
 # Ladybug + Ollama Example
 
-This example demonstrates using go-predicato with a fully local setup combining:
+This example demonstrates using predicato with a fully local setup combining:
 
 - **Ladybug**: Embedded graph database (no server required)
 - **Ollama**: Local LLM inference (no cloud API required)
@@ -85,7 +85,7 @@ go run main.go
 ## Expected Output
 
 ```
-🚀 Starting go-predicato example with Ladybug + Ollama
+🚀 Starting predicato example with Ladybug + Ollama
    This example demonstrates a fully local setup:
    - Ladybug: embedded graph database
    - Ollama: local LLM inference

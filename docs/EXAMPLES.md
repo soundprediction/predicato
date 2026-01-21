@@ -1,10 +1,10 @@
 # Examples
 
-This document provides practical examples of using go-predicato for various use cases.
+This document provides practical examples of using predicato for various use cases.
 
 ## Quick Start Approach
 
-go-predicato is designed to work out-of-the-box with minimal dependencies:
+predicato is designed to work out-of-the-box with minimal dependencies:
 
 - **Default Database**: ladybug embedded database (no external setup required)
 - **LLM Integration**: Any OpenAI-compatible API (OpenAI, Ollama, LocalAI, vLLM, etc.)
@@ -27,8 +27,8 @@ import (
     "log"
     "time"
 
-    "github.com/soundprediction/go-predicato"
-    "github.com/soundprediction/go-predicato/pkg/types"
+    "github.com/soundprediction/predicato"
+    "github.com/soundprediction/predicato/pkg/types"
 )
 
 func buildKnowledge(client predicato.Predicato) {
@@ -476,7 +476,7 @@ func personalKnowledgeManagement(client predicato.Predicato) {
 
 ### Complete Local Setup with ladybug + Ollama
 
-For maximum privacy and control, you can run go-predicato entirely locally using:
+For maximum privacy and control, you can run predicato entirely locally using:
 - **ladybug**: Embedded graph database (no server required)
 - **Ollama**: Local LLM inference (no cloud API required)  
 - **Local embeddings**: Optional local embedding service
@@ -491,10 +491,10 @@ import (
     "log"
     "time"
 
-    "github.com/soundprediction/go-predicato"
-    "github.com/soundprediction/go-predicato/pkg/driver"
-    "github.com/soundprediction/go-predicato/pkg/embedder"
-    "github.com/soundprediction/go-predicato/pkg/llm"
+    "github.com/soundprediction/predicato"
+    "github.com/soundprediction/predicato/pkg/driver"
+    "github.com/soundprediction/predicato/pkg/embedder"
+    "github.com/soundprediction/predicato/pkg/llm"
 )
 
 func main() {
@@ -741,4 +741,4 @@ func handleErrors(client predicato.Predicato) {
 }
 ```
 
-These examples demonstrate various use cases and patterns for working with go-predicato. The library's flexibility allows it to be adapted for many different knowledge management scenarios while maintaining temporal awareness and multi-tenancy support.
+These examples demonstrate various use cases and patterns for working with predicato. The library's flexibility allows it to be adapted for many different knowledge management scenarios while maintaining temporal awareness and multi-tenancy support.

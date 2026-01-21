@@ -1,6 +1,6 @@
 # Ladybug Driver Setup Guide
 
-This guide explains how to use the Ladybug graph database driver with go-predicato.
+This guide explains how to use the Ladybug graph database driver with predicato.
 
 ## What is Ladybug?
 
@@ -8,7 +8,7 @@ This guide explains how to use the Ladybug graph database driver with go-predica
 
 ## Why Ladybug is the Default
 
-Ladybug is the **default and recommended** database driver for go-predicato because:
+Ladybug is the **default and recommended** database driver for predicato because:
 
 - **Zero Setup**: No external database server required
 - **Embedded**: Database files stored locally alongside your application
@@ -23,10 +23,10 @@ Ladybug is the **default and recommended** database driver for go-predicato beca
 
 ## Installation
 
-No installation required! Ladybug is embedded and works immediately when you import go-predicato.
+No installation required! Ladybug is embedded and works immediately when you import predicato.
 
 ```bash
-go get github.com/soundprediction/go-predicato
+go get github.com/soundprediction/predicato
 ```
 
 ## Usage
@@ -43,9 +43,9 @@ import (
     "log"
     "time"
 
-    "github.com/soundprediction/go-predicato"
-    "github.com/soundprediction/go-predicato/pkg/driver"
-    "github.com/soundprediction/go-predicato/pkg/types"
+    "github.com/soundprediction/predicato"
+    "github.com/soundprediction/predicato/pkg/driver"
+    "github.com/soundprediction/predicato/pkg/types"
 )
 
 func main() {
@@ -79,10 +79,10 @@ import (
     "log"
     "time"
 
-    "github.com/soundprediction/go-predicato"
-    "github.com/soundprediction/go-predicato/pkg/driver"
-    "github.com/soundprediction/go-predicato/pkg/embedder"
-    "github.com/soundprediction/go-predicato/pkg/llm"
+    "github.com/soundprediction/predicato"
+    "github.com/soundprediction/predicato/pkg/driver"
+    "github.com/soundprediction/predicato/pkg/embedder"
+    "github.com/soundprediction/predicato/pkg/llm"
 )
 
 func main() {

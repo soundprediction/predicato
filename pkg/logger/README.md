@@ -1,6 +1,6 @@
 # Logger Package
 
-This package provides colored logging support for go-predicato using Go's standard `log/slog` library.
+This package provides colored logging support for predicato using Go's standard `log/slog` library.
 
 ## Features
 
@@ -17,7 +17,7 @@ This package provides colored logging support for go-predicato using Go's standa
 ```go
 import (
     "log/slog"
-    "github.com/soundprediction/go-predicato/pkg/logger"
+    "github.com/soundprediction/predicato/pkg/logger"
 )
 
 // Create a logger with default settings (stderr, Info level)
@@ -36,7 +36,7 @@ log.Error("Failed to connect to DB")         // Red colored output
 import (
     "os"
     "log/slog"
-    "github.com/soundprediction/go-predicato/pkg/logger"
+    "github.com/soundprediction/predicato/pkg/logger"
 )
 
 // Create a logger with custom writer and options
@@ -53,13 +53,13 @@ log.Error("Error occurred", "error", err, "context", "database")
 
 ### Integration with Predicato
 
-The colored logger is automatically used in go-predicato commands and examples:
+The colored logger is automatically used in predicato commands and examples:
 
 ```go
 import (
     "log/slog"
-    "github.com/soundprediction/go-predicato"
-    predicatoLogger "github.com/soundprediction/go-predicato/pkg/logger"
+    "github.com/soundprediction/predicato"
+    predicatoLogger "github.com/soundprediction/predicato/pkg/logger"
 )
 
 logger := predicatoLogger.NewDefaultLogger(slog.LevelInfo)

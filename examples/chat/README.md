@@ -1,6 +1,6 @@
 # Interactive Chat Example
 
-This example demonstrates how to build an interactive chat application using go-predicato with both global knowledge base and user-specific episodic memory.
+This example demonstrates how to build an interactive chat application using predicato with both global knowledge base and user-specific episodic memory.
 
 ## Features
 

@@ -2,9 +2,9 @@
 
 ## General Questions
 
-### What is go-predicato?
+### What is predicato?
 
-go-predicato is a Go port of the Python Predicato library, designed for building temporally-aware knowledge graphs for AI agents. It enables real-time incremental updates without batch recomputation and provides hybrid search capabilities.
+predicato is a Go port of the Python Predicato library, designed for building temporally-aware knowledge graphs for AI agents. It enables real-time incremental updates without batch recomputation and provides hybrid search capabilities.
 
 ### How does it differ from the Python version?
 
@@ -36,7 +36,7 @@ The modular driver architecture makes it easy to add new database backends. lady
 
 ### What LLM providers are supported?
 
-go-predicato works with **any OpenAI-compatible API**, including:
+predicato works with **any OpenAI-compatible API**, including:
 - **OpenAI**: GPT-3.5, GPT-4, and all variants
 - **Local services**: Ollama, LocalAI, vLLM, Text Generation Inference
 - **Cloud alternatives**: Together AI, Anyscale, Replicate, Hugging Face
@@ -46,7 +46,7 @@ The library provides convenience functions for popular services, but the standar
 
 ### What embedding providers are supported?
 
-go-predicato works with **any OpenAI-compatible embedding API**, including:
+predicato works with **any OpenAI-compatible embedding API**, including:
 - **OpenAI**: text-embedding-ada-002, text-embedding-3-small, text-embedding-3-large
 - **Local services**: Ollama with embedding models, LocalAI, vLLM
 - **Cloud alternatives**: Together AI, Voyage AI, Cohere (via compatibility layers)

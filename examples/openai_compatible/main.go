@@ -335,7 +335,7 @@ func init() {
 	fmt.Println("OpenAI-Compatible Client Examples")
 	fmt.Println("=================================")
 	fmt.Println()
-	fmt.Println("This example demonstrates how to use go-predicato with various")
+	fmt.Println("This example demonstrates how to use predicato with various")
 	fmt.Println("OpenAI-compatible services. Make sure you have the following")
 	fmt.Println("services running:")
 	fmt.Println()
