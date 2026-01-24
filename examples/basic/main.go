@@ -1,135 +1,163 @@
-// Package main demonstrates basic usage of predicato with OpenAI LLM and Neo4j database.
+// Package main demonstrates basic usage of predicato with internal services.
 //
 // This example shows how to:
-// - Create and configure a Predicato client with Neo4j and OpenAI
+// - Create and configure a Predicato client using only internal services
+// - Use Ladybug embedded database (no external database server)
+// - Use go-rust-bert GPT-2 for text generation (no external LLM API)
+// - Use go-embedeverything with qwen3-embedding for embeddings (no external API)
+// - Use go-embedeverything with qwen3-reranker for reranking search results
 // - Add episodes (data) to the knowledge graph
-// - Search the knowledge graph for relevant information
+// - Search and rerank results from the knowledge graph
 //
 // Prerequisites:
-// - Neo4j database running (default: bolt://localhost:7687)
-// - OpenAI API key
+// - CGO enabled (required for Rust FFI bindings)
+// - No API keys or external services required!
 //
-// Environment Variables:
-// - OPENAI_API_KEY (required): Your OpenAI API key
-// - NEO4J_PASSWORD (required): Your Neo4j database password
-// - NEO4J_URI (optional): Neo4j connection URI (default: bolt://localhost:7687)
-// - NEO4J_USER (optional): Neo4j username (default: neo4j)
+// First run will download models (~1.5GB total):
+// - qwen/qwen3-embedding-0.6b (~600MB)
+// - qwen/qwen3-reranker-0.6b (~600MB)
+// - GPT-2 (~500MB)
+//
+// Memory Requirements:
+// - Minimum 4GB RAM recommended
 package main
 
 import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/soundprediction/predicato"
+	"github.com/soundprediction/predicato/pkg/crossencoder"
 	"github.com/soundprediction/predicato/pkg/driver"
 	"github.com/soundprediction/predicato/pkg/embedder"
-	"github.com/soundprediction/predicato/pkg/nlp"
+	"github.com/soundprediction/predicato/pkg/rustbert"
 	"github.com/soundprediction/predicato/pkg/types"
 )
 
 func main() {
-	// Get environment variables
-	openaiAPIKey := os.Getenv("OPENAI_API_KEY")
-	if openaiAPIKey == "" {
-		fmt.Println("OPENAI_API_KEY environment variable is not set.")
-		fmt.Println("Please set it to run the full example:")
-		fmt.Println("  export OPENAI_API_KEY=your_api_key_here")
-		fmt.Println()
-		fmt.Println("Exiting...")
-		return
-	}
-
-	neo4jURI := os.Getenv("NEO4J_URI")
-	if neo4jURI == "" {
-		neo4jURI = "bolt://localhost:7687"
-	}
-
-	neo4jUser := os.Getenv("NEO4J_USER")
-	if neo4jUser == "" {
-		neo4jUser = "neo4j"
-	}
-
-	neo4jPassword := os.Getenv("NEO4J_PASSWORD")
-	if neo4jPassword == "" {
-		fmt.Println("NEO4J_PASSWORD environment variable is not set.")
-		fmt.Println("Please set it to run the full example:")
-		fmt.Println("  export NEO4J_PASSWORD=your_password_here")
-		fmt.Println()
-		fmt.Println("You can also set these optional variables:")
-		fmt.Printf("  export NEO4J_URI=%s\n", neo4jURI)
-		fmt.Printf("  export NEO4J_USER=%s\n", neo4jUser)
-		fmt.Println()
-		fmt.Println("Exiting...")
-		return
-	}
-
 	ctx := context.Background()
 
-	fmt.Println("🚀 Starting predicato basic example")
-	fmt.Printf("   Neo4j URI: %s\n", neo4jURI)
-	fmt.Printf("   Neo4j User: %s\n", neo4jUser)
+	fmt.Println("================================================================================")
+	fmt.Println("Predicato Basic Example - Internal Services Stack")
+	fmt.Println("================================================================================")
+	fmt.Println()
+	fmt.Println("This example uses predicato's internal services:")
+	fmt.Println("  - Ladybug: embedded graph database (no server required)")
+	fmt.Println("  - RustBert GPT-2: local text generation (no API required)")
+	fmt.Println("  - EmbedEverything: local embeddings with qwen/qwen3-embedding-0.6b")
+	fmt.Println("  - EmbedEverything: local reranking with qwen/qwen3-reranker-0.6b")
+	fmt.Println()
+	fmt.Println("No API keys or external services needed!")
 	fmt.Println()
 
-	// Create Neo4j driver
-	fmt.Println("📊 Creating Neo4j driver...")
-	neo4jDriver, err := driver.NewNeo4jDriver(neo4jURI, neo4jUser, neo4jPassword, "neo4j")
-	if err != nil {
-		log.Fatalf("Failed to create Neo4j driver: %v", err)
-	}
-	defer neo4jDriver.Close(ctx)
-	fmt.Println("   ✅ Neo4j driver created successfully")
+	// ========================================
+	// 1. Create Ladybug Driver (Embedded Graph Database)
+	// ========================================
+	fmt.Println("[1/5] Setting up Ladybug embedded graph database...")
 
-	// Create LLM client
-	fmt.Println("\n🧠 Creating OpenAI LLM client...")
-	llmConfig := llm.Config{
-		Model:       "gpt-4o-mini",
-		Temperature: floatPtr(0.7),
-		MaxTokens:   intPtr(1000),
-	}
-	baseLLMClient, err := llm.NewOpenAIClient(openaiAPIKey, llmConfig)
+	ladybugDriver, err := driver.NewLadybugDriver("./example_graph.db", 1)
 	if err != nil {
-		log.Fatalf("Failed to create LLM client: %v", err)
+		log.Fatalf("Failed to create Ladybug driver: %v", err)
 	}
-	// Wrap with retry client for automatic retry on errors
-	nlProcessor := llm.NewRetryClient(baseLLMClient, llm.DefaultRetryConfig())
-	defer nlProcessor.Close()
-	fmt.Printf("   ✅ OpenAI LLM client created with retry support (model: %s)\n", llmConfig.Model)
+	defer func() {
+		if err := ladybugDriver.Close(); err != nil {
+			log.Printf("Error closing Ladybug driver: %v", err)
+		}
+	}()
+	fmt.Println("      Ladybug driver created (embedded database at ./example_graph.db)")
 
-	// Create embedder client
-	fmt.Println("\n🔤 Creating OpenAI embedder client...")
-	embedderConfig := embedder.Config{
-		Model:     "text-embedding-3-small",
-		BatchSize: 100,
+	// ========================================
+	// 2. Create RustBert Client (Local Text Generation)
+	// ========================================
+	fmt.Println("[2/5] Setting up RustBert GPT-2 for text generation...")
+	fmt.Println("      (First run will download the model, please wait...)")
+
+	rustbertClient := rustbert.NewClient(rustbert.Config{})
+	// Pre-load the text generation model
+	if err := rustbertClient.LoadTextGenerationModel(); err != nil {
+		log.Fatalf("Failed to load text generation model: %v", err)
 	}
-	embedderClient := embedder.NewOpenAIEmbedder(openaiAPIKey, embedderConfig)
+	defer rustbertClient.Close()
+
+	// Create LLM adapter for nlp.Client interface
+	llmClient := rustbert.NewLLMAdapter(rustbertClient, "text_generation")
+	fmt.Println("      RustBert GPT-2 text generation model loaded")
+
+	// ========================================
+	// 3. Create Embedder Client (Local Embeddings)
+	// ========================================
+	fmt.Println("[3/5] Setting up EmbedEverything embedder with qwen/qwen3-embedding-0.6b...")
+	fmt.Println("      (First run will download the model, please wait...)")
+
+	embedderConfig := &embedder.EmbedEverythingConfig{
+		Config: &embedder.Config{
+			Model:      "qwen/qwen3-embedding-0.6b",
+			Dimensions: 1024,
+			BatchSize:  32,
+		},
+	}
+	embedderClient, err := embedder.NewEmbedEverythingClient(embedderConfig)
+	if err != nil {
+		log.Fatalf("Failed to create embedder client: %v", err)
+	}
 	defer embedderClient.Close()
-	fmt.Printf("   ✅ OpenAI embedder client created (model: %s)\n", embedderConfig.Model)
+	fmt.Println("      EmbedEverything embedder created (model: qwen/qwen3-embedding-0.6b)")
 
-	// Create Predicato client
-	fmt.Println("\n🌐 Creating Predicato client...")
-	config := &predicato.Config{
+	// ========================================
+	// 4. Create Reranker Client (Local Reranking)
+	// ========================================
+	fmt.Println("[4/5] Setting up EmbedEverything reranker with qwen/qwen3-reranker-0.6b...")
+	fmt.Println("      (First run will download the model, please wait...)")
+
+	rerankerConfig := &crossencoder.EmbedEverythingConfig{
+		Config: &crossencoder.Config{
+			Model:     "qwen/qwen3-reranker-0.6b",
+			BatchSize: 32,
+		},
+	}
+	rerankerClient, err := crossencoder.NewEmbedEverythingClient(rerankerConfig)
+	if err != nil {
+		log.Fatalf("Failed to create reranker client: %v", err)
+	}
+	defer rerankerClient.Close()
+	fmt.Println("      EmbedEverything reranker created (model: qwen/qwen3-reranker-0.6b)")
+
+	// ========================================
+	// 5. Create Predicato Client
+	// ========================================
+	fmt.Println("[5/5] Creating Predicato client...")
+
+	predicatoConfig := &predicato.Config{
 		GroupID:  "example-group",
 		TimeZone: time.UTC,
 	}
 
-	client, err := predicato.NewClient(neo4jDriver, nlProcessor, embedderClient, config, nil)
+	client, err := predicato.NewClient(ladybugDriver, llmClient, embedderClient, predicatoConfig, nil)
 	if err != nil {
 		log.Fatalf("Failed to create Predicato client: %v", err)
 	}
 	defer client.Close(ctx)
-	fmt.Printf("   ✅ Predicato client created (group: %s)\n", config.GroupID)
+	fmt.Printf("      Predicato client created (group: %s)\n", predicatoConfig.GroupID)
 
-	// Example: Add some episodes
-	fmt.Println("\n📝 Preparing sample episodes...")
+	fmt.Println()
+	fmt.Println("================================================================================")
+	fmt.Println("All components initialized successfully!")
+	fmt.Println("================================================================================")
+	fmt.Println()
+
+	// ========================================
+	// Example: Add Episodes
+	// ========================================
+	fmt.Println("Adding sample episodes to the knowledge graph...")
+
 	episodes := []types.Episode{
 		{
 			ID:        "episode-1",
 			Name:      "Meeting with Alice",
 			Content:   "Had a productive meeting with Alice about the new project. She mentioned that the deadline is next month and we need to focus on the API design.",
-			Reference: time.Now().Add(-24 * time.Hour), // Yesterday
+			Reference: time.Now().Add(-24 * time.Hour),
 			CreatedAt: time.Now(),
 			GroupID:   "example-group",
 			Metadata: map[string]interface{}{
@@ -140,59 +168,131 @@ func main() {
 			ID:        "episode-2",
 			Name:      "Project Research",
 			Content:   "Researched various approaches for implementing the API. Found that GraphQL might be a good fit for our use case due to its flexibility.",
-			Reference: time.Now().Add(-12 * time.Hour), // 12 hours ago
+			Reference: time.Now().Add(-12 * time.Hour),
 			CreatedAt: time.Now(),
 			GroupID:   "example-group",
 			Metadata: map[string]interface{}{
 				"type": "research",
 			},
 		},
+		{
+			ID:        "episode-3",
+			Name:      "Technical Discussion",
+			Content:   "Discussed REST vs GraphQL with the team. Bob prefers REST for simplicity, but Carol thinks GraphQL's type system would help with API documentation.",
+			Reference: time.Now().Add(-6 * time.Hour),
+			CreatedAt: time.Now(),
+			GroupID:   "example-group",
+			Metadata: map[string]interface{}{
+				"type": "discussion",
+			},
+		},
 	}
 
-	fmt.Println("Adding episodes to the knowledge graph...")
-	if err := client.Add(ctx, episodes, nil); err != nil {
+	if _, err := client.Add(ctx, episodes, nil); err != nil {
 		fmt.Printf("Warning: Add operation failed: %v\n", err)
-		fmt.Println("This is expected if the implementation is still in development.")
+		fmt.Println("This may be expected if Ladybug implementation is still in development.")
 	} else {
-		fmt.Println("✅ Episodes successfully added to the knowledge graph!")
+		fmt.Printf("Added %d episodes to the knowledge graph\n", len(episodes))
 	}
 
-	// Example: Search the knowledge graph
-	fmt.Println("\nSearching the knowledge graph...")
+	// ========================================
+	// Example: Search the Knowledge Graph
+	// ========================================
+	fmt.Println()
+	fmt.Println("Searching the knowledge graph for: \"API design and deadlines\"")
+
 	searchConfig := &types.SearchConfig{
 		Limit:              10,
 		CenterNodeDistance: 2,
 		MinScore:           0.0,
 		IncludeEdges:       true,
-		Rerank:             false,
+		Rerank:             false, // We'll do manual reranking to demonstrate
 	}
 
 	results, err := client.Search(ctx, "API design and deadlines", searchConfig)
 	if err != nil {
 		fmt.Printf("Warning: Search operation failed: %v\n", err)
-		fmt.Println("This is expected if the implementation is still in development.")
-	} else if results != nil {
-		fmt.Printf("✅ Found %d nodes and %d edges\n", len(results.Nodes), len(results.Edges))
+		fmt.Println("This may be expected if Ladybug implementation is still in development.")
+	} else if results != nil && len(results.Nodes) > 0 {
+		fmt.Printf("Found %d nodes and %d edges\n", len(results.Nodes), len(results.Edges))
 
-		// Display some results if available
-		if len(results.Nodes) > 0 {
-			fmt.Println("\nSample nodes found:")
-			for i, node := range results.Nodes {
-				if i >= 3 { // Limit to first 3 nodes
+		fmt.Println()
+		fmt.Println("Search results (before reranking):")
+		fmt.Println("----------------------------------")
+		for i, node := range results.Nodes {
+			if i >= 5 {
+				break
+			}
+			summary := truncateString(node.Summary, 80)
+			fmt.Printf("  %d. %s (%s)\n", i+1, node.Name, node.Type)
+			fmt.Printf("     %s\n", summary)
+		}
+
+		// ========================================
+		// Example: Rerank Search Results
+		// ========================================
+		fmt.Println()
+		fmt.Println("Reranking results with qwen/qwen3-reranker-0.6b...")
+
+		// Extract passages for reranking
+		passages := make([]string, len(results.Nodes))
+		for i, node := range results.Nodes {
+			passages[i] = node.Summary
+		}
+
+		// Rerank
+		rankedResults, err := rerankerClient.Rank(ctx, "API design and deadlines", passages)
+		if err != nil {
+			fmt.Printf("Warning: Reranking failed: %v\n", err)
+		} else {
+			fmt.Println()
+			fmt.Println("Search results (after reranking):")
+			fmt.Println("---------------------------------")
+			for i, ranked := range rankedResults {
+				if i >= 5 {
 					break
 				}
-				fmt.Printf("  - %s (%s)\n", node.Name, node.Type)
+				passage := truncateString(ranked.Passage, 80)
+				fmt.Printf("  %d. (score: %.3f) %s\n", i+1, ranked.Score, passage)
 			}
 		}
+	} else {
+		fmt.Println("No results found (knowledge graph may be empty)")
 	}
 
+	// ========================================
+	// Example: Text Generation
+	// ========================================
+	fmt.Println()
+	fmt.Println("Demonstrating text generation with RustBert GPT-2...")
+
+	prompt := "The advantages of using a knowledge graph are"
+	generated, err := rustbertClient.GenerateText(prompt)
+	if err != nil {
+		fmt.Printf("Warning: Text generation failed: %v\n", err)
+	} else {
+		fmt.Printf("Prompt: %s\n", prompt)
+		fmt.Printf("Generated: %s\n", truncateString(generated, 200))
+	}
+
+	fmt.Println()
+	fmt.Println("================================================================================")
 	fmt.Println("Example completed successfully!")
+	fmt.Println("================================================================================")
+	fmt.Println()
+	fmt.Println("Summary:")
+	fmt.Println("  - Used Ladybug embedded database (no Neo4j server)")
+	fmt.Println("  - Used RustBert GPT-2 for text generation (no OpenAI API)")
+	fmt.Println("  - Used qwen/qwen3-embedding-0.6b for embeddings (no API)")
+	fmt.Println("  - Used qwen/qwen3-reranker-0.6b for reranking (no API)")
+	fmt.Println()
+	fmt.Println("For external API examples, see: examples/external_apis/")
 }
 
-func floatPtr(f float32) *float32 {
-	return &f
-}
-
-func intPtr(i int) *int {
-	return &i
+// truncateString truncates a string to a maximum length with ellipsis
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen-3] + "..."
 }

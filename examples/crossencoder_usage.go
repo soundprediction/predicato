@@ -8,8 +8,16 @@ import (
 	"github.com/soundprediction/predicato/pkg/crossencoder"
 )
 
-// Example demonstrating how to use the generic Jina-compatible reranker
-// with different services (vLLM, LocalAI, Jina AI, etc.)
+// Example demonstrating how to use cross-encoder reranking in predicato.
+//
+// This example prioritizes internal reranking (go-embedeverything) which requires
+// no external services, followed by external API options for production deployments.
+//
+// Internal Services (Recommended for getting started):
+// - EmbedEverything with qwen/qwen3-reranker-0.6b (no API key, runs locally)
+//
+// External APIs (For production/cloud deployments):
+// - vLLM, LocalAI, Jina AI (require running servers or API keys)
 func main() {
 	ctx := context.Background()
 
@@ -23,52 +31,136 @@ func main() {
 		"Supervised learning trains models on labeled data to make predictions on new data.",
 	}
 
-	fmt.Println("🔄 Cross-Encoder Reranking Example")
-	fmt.Printf("Query: %s\n", query)
+	fmt.Println("================================================================================")
+	fmt.Println("Cross-Encoder Reranking Examples")
+	fmt.Println("================================================================================")
+	fmt.Printf("\nQuery: %s\n", query)
 	fmt.Printf("Passages to rank: %d\n\n", len(passages))
 
-	// Example 1: Using vLLM with a cross-encoder model
-	fmt.Println("1. Using vLLM Reranker (assuming vLLM server is running)")
+	// ========================================
+	// Example 1: RECOMMENDED - Using EmbedEverything (Internal, No API Required)
+	// ========================================
+	fmt.Println("1. [RECOMMENDED] EmbedEverything Reranker (Internal - No API Required)")
+	fmt.Println("   Model: qwen/qwen3-reranker-0.6b")
+	fmt.Println("   (First run will download the model, ~600MB)")
+	fmt.Println()
+
+	embedEverythingConfig := &crossencoder.EmbedEverythingConfig{
+		Config: &crossencoder.Config{
+			Model:     "qwen/qwen3-reranker-0.6b",
+			BatchSize: 32,
+		},
+	}
+	embedEverythingReranker, err := crossencoder.NewEmbedEverythingClient(embedEverythingConfig)
+	if err != nil {
+		fmt.Printf("   Warning: Failed to create EmbedEverything reranker: %v\n", err)
+		fmt.Println("   This may happen if CGO is not enabled or Rust libraries are not available.")
+		fmt.Println("   Enable CGO with: export CGO_ENABLED=1")
+	} else {
+		defer embedEverythingReranker.Close()
+
+		results, err := embedEverythingReranker.Rank(ctx, query, passages)
+		if err != nil {
+			fmt.Printf("   Warning: EmbedEverything reranking failed: %v\n", err)
+		} else {
+			fmt.Println("   EmbedEverything reranking successful:")
+			for i, result := range results {
+				passagePreview := result.Passage
+				if len(passagePreview) > 60 {
+					passagePreview = passagePreview[:60] + "..."
+				}
+				fmt.Printf("   %d. (Score: %.3f) %s\n", i+1, result.Score, passagePreview)
+			}
+		}
+	}
+	fmt.Println()
+
+	// ========================================
+	// Example 2: Local Fallback Reranker (No ML, Term Frequency Based)
+	// ========================================
+	fmt.Println("2. Local Fallback Reranker (No External Dependencies)")
+	fmt.Println("   Uses term frequency / cosine similarity (no ML model)")
+	fmt.Println()
+
+	localReranker := crossencoder.NewLocalRerankerClient(crossencoder.Config{
+		BatchSize: 100,
+	})
+	defer localReranker.Close()
+
+	results, err := localReranker.Rank(ctx, query, passages)
+	if err != nil {
+		fmt.Printf("   Warning: Local reranking failed: %v\n", err)
+	} else {
+		fmt.Println("   Local reranking successful:")
+		for i, result := range results {
+			passagePreview := result.Passage
+			if len(passagePreview) > 60 {
+				passagePreview = passagePreview[:60] + "..."
+			}
+			fmt.Printf("   %d. (Score: %.3f) %s\n", i+1, result.Score, passagePreview)
+		}
+	}
+	fmt.Println()
+
+	// ========================================
+	// External API Examples (Require Running Servers or API Keys)
+	// ========================================
+	fmt.Println("================================================================================")
+	fmt.Println("External API Rerankers (For Production/Cloud Deployments)")
+	fmt.Println("================================================================================")
+	fmt.Println()
+
+	// Example 3: Using vLLM with a cross-encoder model
+	fmt.Println("3. vLLM Reranker (Requires vLLM Server)")
+	fmt.Println("   Start with: vllm serve BAAI/bge-reranker-large")
 	vllmReranker := crossencoder.NewVLLMRerankerClient(
 		"http://localhost:8000/v1", // vLLM server URL
 		"BAAI/bge-reranker-large",  // Cross-encoder model
 	)
 	defer vllmReranker.Close()
 
-	// Note: This will fail if vLLM server is not running, but shows the API
-	results, err := vllmReranker.Rank(ctx, query, passages)
+	results, err = vllmReranker.Rank(ctx, query, passages)
 	if err != nil {
-		fmt.Printf("   ⚠️  vLLM reranking failed (server may not be running): %v\n", err)
+		fmt.Printf("   Warning: vLLM reranking failed (server may not be running): %v\n", err)
 	} else {
-		fmt.Println("   ✅ vLLM reranking successful:")
+		fmt.Println("   vLLM reranking successful:")
 		for i, result := range results {
-			fmt.Printf("   %d. (Score: %.3f) %s\n", i+1, result.Score, result.Passage[:50]+"...")
+			passagePreview := result.Passage
+			if len(passagePreview) > 60 {
+				passagePreview = passagePreview[:60] + "..."
+			}
+			fmt.Printf("   %d. (Score: %.3f) %s\n", i+1, result.Score, passagePreview)
 		}
 	}
 	fmt.Println()
 
-	// Example 2: Using Jina AI reranking service
-	fmt.Println("2. Using Jina AI Reranker (requires API key)")
+	// Example 4: Using Jina AI reranking service
+	fmt.Println("4. Jina AI Reranker (Requires API Key)")
+	fmt.Println("   Get API key from: https://jina.ai/")
 	jinaReranker := crossencoder.NewJinaRerankerClient(
 		"your-jina-api-key",        // API key from Jina AI
 		"jina-reranker-v1-base-en", // Jina reranker model
 	)
 	defer jinaReranker.Close()
 
-	// Note: This will fail without a valid API key, but shows the API
 	results, err = jinaReranker.Rank(ctx, query, passages)
 	if err != nil {
-		fmt.Printf("   ⚠️  Jina reranking failed (API key may be invalid): %v\n", err)
+		fmt.Printf("   Warning: Jina reranking failed (API key may be invalid): %v\n", err)
 	} else {
-		fmt.Println("   ✅ Jina reranking successful:")
+		fmt.Println("   Jina reranking successful:")
 		for i, result := range results {
-			fmt.Printf("   %d. (Score: %.3f) %s\n", i+1, result.Score, result.Passage[:50]+"...")
+			passagePreview := result.Passage
+			if len(passagePreview) > 60 {
+				passagePreview = passagePreview[:60] + "..."
+			}
+			fmt.Printf("   %d. (Score: %.3f) %s\n", i+1, result.Score, passagePreview)
 		}
 	}
 	fmt.Println()
 
-	// Example 3: Using LocalAI reranking service
-	fmt.Println("3. Using LocalAI Reranker (assuming LocalAI server is running)")
+	// Example 5: Using LocalAI reranking service
+	fmt.Println("5. LocalAI Reranker (Requires LocalAI Server)")
+	fmt.Println("   Start with: local-ai run reranker")
 	localAIReranker := crossencoder.NewLocalAIRerankerClient(
 		"http://localhost:8080/v1", // LocalAI server URL
 		"reranker",                 // Model name configured in LocalAI
@@ -76,61 +168,42 @@ func main() {
 	)
 	defer localAIReranker.Close()
 
-	// Note: This will fail if LocalAI server is not running, but shows the API
 	results, err = localAIReranker.Rank(ctx, query, passages)
 	if err != nil {
-		fmt.Printf("   ⚠️  LocalAI reranking failed (server may not be running): %v\n", err)
+		fmt.Printf("   Warning: LocalAI reranking failed (server may not be running): %v\n", err)
 	} else {
-		fmt.Println("   ✅ LocalAI reranking successful:")
+		fmt.Println("   LocalAI reranking successful:")
 		for i, result := range results {
-			fmt.Printf("   %d. (Score: %.3f) %s\n", i+1, result.Score, result.Passage[:50]+"...")
-		}
-	}
-	fmt.Println()
-
-	// Example 4: Using generic reranker client for any Jina-compatible service
-	fmt.Println("4. Using Generic Reranker Client")
-	config := crossencoder.RerankerConfig{
-		Config: crossencoder.Config{
-			Model: "my-custom-reranker-model",
-		},
-		BaseURL: "http://my-custom-service:8080/v1",
-		APIKey:  "my-api-key", // If required by your service
-	}
-	genericReranker := crossencoder.NewRerankerClient(config)
-	defer genericReranker.Close()
-
-	// Note: This will fail without a real service, but shows the API
-	results, err = genericReranker.Rank(ctx, query, passages)
-	if err != nil {
-		fmt.Printf("   ⚠️  Generic reranking failed (custom service not available): %v\n", err)
-	} else {
-		fmt.Println("   ✅ Generic reranking successful:")
-		for i, result := range results {
-			fmt.Printf("   %d. (Score: %.3f) %s\n", i+1, result.Score, result.Passage[:50]+"...")
+			passagePreview := result.Passage
+			if len(passagePreview) > 60 {
+				passagePreview = passagePreview[:60] + "..."
+			}
+			fmt.Printf("   %d. (Score: %.3f) %s\n", i+1, result.Score, passagePreview)
 		}
 	}
 
+	// Summary
 	fmt.Println()
-	fmt.Println("💡 Key Benefits of Generic Jina-Compatible Approach:")
-	fmt.Println("   - Works with any service implementing the Jina reranking API")
-	fmt.Println("   - No vendor lock-in - switch between services easily")
-	fmt.Println("   - Supports local services (vLLM, LocalAI) and cloud services (Jina AI)")
-	fmt.Println("   - Consistent API regardless of underlying service")
+	fmt.Println("================================================================================")
+	fmt.Println("Summary")
+	fmt.Println("================================================================================")
 	fmt.Println()
-	fmt.Println("🚀 To use with a real service:")
-	fmt.Println("   1. Start your preferred reranking service (vLLM, LocalAI, etc.)")
-	fmt.Println("   2. Update the BaseURL and model name")
-	fmt.Println("   3. Provide API key if required")
-	fmt.Println("   4. The client will work with any Jina-compatible endpoint!")
+	fmt.Println("Recommended Approach:")
+	fmt.Println("  1. Start with EmbedEverything (qwen/qwen3-reranker-0.6b) - no API needed")
+	fmt.Println("  2. Use Local Fallback if CGO is not available")
+	fmt.Println("  3. Upgrade to external APIs (vLLM, Jina) for production scale")
+	fmt.Println()
+	fmt.Println("For more examples, see:")
+	fmt.Println("  - examples/basic/ - Full internal services example")
+	fmt.Println("  - examples/chat/ - Interactive chat with reranking")
+	fmt.Println("  - examples/external_apis/ - External API integration")
 }
 
-// Helper function to demonstrate how the reranker would be integrated
+// demonstrateSearchIntegration shows how the reranker would be integrated
 // into a larger search system
 func demonstrateSearchIntegration() {
 	ctx := context.Background()
 
-	// This shows how you might use the reranker in a real search system
 	query := "artificial intelligence applications"
 	initialResults := []string{
 		"AI is used in healthcare for medical diagnosis and drug discovery.",
@@ -140,19 +213,23 @@ func demonstrateSearchIntegration() {
 		"Natural language processing enables chatbots and translation.",
 	}
 
-	// Create reranker based on your deployment
+	// Recommended: Use EmbedEverything for internal reranking
+	config := &crossencoder.EmbedEverythingConfig{
+		Config: &crossencoder.Config{
+			Model:     "qwen/qwen3-reranker-0.6b",
+			BatchSize: 32,
+		},
+	}
+
 	var reranker crossencoder.Client
+	var err error
 
-	// Option 1: Use vLLM for local deployment
-	reranker = crossencoder.NewVLLMRerankerClient("http://localhost:8000/v1", "BAAI/bge-reranker-large")
-
-	// Option 2: Use Jina AI for cloud deployment
-	// reranker = crossencoder.NewJinaRerankerClient("your-api-key", "jina-reranker-v1-base-en")
-
-	// Option 3: Use any other Jina-compatible service
-	// config := crossencoder.RerankerConfig{...}
-	// reranker = crossencoder.NewRerankerClient(config)
-
+	reranker, err = crossencoder.NewEmbedEverythingClient(config)
+	if err != nil {
+		// Fallback to local reranker if EmbedEverything is not available
+		log.Printf("EmbedEverything not available, using local fallback: %v", err)
+		reranker = crossencoder.NewLocalRerankerClient(crossencoder.Config{})
+	}
 	defer reranker.Close()
 
 	// Rerank the initial results

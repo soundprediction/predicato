@@ -1,18 +1,22 @@
 // Package main demonstrates how to build an interactive chat application using predicato
-// with both global knowledge base and user-specific episodic memory.
+// with internal services only - no external APIs required.
 //
 // This example shows how to:
 // - Create separate Predicato clients for global knowledge and user-specific data
+// - Use RustBert GPT-2 for text generation (local, no API)
+// - Use go-embedeverything with qwen3-embedding for embeddings (local, no API)
+// - Use go-embedeverything with qwen3-reranker for reranking (local, no API)
 // - Use episodes to track conversation history with AddToEpisode
-// - Search the global knowledge graph for context
+// - Apply reranking to improve search result quality
 // - Maintain conversation continuity with UUID v7 episode IDs
 // - Build an interactive chat loop with conversation history
 //
 // Prerequisites:
-// - OpenAI API key for LLM and embeddings
+// - CGO enabled (required for Rust FFI bindings)
+// - ~4GB RAM minimum
+// - No API keys or external services required!
 //
-// Environment Variables:
-// - OPENAI_API_KEY (required): Your OpenAI API key
+// First run will download models (~1.7GB total)
 //
 // Usage:
 //
@@ -33,9 +37,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/soundprediction/predicato"
+	"github.com/soundprediction/predicato/pkg/crossencoder"
 	"github.com/soundprediction/predicato/pkg/driver"
 	"github.com/soundprediction/predicato/pkg/embedder"
 	"github.com/soundprediction/predicato/pkg/nlp"
+	"github.com/soundprediction/predicato/pkg/rustbert"
 	"github.com/soundprediction/predicato/pkg/types"
 )
 
@@ -55,9 +61,11 @@ type Message struct {
 
 // ChatClients holds all the clients needed for the chat application
 type ChatClients struct {
-	GlobalPredicato *predicato.Client // Global knowledge base (can be nil)
-	UserPredicato   *predicato.Client // User-specific episodic memory
-	LLM             llm.Client
+	GlobalPredicato *predicato.Client                   // Global knowledge base (can be nil)
+	UserPredicato   *predicato.Client                   // User-specific episodic memory
+	LLM             nlp.Client                          // LLM for text generation
+	RustBert        *rustbert.Client                    // RustBert client for direct generation
+	Reranker        *crossencoder.EmbedEverythingClient // Reranker for improving search quality
 	Context         context.Context
 }
 
@@ -69,23 +77,24 @@ func main() {
 	skipGlobal := flag.Bool("skip-global", false, "Skip loading global knowledge base")
 	flag.Parse()
 
-	// Get OpenAI API key
-	openaiAPIKey := os.Getenv("OPENAI_API_KEY")
-	if openaiAPIKey == "" {
-		fmt.Println("❌ OPENAI_API_KEY environment variable is not set.")
-		fmt.Println("Please set it to run this example:")
-		fmt.Println("  export OPENAI_API_KEY=your_api_key_here")
-		os.Exit(1)
-	}
-
-	fmt.Println("🚀 Starting Predicato Chat Example")
-	fmt.Printf("   User ID: %s\n", *userID)
+	fmt.Println("================================================================================")
+	fmt.Println("Predicato Interactive Chat - Internal Services Stack")
+	fmt.Println("================================================================================")
+	fmt.Println()
+	fmt.Println("This chat uses predicato's internal services:")
+	fmt.Println("  - Ladybug: embedded graph database (no server required)")
+	fmt.Println("  - RustBert GPT-2: local text generation (no API required)")
+	fmt.Println("  - EmbedEverything: local embeddings with qwen/qwen3-embedding-0.6b")
+	fmt.Println("  - EmbedEverything: local reranking with qwen/qwen3-reranker-0.6b")
+	fmt.Println()
+	fmt.Println("No API keys or external services needed!")
+	fmt.Printf("User ID: %s\n", *userID)
 	fmt.Println()
 
 	// Initialize clients
-	clients, err := initializeClients(openaiAPIKey, *userID, *globalDBPath, *userDBDir, *skipGlobal)
+	clients, err := initializeClients(*userID, *globalDBPath, *userDBDir, *skipGlobal)
 	if err != nil {
-		log.Fatalf("❌ Failed to initialize clients: %v", err)
+		log.Fatalf("Failed to initialize clients: %v", err)
 	}
 	defer clients.Close()
 
@@ -93,34 +102,69 @@ func main() {
 	runChatLoop(clients, *userID)
 }
 
-func initializeClients(apiKey, userID, globalDBPath, userDBDir string, skipGlobal bool) (*ChatClients, error) {
+func initializeClients(userID, globalDBPath, userDBDir string, skipGlobal bool) (*ChatClients, error) {
 	ctx := context.Background()
 
-	fmt.Println("🔧 Initializing clients...")
+	fmt.Println("Initializing internal services...")
+	fmt.Println("(First run will download models, please wait...)")
+	fmt.Println()
 
-	// Create LLM client
-	llmConfig := llm.Config{
-		Model:       "gpt-4o-mini",
-		Temperature: floatPtr(0.7),
-		MaxTokens:   intPtr(2000),
+	// ========================================
+	// 1. Create RustBert Client (Local Text Generation)
+	// ========================================
+	fmt.Println("[1/4] Setting up RustBert GPT-2 for text generation...")
+
+	rustbertClient := rustbert.NewClient(rustbert.Config{})
+	if err := rustbertClient.LoadTextGenerationModel(); err != nil {
+		return nil, fmt.Errorf("failed to load text generation model: %w", err)
 	}
-	baseLLMClient, err := llm.NewOpenAIClient(apiKey, llmConfig)
+
+	// Create LLM adapter for nlp.Client interface
+	llmClient := rustbert.NewLLMAdapter(rustbertClient, "text_generation")
+	fmt.Println("      RustBert GPT-2 loaded")
+
+	// ========================================
+	// 2. Create Embedder Client (Local Embeddings)
+	// ========================================
+	fmt.Println("[2/4] Setting up EmbedEverything embedder with qwen/qwen3-embedding-0.6b...")
+
+	embedderConfig := &embedder.EmbedEverythingConfig{
+		Config: &embedder.Config{
+			Model:      "qwen/qwen3-embedding-0.6b",
+			Dimensions: 1024,
+			BatchSize:  32,
+		},
+	}
+	embedderClient, err := embedder.NewEmbedEverythingClient(embedderConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create LLM client: %w", err)
+		rustbertClient.Close()
+		return nil, fmt.Errorf("failed to create embedder client: %w", err)
 	}
+	fmt.Println("      EmbedEverything embedder loaded")
 
-	// Wrap with retry logic
-	nlProcessor := llm.NewRetryClient(baseLLMClient, llm.DefaultRetryConfig())
-	fmt.Printf("   ✅ LLM client created (model: %s)\n", llmConfig.Model)
+	// ========================================
+	// 3. Create Reranker Client (Local Reranking)
+	// ========================================
+	fmt.Println("[3/4] Setting up EmbedEverything reranker with qwen/qwen3-reranker-0.6b...")
 
-	// Create embedder client
-	embedderConfig := embedder.Config{
-		Model:      "text-embedding-3-small",
-		BatchSize:  100,
-		Dimensions: 1536,
+	rerankerConfig := &crossencoder.EmbedEverythingConfig{
+		Config: &crossencoder.Config{
+			Model:     "qwen/qwen3-reranker-0.6b",
+			BatchSize: 32,
+		},
 	}
-	embedderClient := embedder.NewOpenAIEmbedder(apiKey, embedderConfig)
-	fmt.Printf("   ✅ Embedder client created (model: %s)\n", embedderConfig.Model)
+	rerankerClient, err := crossencoder.NewEmbedEverythingClient(rerankerConfig)
+	if err != nil {
+		rustbertClient.Close()
+		embedderClient.Close()
+		return nil, fmt.Errorf("failed to create reranker client: %w", err)
+	}
+	fmt.Println("      EmbedEverything reranker loaded")
+
+	// ========================================
+	// 4. Create Predicato Clients
+	// ========================================
+	fmt.Println("[4/4] Setting up Predicato clients...")
 
 	// Create global Predicato client (if enabled)
 	var globalPredicatoClient *predicato.Client
@@ -129,24 +173,24 @@ func initializeClients(apiKey, userID, globalDBPath, userDBDir string, skipGloba
 		if _, err := os.Stat(globalDBPath); err == nil {
 			ladybugDriver, err := driver.NewLadybugDriver(globalDBPath, 1)
 			if err != nil {
-				fmt.Printf("   ⚠️  Failed to load global ladybug database: %v\n", err)
-				fmt.Println("   Continuing without global knowledge base...")
+				fmt.Printf("      Warning: Failed to load global database: %v\n", err)
+				fmt.Println("      Continuing without global knowledge base...")
 			} else {
 				globalConfig := &predicato.Config{
 					GroupID:  "global-knowledge",
 					TimeZone: time.UTC,
 				}
-				globalPredicatoClient, err = predicato.NewClient(ladybugDriver, nlProcessor, embedderClient, globalConfig, nil)
+				globalPredicatoClient, err = predicato.NewClient(ladybugDriver, llmClient, embedderClient, globalConfig, nil)
 				if err != nil {
-					fmt.Printf("   ⚠️  Failed to create global client: %v\n", err)
+					fmt.Printf("      Warning: Failed to create global client: %v\n", err)
 					globalPredicatoClient = nil
 				} else {
-					fmt.Printf("   ✅ Global knowledge base loaded from %s\n", globalDBPath)
+					fmt.Printf("      Global knowledge base loaded from %s\n", globalDBPath)
 				}
 			}
 		} else {
-			fmt.Printf("   ℹ️  Global knowledge base not found at %s\n", globalDBPath)
-			fmt.Println("   Continuing without global knowledge base...")
+			fmt.Printf("      Global knowledge base not found at %s\n", globalDBPath)
+			fmt.Println("      Continuing without global knowledge base...")
 		}
 	}
 
@@ -155,11 +199,17 @@ func initializeClients(apiKey, userID, globalDBPath, userDBDir string, skipGloba
 
 	// Create parent directory if it doesn't exist
 	if err := os.MkdirAll(filepath.Dir(userDBPath), 0755); err != nil {
+		rustbertClient.Close()
+		embedderClient.Close()
+		rerankerClient.Close()
 		return nil, fmt.Errorf("failed to create user database directory: %w", err)
 	}
 
 	userLadybugDriver, err := driver.NewLadybugDriver(userDBPath, 1)
 	if err != nil {
+		rustbertClient.Close()
+		embedderClient.Close()
+		rerankerClient.Close()
 		return nil, fmt.Errorf("failed to create user ladybug driver: %w", err)
 	}
 
@@ -167,16 +217,25 @@ func initializeClients(apiKey, userID, globalDBPath, userDBDir string, skipGloba
 		GroupID:  fmt.Sprintf("user-%s-chat", userID),
 		TimeZone: time.UTC,
 	}
-	userPredicatoClient, err := predicato.NewClient(userLadybugDriver, nlProcessor, embedderClient, userConfig, nil)
+	userPredicatoClient, err := predicato.NewClient(userLadybugDriver, llmClient, embedderClient, userConfig, nil)
 	if err != nil {
+		rustbertClient.Close()
+		embedderClient.Close()
+		rerankerClient.Close()
 		return nil, fmt.Errorf("failed to create user client: %w", err)
 	}
-	fmt.Printf("   ✅ User database initialized at %s\n", userDBPath)
+	fmt.Printf("      User database initialized at %s\n", userDBPath)
+
+	fmt.Println()
+	fmt.Println("All components initialized successfully!")
+	fmt.Println()
 
 	return &ChatClients{
 		GlobalPredicato: globalPredicatoClient,
 		UserPredicato:   userPredicatoClient,
-		LLM:             nlProcessor,
+		LLM:             llmClient,
+		RustBert:        rustbertClient,
+		Reranker:        rerankerClient,
 		Context:         ctx,
 	}, nil
 }
@@ -188,8 +247,11 @@ func (c *ChatClients) Close() {
 	if c.UserPredicato != nil {
 		c.UserPredicato.Close(c.Context)
 	}
-	if c.LLM != nil {
-		c.LLM.Close()
+	if c.RustBert != nil {
+		c.RustBert.Close()
+	}
+	if c.Reranker != nil {
+		c.Reranker.Close()
 	}
 }
 
@@ -206,20 +268,22 @@ func runChatLoop(clients *ChatClients, userID string) {
 	}
 
 	// Print welcome banner
-	fmt.Println("\n" + strings.Repeat("=", 70))
-	fmt.Println("💬 Predicato Interactive Chat")
 	fmt.Println(strings.Repeat("=", 70))
-	fmt.Println("\nCommands:")
+	fmt.Println("Predicato Interactive Chat")
+	fmt.Println(strings.Repeat("=", 70))
+	fmt.Println()
+	fmt.Println("Commands:")
 	fmt.Println("  Type your question and press Enter")
 	fmt.Println("  Type 'exit' or 'quit' to end the session")
 	fmt.Println("  Type 'history' to view conversation history")
 	fmt.Println("  Type 'search <query>' to search the global knowledge base")
-	fmt.Println(strings.Repeat("=", 70) + "\n")
+	fmt.Println(strings.Repeat("=", 70))
+	fmt.Println()
 
 	scanner := bufio.NewScanner(os.Stdin)
 
 	for {
-		fmt.Print("💬 You: ")
+		fmt.Print("You: ")
 		if !scanner.Scan() {
 			break
 		}
@@ -229,7 +293,7 @@ func runChatLoop(clients *ChatClients, userID string) {
 		// Handle commands
 		switch {
 		case input == "exit" || input == "quit":
-			fmt.Println("\n👋 Goodbye!")
+			fmt.Println("\nGoodbye!")
 			return
 		case input == "history":
 			showHistory(session)
@@ -247,7 +311,7 @@ func runChatLoop(clients *ChatClients, userID string) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		fmt.Printf("\n❌ Error reading input: %v\n", err)
+		fmt.Printf("\nError reading input: %v\n", err)
 	}
 }
 
@@ -282,9 +346,9 @@ func processQuery(clients *ChatClients, session *ChatSession, userID, input stri
 		go func(ep types.Episode) {
 			result, err := clients.UserPredicato.Add(ctx, []types.Episode{ep}, nil)
 			if err != nil {
-				fmt.Printf("⚠️  Background: Failed to create episode: %v\n", err)
+				fmt.Printf("Warning: Failed to create episode: %v\n", err)
 			} else if result != nil && len(result.Episodes) > 0 {
-				fmt.Printf("✨ Background: Created episode %s\n", result.Episodes[0].Uuid)
+				fmt.Printf("Created episode %s\n", result.Episodes[0].Uuid)
 			}
 		}(episode)
 	} else {
@@ -292,17 +356,17 @@ func processQuery(clients *ChatClients, session *ChatSession, userID, input stri
 		go func(episodeID, content string) {
 			_, err := clients.UserPredicato.AddToEpisode(ctx, episodeID, content, nil)
 			if err != nil {
-				fmt.Printf("⚠️  Background: Failed to append to episode: %v\n", err)
+				fmt.Printf("Warning: Failed to append to episode: %v\n", err)
 			}
 		}(session.EpisodeID, conversationTurn)
 	}
 
-	// Search global knowledge base if available
+	// Search global knowledge base if available and rerank results
 	var contextNodes []*types.Node
 	if clients.GlobalPredicato != nil {
-		fmt.Println("🔍 Searching global knowledge base...")
+		fmt.Println("Searching global knowledge base...")
 		searchConfig := &types.SearchConfig{
-			Limit:              5,
+			Limit:              10, // Get more results for reranking
 			CenterNodeDistance: 2,
 			MinScore:           0.0,
 			IncludeEdges:       true,
@@ -310,42 +374,69 @@ func processQuery(clients *ChatClients, session *ChatSession, userID, input stri
 
 		results, err := clients.GlobalPredicato.Search(ctx, input, searchConfig)
 		if err != nil {
-			fmt.Printf("⚠️  Search failed: %v\n", err)
+			fmt.Printf("Warning: Search failed: %v\n", err)
 		} else if results != nil && len(results.Nodes) > 0 {
-			contextNodes = results.Nodes
-			fmt.Printf("📚 Found %d relevant nodes\n", len(contextNodes))
-			for i, node := range contextNodes {
-				if i >= 3 {
-					break
+			// Rerank the results
+			passages := make([]string, len(results.Nodes))
+			for i, node := range results.Nodes {
+				passages[i] = node.Summary
+			}
+
+			rankedResults, err := clients.Reranker.Rank(ctx, input, passages)
+			if err != nil {
+				fmt.Printf("Warning: Reranking failed, using original order: %v\n", err)
+				contextNodes = results.Nodes
+			} else {
+				// Reorder nodes based on reranking
+				fmt.Printf("Found %d relevant nodes (reranked)\n", len(rankedResults))
+
+				// Create a map for quick lookup
+				nodeMap := make(map[string]*types.Node)
+				for _, node := range results.Nodes {
+					nodeMap[node.Summary] = node
 				}
-				summary := truncate(node.Summary, 80)
-				fmt.Printf("  %d. %s: %s\n", i+1, node.Name, summary)
+
+				// Take top 3 reranked results
+				for i, ranked := range rankedResults {
+					if i >= 3 {
+						break
+					}
+					if node, ok := nodeMap[ranked.Passage]; ok {
+						contextNodes = append(contextNodes, node)
+						fmt.Printf("  %d. (score: %.3f) %s\n", i+1, ranked.Score, truncate(node.Name, 50))
+					}
+				}
 			}
 		} else {
-			fmt.Println("📚 No relevant context found")
+			fmt.Println("No relevant context found")
 		}
 	}
 
 	// Build prompt with context
 	prompt := buildPrompt(input, session.Messages, contextNodes)
 
-	// Generate response
-	fmt.Println("\n🤖 Assistant:")
+	// Generate response using RustBert GPT-2
+	fmt.Println()
+	fmt.Println("Assistant:")
 	fmt.Println(strings.Repeat("-", 70))
 
-	messages := []types.Message{
-		{Role: llm.RoleUser, Content: prompt},
-	}
-
-	llmResponse, err := clients.LLM.Chat(ctx, messages)
+	response, err := clients.RustBert.GenerateText(prompt)
 	if err != nil {
-		fmt.Printf("❌ Failed to generate response: %v\n", err)
+		fmt.Printf("Failed to generate response: %v\n", err)
 		return
 	}
 
-	response := llmResponse.Content
+	// Clean up the response (GPT-2 might include the prompt)
+	response = strings.TrimPrefix(response, prompt)
+	response = strings.TrimSpace(response)
+
+	if response == "" {
+		response = "I'm sorry, I couldn't generate a response. Please try rephrasing your question."
+	}
+
 	fmt.Println(response)
 	fmt.Println(strings.Repeat("-", 70))
+	fmt.Println()
 
 	// Save message to session
 	message := Message{
@@ -361,7 +452,7 @@ func processQuery(clients *ChatClients, session *ChatSession, userID, input stri
 			assistantTurn := fmt.Sprintf("Assistant: %s\n", resp)
 			_, err := clients.UserPredicato.AddToEpisode(ctx, episodeID, assistantTurn, nil)
 			if err != nil {
-				fmt.Printf("⚠️  Background: Failed to append assistant response: %v\n", err)
+				fmt.Printf("Warning: Failed to append assistant response: %v\n", err)
 			}
 		}(session.EpisodeID, response)
 	}
@@ -374,7 +465,7 @@ func buildPrompt(query string, history []Message, contextNodes []*types.Node) st
 
 	// Add context from knowledge base
 	if len(contextNodes) > 0 {
-		prompt.WriteString("Use the following context from the knowledge base to help answer the question:\n\n")
+		prompt.WriteString("Use the following context to help answer the question:\n\n")
 		for i, node := range contextNodes {
 			if i >= 3 {
 				break
@@ -383,45 +474,47 @@ func buildPrompt(query string, history []Message, contextNodes []*types.Node) st
 		}
 	}
 
-	// Add conversation history (last 5 messages)
+	// Add conversation history (last 3 messages for GPT-2's limited context)
 	if len(history) > 0 {
 		prompt.WriteString("Previous conversation:\n")
 		start := 0
-		if len(history) > 5 {
-			start = len(history) - 5
+		if len(history) > 3 {
+			start = len(history) - 3
 		}
 		for _, msg := range history[start:] {
-			prompt.WriteString(fmt.Sprintf("User: %s\nAssistant: %s\n", msg.UserQuery, msg.LLMResponse))
+			prompt.WriteString(fmt.Sprintf("User: %s\nAssistant: %s\n", msg.UserQuery, truncate(msg.LLMResponse, 100)))
 		}
 		prompt.WriteString("\n")
 	}
 
-	prompt.WriteString(fmt.Sprintf("Current question: %s\n\nPlease provide a helpful and accurate response:", query))
+	prompt.WriteString(fmt.Sprintf("User: %s\nAssistant:", query))
 	return prompt.String()
 }
 
 func showHistory(session *ChatSession) {
 	if len(session.Messages) == 0 {
-		fmt.Println("📝 No conversation history yet")
+		fmt.Println("No conversation history yet")
 		return
 	}
 
-	fmt.Println("\n📝 Conversation History:")
+	fmt.Println()
+	fmt.Println("Conversation History:")
 	fmt.Println(strings.Repeat("-", 70))
 	for i, msg := range session.Messages {
 		fmt.Printf("%d. You: %s\n", i+1, msg.UserQuery)
 		fmt.Printf("   Assistant: %s\n", truncate(msg.LLMResponse, 100))
 		fmt.Println(strings.Repeat("-", 70))
 	}
+	fmt.Println()
 }
 
 func searchGlobalKnowledge(clients *ChatClients, query string) {
 	if clients.GlobalPredicato == nil {
-		fmt.Println("⚠️  Global knowledge base not available")
+		fmt.Println("Global knowledge base not available")
 		return
 	}
 
-	fmt.Printf("🔍 Searching for: %s\n", query)
+	fmt.Printf("Searching for: %s\n", query)
 
 	searchConfig := &types.SearchConfig{
 		Limit:              10,
@@ -432,22 +525,47 @@ func searchGlobalKnowledge(clients *ChatClients, query string) {
 
 	results, err := clients.GlobalPredicato.Search(clients.Context, query, searchConfig)
 	if err != nil {
-		fmt.Printf("❌ Search failed: %v\n", err)
+		fmt.Printf("Search failed: %v\n", err)
 		return
 	}
 
 	if results == nil || len(results.Nodes) == 0 {
-		fmt.Println("📚 No results found")
+		fmt.Println("No results found")
 		return
 	}
 
-	fmt.Printf("📚 Found %d nodes:\n", len(results.Nodes))
+	// Rerank results
+	passages := make([]string, len(results.Nodes))
 	for i, node := range results.Nodes {
-		fmt.Printf("%d. %s (%s)\n", i+1, node.Name, node.Type)
-		if node.Summary != "" {
-			fmt.Printf("   %s\n", truncate(node.Summary, 100))
+		passages[i] = node.Summary
+	}
+
+	rankedResults, err := clients.Reranker.Rank(clients.Context, query, passages)
+	if err != nil {
+		fmt.Printf("Reranking failed, showing original order: %v\n", err)
+		fmt.Printf("Found %d nodes:\n", len(results.Nodes))
+		for i, node := range results.Nodes {
+			fmt.Printf("%d. %s (%s)\n", i+1, node.Name, node.Type)
+			if node.Summary != "" {
+				fmt.Printf("   %s\n", truncate(node.Summary, 100))
+			}
+		}
+		return
+	}
+
+	fmt.Printf("Found %d nodes (reranked):\n", len(rankedResults))
+	nodeMap := make(map[string]*types.Node)
+	for _, node := range results.Nodes {
+		nodeMap[node.Summary] = node
+	}
+
+	for i, ranked := range rankedResults {
+		if node, ok := nodeMap[ranked.Passage]; ok {
+			fmt.Printf("%d. (score: %.3f) %s (%s)\n", i+1, ranked.Score, node.Name, node.Type)
+			fmt.Printf("   %s\n", truncate(ranked.Passage, 100))
 		}
 	}
+	fmt.Println()
 }
 
 func truncate(s string, maxLen int) string {
@@ -455,12 +573,4 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
-}
-
-func floatPtr(f float32) *float32 {
-	return &f
-}
-
-func intPtr(i int) *int {
-	return &i
 }
