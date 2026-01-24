@@ -1,228 +1,30 @@
 # predicato
 
-A temporal knowledge graph library for Go that extracts, organizes, and queries predicate logic from unstructured content.
+A temporal knowledge graph library for Go with a fully local ML stack - no API keys required.
 
-## Key Capabilities
+## What Makes Predicato Different
 
-* **Self-Contained**: No external service dependencies required (except for optional standalone graph database and LLM and embedding services)
-* **GLiNER Integration**: Supports GLiNER for entity and relation extraction, which is much more efficient than using an LLM
-* **LLM Integration**: Supports OpenAI-compatible APIs including OpenAI, Anthropic, Gemini, Together AI, Ollama, and vLLM.
-* TSV-based prompting format
-* **Internal Embedding & Reranking**: CPU-based embedding and reranking using go-embedeverything (Go bindings for the Rust embedanything package). Suitable for small models without requiring external API calls.
-* **Cost Tracking**: Token usage tracking and cost calculation with serverless pricing models.
-* **Routing**: Provider fallback, circuit breaking, and configurable routing rules.
-* **Fact Store:** Built-in DoltDB integration for versioned, SQL-queryable storage of extracted facts and sources, separate from the graph database.
-* **Storage Options**:
-    * Embedded ladybugDB for in-process graph storage
-    * BadgerDB caching layer for embeddings and LLM responses
-    * DoltDB for fact storage (MySQL-compatible, versioned)
-* **Telemetry**: Error tracking with DB persistence
+Most agentic memory libraries require external services (OpenAI, Pinecone, Neo4j). Predicato is **modular by design** - every component can run locally OR connect to external services. Start with the internal stack for development, then swap in cloud services for production without changing your code.
 
+| Component | Internal (No API) | External (Cloud) |
+|-----------|-----------------|---------------------|
+| **Graph Database** | Ladybug (embedded) | Neo4j, Memgraph |
+| **Embeddings** | go-embedeverything | OpenAI, Voyage, Gemini |
+| **Reranking** | go-embedeverything | Jina, Cohere |
+| **Text Generation** | go-rust-bert (GPT-2) | OpenAI, Anthropic, Ollama |
+| **Entity Extraction** | GLiNER (ONNX) | LLM-based extraction |
+| **Fact Storage** | DoltDB (embedded) | DoltDB server |
 
-## Features
+**Why choose Predicato:**
+- **Run offline** - Embedded database + local ML models = no network required
+- **Swap components freely** - Same code works with local models or cloud APIs
+- **Bi-temporal knowledge** - Track when facts were recorded AND when they were valid
+- **Hybrid search** - Semantic + BM25 keyword + graph traversal in one query
+- **Production hardened** - WAL recovery, circuit breakers, cost tracking, telemetry
 
-- **Temporal Knowledge Graphs**: Bi-temporal data model tracking when data was recorded and when it is valid
-- **Hybrid Search**: Combines semantic embeddings, keyword search (BM25), and graph traversal
-- **Graph Database Support**: Embedded ladybugDB, Memgraph, and Neo4j
-- **Flexible Embedding Options**: API-based (OpenAI, Gemini, Voyage) or internal CPU-based embedding via go-embedeverything
-- **Optional Dependencies**: Can run with embedded database and without LLM features
-- **CLI Tool**: Command-line interface for server management and graph operations
-- **HTTP Server**: REST API endpoints for integration
-- **MCP Protocol**: Model Context Protocol support for Claude Desktop and MCP clients
-- **Cross-Encoder Reranking**: Multiple implementations (API-based, internal CPU-based, embedding similarity, LLM-based)
+## Quick Start (Internal Stack)
 
-
-## Installation
-
-```bash
-go get github.com/soundprediction/predicato
-```
-
-**Note:** If building from source, you must run `go generate` to download the ladybug library and use the `system_ladybug` build tag:
-
-```bash
-go generate ./...
-go build -tags system_ladybug ./...
-```
-
-
-## Quick Start
-
-### Prerequisites
-
-- Go 1.24+
-- **Optional**: Graph database (ladybug embedded by default, or external Memgraph/Neo4j)
-- **Optional**: LLM API access (OpenAI, Ollama, vLLM, or any OpenAI-compatible service)
-
-### Environment Variables
-
-**Basic Setup (Local/Embedded):**
-```bash
-# No environment variables required for basic usage with ladybug embedded database
-# and without LLM features
-```
-
-**With OpenAI-compatible LLM (optional):**
-```bash
-export OPENAI_API_KEY="your-api-key"           # For OpenAI
-export LLM_BASE_URL="http://localhost:11434"   # For local LLMs like Ollama
-```
-
-**With External Graph Database (optional):**
-```bash
-# For Memgraph
-export MEMGRAPH_URI="bolt://localhost:7687"
-export MEMGRAPH_USER="memgraph"
-export MEMGRAPH_PASSWORD="your-password"
-
-# For Neo4j
-export NEO4J_URI="bolt://localhost:7687"
-export NEO4J_USER="neo4j"
-export NEO4J_PASSWORD="your-neo4j-password"
-
-# Or for embedded ladybug (default)
-export ladybug_DB_PATH="./ladybug_db"  # Optional: defaults to "./ladybug_db"
-```
-
-### Basic Usage
-
-**Basic Example (ladybug + No LLM):**
-
-```go
-package main
-
-import (
-    "context"
-    "log"
-    "time"
-
-    "github.com/soundprediction/predicato"
-    "github.com/soundprediction/predicato/pkg/driver"
-)
-
-func main() {
-    ctx := context.Background()
-
-    // Create ladybug driver (embedded database)
-    ladybugDriver, err := driver.NewLadybugDriver("./ladybug_db")
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer ladybugDriver.Close(ctx)
-
-    // Create Predicato client (LLM and embedder are optional)
-    config := &predicato.Config{
-        GroupID:  "my-group",
-        TimeZone: time.UTC,
-    }
-    client := predicato.NewClient(ladybugDriver, nil, nil, config)
-    defer client.Close(ctx)
-
-    // Add episodes
-    episodes := []predicato.Episode{
-        {
-            ID:        "meeting-1",
-            Name:      "Team Meeting",
-            Content:   "Discussed project timeline and resource allocation",
-            Reference: time.Now(),
-            CreatedAt: time.Now(),
-            GroupID:   "my-group",
-        },
-    }
-
-    err = client.Add(ctx, episodes)
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    log.Println("Episode added to knowledge graph")
-}
-```
-
-**With OpenAI-Compatible LLM:**
-
-```go
-package main
-
-import (
-    "context"
-    "log"
-    "time"
-
-    "github.com/soundprediction/predicato"
-    "github.com/soundprediction/predicato/pkg/driver"
-    "github.com/soundprediction/predicato/pkg/embedder"
-    "github.com/soundprediction/predicato/pkg/llm"
-)
-
-func main() {
-    ctx := context.Background()
-
-    // Create ladybug driver (embedded database)
-    ladybugDriver, err := driver.NewLadybugDriver("./ladybug_db")
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer ladybugDriver.Close(ctx)
-
-    // Create LLM client (works with any OpenAI-compatible API)
-    llmConfig := llm.Config{
-        Model:       "gpt-4o-mini",  // Or "llama3", "mistral", etc.
-        Temperature: &[]float32{0.7}[0],
-        BaseURL:     "http://localhost:11434",  // Optional: for local LLMs
-    }
-    llmClient, err := llm.NewOpenAIClient("your-api-key", llmConfig)
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    // Create embedder (optional, but recommended for semantic search)
-    embedderConfig := embedder.Config{
-        Model:     "text-embedding-3-small",  // Or local embedding model
-        BaseURL:   "http://localhost:11434",  // Optional: for local embeddings
-    }
-    embedderClient := embedder.NewOpenAIEmbedder("your-api-key", embedderConfig)
-
-    // Create Predicato client
-    config := &predicato.Config{
-        GroupID:  "my-group",
-        TimeZone: time.UTC,
-    }
-    client := predicato.NewClient(ladybugDriver, llmClient, embedderClient, config)
-    defer client.Close(ctx)
-
-    // Add episodes
-    episodes := []predicato.Episode{
-        {
-            ID:        "meeting-1",
-            Name:      "Team Meeting",
-            Content:   "Discussed project timeline and resource allocation",
-            Reference: time.Now(),
-            CreatedAt: time.Now(),
-            GroupID:   "my-group",
-        },
-    }
-
-    err = client.Add(ctx, episodes)
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    // Search the knowledge graph (requires embedder for semantic search)
-    results, err := client.Search(ctx, "project timeline", nil)
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    log.Printf("Found %d nodes", len(results.Nodes))
-}
-```
-
-**With Internal Embedding & Reranking (CPU-based):**
-
-Go-Predicato can run embedding and reranking models internally using `go-embedeverything`, which provides Go bindings for the Rust `embedanything` package. This eliminates the need for external API calls.
-
-**Important**: Internal embedding/reranking runs on CPU and is suitable only for small models (e.g., `BAAI/bge-small-en-v1.5`, `jinaai/jina-embeddings-v2-small-en`). For larger models or production workloads, use API-based embedders (OpenAI, Gemini, etc.).
+No API keys. No external services. Just Go and CGO.
 
 ```go
 package main
@@ -236,276 +38,221 @@ import (
     "github.com/soundprediction/predicato/pkg/crossencoder"
     "github.com/soundprediction/predicato/pkg/driver"
     "github.com/soundprediction/predicato/pkg/embedder"
+    "github.com/soundprediction/predicato/pkg/rustbert"
 )
 
 func main() {
     ctx := context.Background()
 
-    // Create ladybug driver
-    ladybugDriver, err := driver.NewLadybugDriver("./ladybug_db")
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer ladybugDriver.Close(ctx)
+    // Embedded graph database (no server required)
+    db, _ := driver.NewLadybugDriver("./knowledge.db", 1)
+    defer db.Close(ctx)
 
-    // Create internal embedder (runs on CPU)
-    // Recommended small models: "BAAI/bge-small-en-v1.5", "sentence-transformers/all-MiniLM-L6-v2"
-    embedderConfig := &embedder.EmbedEverythingConfig{
+    // Local text generation (GPT-2, no API)
+    rustbertClient := rustbert.NewClient(rustbert.Config{})
+    llmClient := rustbert.NewLLMAdapter(rustbertClient, "text_generation")
+    defer rustbertClient.Close()
+
+    // Local embeddings (no API)
+    embedderClient, _ := embedder.NewEmbedEverythingClient(&embedder.EmbedEverythingConfig{
         Config: &embedder.Config{
-            Model:      "BAAI/bge-small-en-v1.5",
-            Dimensions: 384, // Must match model's output dimensions
+            Model:      "qwen/qwen3-embedding-0.6b",
+            Dimensions: 1024,
         },
-    }
-    embedderClient, err := embedder.NewEmbedEverythingClient(embedderConfig)
-    if err != nil {
-        log.Fatal(err)
-    }
+    })
     defer embedderClient.Close()
 
-    // Optional: Create internal reranker (runs on CPU)
-    // Recommended small models: "BAAI/bge-reranker-base", "jinaai/jina-reranker-v1-tiny-en"
-    rerankerConfig := &crossencoder.EmbedEverythingConfig{
+    // Local reranking (no API)
+    reranker, _ := crossencoder.NewEmbedEverythingClient(&crossencoder.EmbedEverythingConfig{
         Config: &crossencoder.Config{
-            Model: "BAAI/bge-reranker-base",
+            Model: "zhiqing/Qwen3-Reranker-0.6B-ONNX",
         },
-    }
-    rerankerClient, err := crossencoder.NewEmbedEverythingClient(rerankerConfig)
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer rerankerClient.Close()
+    })
+    defer reranker.Close()
 
-    // Create Predicato client
-    config := &predicato.Config{
-        GroupID:  "my-group",
+    // Create client
+    client, _ := predicato.NewClient(db, llmClient, embedderClient, &predicato.Config{
+        GroupID:  "my-app",
         TimeZone: time.UTC,
-        // Optional: configure reranker
-        // Reranker: rerankerClient,
-    }
-    client := predicato.NewClient(ladybugDriver, nil, embedderClient, config)
+    }, nil)
     defer client.Close(ctx)
 
-    // Add and search episodes as usual
-    episodes := []predicato.Episode{
-        {
-            ID:        "meeting-1",
-            Name:      "Team Meeting",
-            Content:   "Discussed project timeline and resource allocation",
-            Reference: time.Now(),
-            CreatedAt: time.Now(),
-            GroupID:   "my-group",
-        },
-    }
+    // Add knowledge
+    client.Add(ctx, []predicato.Episode{{
+        ID:        "meeting-1",
+        Name:      "Team Standup",
+        Content:   "Alice mentioned the API redesign is blocked on the auth team.",
+        Reference: time.Now(),
+        CreatedAt: time.Now(),
+        GroupID:   "my-app",
+    }})
 
-    err = client.Add(ctx, episodes)
-    if err != nil {
-        log.Fatal(err)
+    // Search with reranking
+    results, _ := client.Search(ctx, "API redesign status", nil)
+    
+    // Rerank for better relevance
+    passages := make([]string, len(results.Nodes))
+    for i, node := range results.Nodes {
+        passages[i] = node.Summary
     }
-
-    // Search with internal embeddings (no API calls)
-    results, err := client.Search(ctx, "project timeline", nil)
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    log.Printf("Found %d nodes using internal embeddings", len(results.Nodes))
+    ranked, _ := reranker.Rank(ctx, "API redesign status", passages)
+    
+    log.Printf("Top result: %s (score: %.2f)", ranked[0].Passage, ranked[0].Score)
 }
 ```
 
-**Performance Considerations**:
-- Internal embedders run on CPU and are **significantly slower** than GPU-accelerated API services
-- Best suited for:
-  - Development and testing
-  - Low-volume workloads
-  - Privacy-sensitive applications that cannot use external APIs
-  - Small embedding models (< 100M parameters)
-- For production or high-volume use cases, prefer API-based embedders (OpenAI, Gemini, Voyage)
+First run downloads models (~1.7GB total). Subsequent runs use cached models.
 
-## CLI Tool
+## Quick Start (External APIs)
 
-Go-Predicato includes a command-line interface for managing the knowledge graph and running servers.
+The same interfaces work with cloud services - just swap the implementations:
 
-### Installation
+```go
+package main
 
-```bash
-# Build from source using Makefile (recommended)
-make build-cli
+import (
+    "context"
+    "log"
+    "os"
+    "time"
 
-# Or build manually
-go generate ./cmd/main.go
-go build -tags system_ladybug -o bin/predicato ./cmd/main.go
+    "github.com/soundprediction/predicato"
+    "github.com/soundprediction/predicato/pkg/driver"
+    "github.com/soundprediction/predicato/pkg/embedder"
+    "github.com/soundprediction/predicato/pkg/nlp"
+)
+
+func main() {
+    ctx := context.Background()
+
+    // Neo4j database
+    db, _ := driver.NewNeo4jDriver(
+        os.Getenv("NEO4J_URI"),
+        os.Getenv("NEO4J_USER"),
+        os.Getenv("NEO4J_PASSWORD"),
+    )
+    defer db.Close(ctx)
+
+    // OpenAI for LLM and embeddings
+    apiKey := os.Getenv("OPENAI_API_KEY")
+    llmClient, _ := nlp.NewOpenAIClient(apiKey, nlp.Config{Model: "gpt-4o-mini"})
+    embedderClient := embedder.NewOpenAIEmbedder(apiKey, embedder.Config{
+        Model: "text-embedding-3-small",
+    })
+
+    client, _ := predicato.NewClient(db, llmClient, embedderClient, &predicato.Config{
+        GroupID:  "my-app",
+        TimeZone: time.UTC,
+    }, nil)
+    defer client.Close(ctx)
+
+    // Same API as internal stack
+    client.Add(ctx, []predicato.Episode{{
+        ID:      "meeting-1",
+        Content: "Alice mentioned the API redesign is blocked.",
+        // ...
+    }})
+}
 ```
 
-### Server Command
-
-Start the HTTP server:
+## Installation
 
 ```bash
-./bin/predicato server
+go get github.com/soundprediction/predicato
 ```
 
-With custom configuration:
+For internal services (requires CGO):
 
 ```bash
-./bin/predicato server --port 9090 --llm-api-key your-key-here
+# Download native libraries
+go generate ./...
+
+# Build with Ladybug support
+go build -tags system_ladybug ./...
 ```
 
-### Configuration
+### Prerequisites
 
-Create a configuration file:
+**Internal stack:**
+- Go 1.24+
+- CGO enabled (`go env CGO_ENABLED` should return `1`)
+- ~4GB RAM for local models
 
-```bash
-cp .predicato.example.yaml .predicato.yaml
-# Edit the configuration as needed
-```
-
-The server provides REST API endpoints:
-
-- `GET /health` - Health check
-- `POST /api/v1/ingest/messages` - Add messages to knowledge graph
-- `POST /api/v1/search` - Search the knowledge graph
-- `GET /api/v1/episodes/:group_id` - Get episodes for a group
-- `POST /api/v1/get-memory` - Get memory based on messages
-
-### API Examples
-
-Add messages:
-```bash
-curl -X POST http://localhost:8080/api/v1/ingest/messages \
-  -H "Content-Type: application/json" \
-  -d '{
-    "group_id": "user123",
-    "messages": [{"role": "user", "content": "Hello, I work at Acme Corp"}]
-  }'
-```
-
-Search:
-```bash
-curl -X POST http://localhost:8080/api/v1/search \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "Acme Corp",
-    "group_ids": ["user123"],
-    "max_facts": 10
-  }'
-```
-
-See [cmd/README.md](cmd/README.md) for detailed CLI documentation.
-
-* **Fact Store:**:
-    * Separate storage for raw extracted facts, sources, and entities before they are resolved into the graph.
-    * Uses **DoltDB** (embedded or server) for version control of your data.
-    * SQL-accessible: Query your raw facts using standard SQL.
-    * Supports `file://` connection strings for embedded, zero-config local storage.
-
-## Architecture
-
-The library is structured into several key packages:
-
-- **`predicato.go`**: Main client interface and configuration
-- **`pkg/driver/`**: Graph database drivers (ladybug, Memgraph, Neo4j)
-- **`pkg/factstore/`**: Fact storage implementation using DoltDB
-- **`pkg/llm/`**: Language model clients (OpenAI-compatible APIs)
-- **`pkg/nlp/`**: NLP Model Registry and shared interfaces
-- **`pkg/embedder/`**: Embedding model clients (OpenAI, Gemini, Voyage)
-- **`pkg/search/`**: Hybrid search functionality
-- **`pkg/types/`**: Core types for nodes, edges, and data structures
-- **`pkg/models/`**: Database query builders for nodes and edges
-- **`pkg/prompts/`**: LLM prompts for extraction and processing
-- **`pkg/crossencoder/`**: Cross-encoder reranking for improved relevance
-- **`pkg/community/`**: Community detection and management
-- **`pkg/utils/`**: Utility functions for maintenance and operations
-
-## Node Types
-
-- **EntityNode**: Represents entities extracted from content
-- **EpisodicNode**: Represents episodic memories or events  
-- **CommunityNode**: Represents communities of related entities
-- **SourceNode**: Represents source nodes where content originates
-
-## Edge Types
-
-- **EntityEdge**: Relationships between entities
-- **EpisodicEdge**: Episodic relationships
-- **CommunityEdge**: Community relationships
-
-## Implementation Status
-
-Implemented features:
-
-- Entity and relationship extraction
-- Node and edge deduplication
-- Embedding generation and storage
-- Hybrid search
-- Community detection
-- Temporal operations
-- Bulk operations
-- Error tracking and telemetry
-- Cost calculation
-- Router with provider fallback
-- Caching layer (BadgerDB)
-- Circuit breaker and email alerts
-
-## Robustness & Reliability
-
-`predicato` is built for production reliability with specific features to handle failure modes:
-
-*   **Automatic WAL Recovery**: When using the embedded ladybug database, the driver automatically detects WAL (Write-Ahead Log) corruption that can occur after hard crashes (e.g., OOM kills, power loss). It moves the corrupt WAL file to a backup location and self-heals the database, ensuring your application restarts successfully without manual intervention.
-*   **Concurrency Safety**: The internal driver architecture enforces serial access to the embedded database, guaranteeing thread safety even when hundreds of workers are accessing the same client instance. Write operations are queued and processed asynchronously to prevent lock contention.
-
-
-## Documentation
-
-- [Getting Started](docs/GETTING_STARTED.md): Setup guide and first steps
-- [API Reference](docs/API_REFERENCE.md): Detailed API documentation including advanced search and configuration
-- [Examples](docs/EXAMPLES.md): Usage examples
-- [ladybug Setup Guide](docs/ladybug_SETUP.md): Embedded ladybug graph database configuration
-- [FAQ](docs/FAQ.md): Common questions and troubleshooting
+**External APIs:**
+- Go 1.24+
+- API keys for your chosen providers
 
 ## Examples
 
-See the `examples/` directory for usage examples:
+| Example | Description |
+|---------|-------------|
+| [`examples/basic/`](examples/basic/) | Full internal stack - Ladybug + RustBert + EmbedEverything + Reranking |
+| [`examples/chat/`](examples/chat/) | Interactive chat with local models |
+| [`examples/external_apis/`](examples/external_apis/) | Neo4j + OpenAI integration |
 
-- `examples/basic/`: Minimal setup with ladybug embedded database
-- `examples/ladybug_ollama/`: Local setup with ladybug and Ollama
-- `examples/openai_compatible/`: OpenAI-compatible service integration
-- `examples/chat/`: Chat interface implementation
-- `examples/prompts/`: Prompt engineering
-- Additional examples in [docs/EXAMPLES.md](docs/EXAMPLES.md)
+## Architecture
 
-## Development
-
-### Running Tests
-
-```bash
-go test ./...
+```
+predicato/
+├── pkg/driver/        # Graph databases (Ladybug, Neo4j, Memgraph)
+├── pkg/embedder/      # Embedding providers (EmbedEverything, OpenAI, Gemini)
+├── pkg/crossencoder/  # Reranking (EmbedEverything, Jina, LLM-based)
+├── pkg/rustbert/      # Local text generation (GPT-2, NER, summarization)
+├── pkg/nlp/           # LLM clients (OpenAI-compatible APIs)
+├── pkg/search/        # Hybrid search (semantic + BM25 + graph traversal)
+├── pkg/factstore/     # Versioned fact storage (DoltDB)
+└── pkg/types/         # Core types (nodes, edges, episodes)
 ```
 
-### Building
+## Internal Services Stack
+
+| Component | Model | Download Size |
+|-----------|-------|---------------|
+| Embeddings | `qwen/qwen3-embedding-0.6b` | ~600MB |
+| Reranking | `zhiqing/Qwen3-Reranker-0.6B-ONNX` | ~600MB |
+| Text Generation | GPT-2 | ~500MB |
+
+Models download automatically on first use and cache to `~/.cache/huggingface/`.
+
+## Key Features
+
+**Temporal Knowledge Graph**
+- Bi-temporal model: `created_at` (when recorded) vs `valid_from/valid_to` (when true)
+- Automatic invalidation of contradicting facts
+- Historical queries: "what did we know about X as of date Y?"
+
+**Hybrid Search**
+- Semantic similarity (cosine distance on embeddings)
+- BM25 keyword matching
+- Graph traversal (BFS expansion through relationships)
+- 5 reranking strategies: RRF, MMR, cross-encoder, node distance, episode mentions
+
+**Production Ready**
+- Circuit breakers with provider fallback
+- Token usage tracking and cost calculation
+- Error telemetry with DB persistence
+
+## CLI & Server
 
 ```bash
-go build ./...
+# Build CLI
+make build-cli
+
+# Start HTTP server
+./bin/predicato server --port 8080
+
+# API endpoints
+POST /api/v1/ingest/messages  # Add content
+POST /api/v1/search           # Search knowledge graph
+GET  /api/v1/episodes/:id     # Get episodes
 ```
 
-### Running Examples
+## Documentation
 
-```bash
-# Basic example (no external dependencies)
-cd examples/basic
-go generate ./...
-go run -tags system_ladybug main.go
-
-# Or with local LLM
-cd examples/ladybug_ollama
-go generate ./...
-go run -tags system_ladybug main.go
-
-# Chat interface example
-cd examples/chat
-go generate ./...
-go run -tags system_ladybug main.go
-```
-
+- [Getting Started](docs/GETTING_STARTED.md)
+- [API Reference](docs/API_REFERENCE.md)
+- [Ladybug Setup](docs/ladybug_SETUP.md)
+- [FAQ](docs/FAQ.md)
 
 ## License
 
@@ -513,5 +260,4 @@ Apache 2.0
 
 ## Acknowledgments
 
-- This package takes inspiration from the  [Graphiti](https://github.com/getzep/graphiti) Python library by Zep
-
+Inspired by [Graphiti](https://github.com/getzep/graphiti) by Zep.
