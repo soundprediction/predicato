@@ -60,3 +60,6 @@ go.work.sum
 
 # Ladybug libraries
 lib-ladybug/
+.claude
+.ralphy
+openspec/

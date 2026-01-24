@@ -1,14 +1,27 @@
-# Interactive Chat Example
+# Interactive Chat Example (Internal Services Stack)
 
-This example demonstrates how to build an interactive chat application using predicato with both global knowledge base and user-specific episodic memory.
+This example demonstrates how to build an interactive chat application using predicato with **only internal services** - no external APIs required!
+
+## Internal Services Stack
+
+| Component | Service | Model |
+|-----------|---------|-------|
+| **Database** | Ladybug | Embedded graph database |
+| **Embeddings** | go-embedeverything | `qwen/qwen3-embedding-0.6b` |
+| **Reranking** | go-embedeverything | `qwen/qwen3-reranker-0.6b` |
+| **Text Generation** | go-rust-bert | GPT-2 |
 
 ## Features
 
 - **Dual Knowledge Stores**: Separates global knowledge (shared facts) from user-specific episodic memory
+- **Local Text Generation**: Uses RustBert GPT-2 for responses (no API required)
+- **Local Embeddings**: Uses qwen/qwen3-embedding-0.6b for semantic search
+- **Reranking**: Uses qwen/qwen3-reranker-0.6b to improve search result quality
 - **Conversation Continuity**: Uses `AddToEpisode` to maintain a single episode per chat session
 - **UUID v7 Episode IDs**: Leverages time-sortable UUIDs for natural episode ordering
-- **Hybrid Search**: Combines global knowledge base search with conversation history
 - **Interactive Commands**: Supports history viewing and direct knowledge base queries
+
+**No API keys or external services required!**
 
 ## Architecture
 
@@ -18,6 +31,7 @@ The example creates two separate Predicato clients:
    - Shared knowledge base across all users
    - Read-only for chat purposes
    - Used for contextual information retrieval
+   - Search results are reranked for better relevance
 
 2. **User Predicato Client**:
    - User-specific episodic memory
@@ -26,23 +40,60 @@ The example creates two separate Predicato clients:
 
 ## Prerequisites
 
-- OpenAI API key for LLM and embeddings
+### Required
 - Go 1.21 or later
+- CGO enabled (required for Rust FFI bindings)
+- ~4GB RAM minimum
 
-## Setup
+### CGO Setup
 
-1. Set your OpenAI API key:
+CGO is required for the Rust-based ML libraries. Ensure you have:
+
+**macOS:**
 ```bash
-export OPENAI_API_KEY=your_api_key_here
+xcode-select --install
 ```
 
-2. (Optional) Populate a global knowledge base:
+**Linux (Ubuntu/Debian):**
 ```bash
-# Use the basic example or another method to create a knowledge graph
-# at ./knowledge_db/content_graph.ladybugdb
+sudo apt-get install build-essential
 ```
+
+**Linux (Fedora/RHEL):**
+```bash
+sudo dnf install gcc gcc-c++
+```
+
+### Verify CGO is enabled
+```bash
+go env CGO_ENABLED
+# Should output: 1
+```
+
+## First Run - Model Downloads
+
+On first run, the example will automatically download the required models:
+
+| Model | Size | Purpose |
+|-------|------|---------|
+| `qwen/qwen3-embedding-0.6b` | ~600MB | Text embeddings |
+| `qwen/qwen3-reranker-0.6b` | ~600MB | Result reranking |
+| GPT-2 | ~500MB | Text generation |
+
+**Total: ~1.7GB**
+
+Models are cached after the first download.
 
 ## Usage
+
+### Setup (First Time Only)
+
+Download the Ladybug native library:
+
+```bash
+cd examples/chat
+go generate ./...
+```
 
 ### Basic Usage
 
@@ -79,23 +130,41 @@ Once the chat is running, you can use these commands:
 
 - `<your question>` - Ask the assistant a question
 - `history` - View conversation history
-- `search <query>` - Search the global knowledge base directly
+- `search <query>` - Search the global knowledge base directly (with reranking)
 - `exit` or `quit` - End the chat session
 
 ## Example Session
 
 ```
-🚀 Starting Predicato Chat Example
-   User ID: alice
+================================================================================
+Predicato Interactive Chat - Internal Services Stack
+================================================================================
 
-🔧 Initializing clients...
-   ✅ LLM client created (model: gpt-4o-mini)
-   ✅ Embedder client created (model: text-embedding-3-small)
-   ✅ Global knowledge base loaded from ./knowledge_db/content_graph.ladybugdb
-   ✅ User database initialized at ./user_dbs/user_alice.ladybugdb
+This chat uses predicato's internal services:
+  - Ladybug: embedded graph database (no server required)
+  - RustBert GPT-2: local text generation (no API required)
+  - EmbedEverything: local embeddings with qwen/qwen3-embedding-0.6b
+  - EmbedEverything: local reranking with qwen/qwen3-reranker-0.6b
+
+No API keys or external services needed!
+User ID: alice
+
+Initializing internal services...
+(First run will download models, please wait...)
+
+[1/4] Setting up RustBert GPT-2 for text generation...
+      RustBert GPT-2 loaded
+[2/4] Setting up EmbedEverything embedder with qwen/qwen3-embedding-0.6b...
+      EmbedEverything embedder loaded
+[3/4] Setting up EmbedEverything reranker with qwen/qwen3-reranker-0.6b...
+      EmbedEverything reranker loaded
+[4/4] Setting up Predicato clients...
+      User database initialized at ./user_dbs/user_alice.ladybugdb
+
+All components initialized successfully!
 
 ======================================================================
-💬 Predicato Interactive Chat
+Predicato Interactive Chat
 ======================================================================
 
 Commands:
@@ -105,133 +174,5 @@ Commands:
   Type 'search <query>' to search the global knowledge base
 ======================================================================
 
-💬 You: What is GraphQL?
-✨ Created episode: 01930e1c-3a4f-7b2a-8c5d-1e2f3a4b5c6d
-🔍 Searching global knowledge base...
-📚 Found 2 relevant nodes
-  1. GraphQL: A query language for APIs developed by Facebook...
-  2. API Design: Best practices for designing application programming interfaces...
-
-🤖 Assistant:
-----------------------------------------------------------------------
-GraphQL is a query language for APIs developed by Facebook. It provides
-a more flexible approach to API development compared to traditional REST...
-----------------------------------------------------------------------
-
-💬 You: history
-📝 Conversation History:
-----------------------------------------------------------------------
-1. You: What is GraphQL?
-   Assistant: GraphQL is a query language for APIs developed by Facebook...
-----------------------------------------------------------------------
-
-💬 You: exit
-👋 Goodbye!
-```
-
-## Key Concepts Demonstrated
-
-### 1. Episode Management with UUID v7
-
-```go
-episodeID, err := uuid.NewV7()
-if err != nil {
-    episodeID = uuid.New() // Fallback to v4
-}
-
-episode := types.Episode{
-    ID:        episodeID.String(),
-    Name:      fmt.Sprintf("Chat with %s", userID),
-    Content:   conversationTurn,
-    GroupID:   fmt.Sprintf("user-%s-chat", userID),
-    Metadata:  map[string]interface{}{"session_id": session.SessionID},
-    Reference: time.Now(),
-}
-```
-
-### 2. Conversation Continuity with AddToEpisode
-
-First message creates the episode:
-```go
-result, err := clients.UserPredicato.Add(ctx, []types.Episode{episode}, nil)
-```
-
-Subsequent messages append to it:
-```go
-_, err := clients.UserPredicato.AddToEpisode(ctx, session.EpisodeID, conversationTurn, nil)
-```
-
-### 3. Hybrid Search Pattern
-
-```go
-// Search global knowledge base
-results, err := clients.GlobalPredicato.Search(ctx, input, searchConfig)
-
-// Build prompt with both:
-// - Context from knowledge base search results
-// - Recent conversation history
-prompt := buildPrompt(input, session.Messages, contextNodes)
-```
-
-### 4. Separate Client Management
-
-```go
-type ChatClients struct {
-    GlobalPredicato *predicato.Client // Optional, shared knowledge
-    UserPredicato   *predicato.Client // Required, user-specific
-    LLM            llm.Client
-    Context        context.Context
-}
-```
-
-## File Structure
-
-After running:
-
-```
-./
-├── knowledge_db/              # Global knowledge base (optional)
-│   └── content_graph.ladybugdb/
-└── user_dbs/                  # User-specific databases
-    ├── user_alice.ladybugdb/
-    ├── user_bob.ladybugdb/
-    └── ...
-```
-
-## Extending This Example
-
-### Adding Knowledge to Global Database
-
-You can populate the global knowledge base using the `Add` method before starting the chat:
-
-```go
-globalClient.Add(ctx, []types.Episode{
-    {
-        ID:        "fact-001",
-        Name:      "GraphQL Introduction",
-        Content:   "GraphQL is a query language for APIs...",
-        Reference: time.Now(),
-        GroupID:   "global-knowledge",
-    },
-}, nil)
-```
-
-### Persisting Chat Sessions
-
-The current example keeps sessions in memory. To persist across runs, you could:
-
-1. Store session metadata in a simple JSON file
-2. Load previous episode IDs on startup
-3. Use `AddToEpisode` to continue previous conversations
-
-### Multi-User Support
-
-The example already supports multiple users through the `--user-id` flag. Each user gets their own ladybug database file, ensuring data isolation.
-
-## Notes
-
-- User databases are created automatically on first use
-- Each user's conversation history is stored in their own ladybug database
-- The global knowledge base is optional and read-only during chat
-- Episode IDs use UUID v7 for temporal ordering
-- All conversation turns are appended to a single episode per session
+You: What is a knowledge graph?
+Created episode: 01930e1c-3a4f-7b2a-8c5d-1e2f3a4b5c6d

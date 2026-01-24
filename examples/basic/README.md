@@ -1,64 +1,102 @@
-# Basic Predicato Example (Neo4j + OpenAI)
+# Basic Predicato Example (Internal Services Stack)
 
-This example demonstrates using predicato with external services: Neo4j database and OpenAI APIs.
+This example demonstrates using predicato with **only internal services** - no external APIs or servers required!
 
-> **Note**: For the recommended minimal setup, see the [ladybug + Ollama example](../ladybug_ollama/) which requires no external dependencies.
+## Internal Services Stack
+
+| Component | Service | Model |
+|-----------|---------|-------|
+| **Database** | Ladybug | Embedded graph database |
+| **Embeddings** | go-embedeverything | `qwen/qwen3-embedding-0.6b` |
+| **Reranking** | go-embedeverything | `qwen/qwen3-reranker-0.6b` |
+| **Text Generation** | go-rust-bert | GPT-2 |
 
 ## Features
 
 This example shows how to:
-- Create and configure a Predicato client with external Neo4j database and OpenAI APIs
+- Create and configure a Predicato client using only internal services
+- Use Ladybug embedded database (no external database server)
+- Use go-rust-bert GPT-2 for text generation (no external LLM API)
+- Use go-embedeverything with qwen3-embedding for embeddings (no external API)
+- Use go-embedeverything with qwen3-reranker for reranking search results
 - Add episodes (data) to the knowledge graph
-- Search the knowledge graph for relevant information
+- Search and rerank results from the knowledge graph
 
-**When to use this setup:**
-- Production deployments requiring shared database access
-- Teams needing to collaborate on a shared knowledge graph
-- Applications requiring cloud-scale databases
-- When you prefer managed services over embedded solutions
+**No API keys or external services required!**
 
 ## Prerequisites
 
-**External Services Required:**
-
-1. **Neo4j Database**: A running Neo4j instance
-   - Default connection: `bolt://localhost:7687`
-   - You can run Neo4j locally using Docker:
-     ```bash
-     docker run --name neo4j -p 7687:7687 -p 7474:7474 -e NEO4J_AUTH=neo4j/password neo4j:latest
-     ```
-   - Or use Neo4j Aura (cloud) or Neo4j Desktop
-
-2. **OpenAI API Key**: An active OpenAI API key for LLM and embedding services
-   - Sign up at https://platform.openai.com/
-   - Requires API credits for usage
-
-> **Alternative**: For a setup requiring no external services, see the [ladybug + Ollama example](../ladybug_ollama/)
-
-## Environment Variables
-
 ### Required
-- `OPENAI_API_KEY`: Your OpenAI API key
-- `NEO4J_PASSWORD`: Your Neo4j database password
+- Go 1.21 or later
+- CGO enabled (required for Rust FFI bindings)
+- ~4GB RAM minimum
 
-### Optional
-- `NEO4J_URI`: Neo4j connection URI (default: `bolt://localhost:7687`)
-- `NEO4J_USER`: Neo4j username (default: `neo4j`)
+### CGO Setup
+
+CGO is required for the Rust-based ML libraries. Ensure you have:
+
+**macOS:**
+```bash
+# Xcode command line tools (includes clang)
+xcode-select --install
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt-get install build-essential
+```
+
+**Linux (Fedora/RHEL):**
+```bash
+sudo dnf install gcc gcc-c++
+```
+
+**Windows:**
+Install MinGW-w64 or use WSL2 with Linux instructions.
+
+### Verify CGO is enabled
+```bash
+go env CGO_ENABLED
+# Should output: 1
+```
+
+If CGO is disabled, enable it:
+```bash
+export CGO_ENABLED=1
+```
+
+## First Run - Model Downloads
+
+On first run, the example will automatically download the required models:
+
+| Model | Size | Purpose |
+|-------|------|---------|
+| `qwen/qwen3-embedding-0.6b` | ~600MB | Text embeddings |
+| `qwen/qwen3-reranker-0.6b` | ~600MB | Result reranking |
+| GPT-2 | ~500MB | Text generation |
+
+**Total: ~1.7GB**
+
+Models are cached in `~/.cache/huggingface/` after the first download.
 
 ## Usage
 
-1. Set up your environment variables:
+1. Navigate to the example directory:
    ```bash
-   export OPENAI_API_KEY=your_openai_api_key_here
-   export NEO4J_PASSWORD=your_neo4j_password_here
+   cd examples/basic
    ```
 
-2. Run the example:
+2. Download the Ladybug native library (first time only):
+   ```bash
+   go generate ./...
+   ```
+
+3. Run the example:
    ```bash
    go run .
    ```
 
-3. Or build and run:
+4. Or build and run:
    ```bash
    go build -o basic_example .
    ./basic_example
@@ -66,62 +104,116 @@ This example shows how to:
 
 ## Example Output
 
-When run successfully, you'll see output similar to:
 ```
-🚀 Starting predicato basic example
-   Neo4j URI: bolt://localhost:7687
-   Neo4j User: neo4j
+================================================================================
+Predicato Basic Example - Internal Services Stack
+================================================================================
 
-📊 Creating Neo4j driver...
-   ✅ Neo4j driver created successfully
+This example uses predicato's internal services:
+  - Ladybug: embedded graph database (no server required)
+  - RustBert GPT-2: local text generation (no API required)
+  - EmbedEverything: local embeddings with qwen/qwen3-embedding-0.6b
+  - EmbedEverything: local reranking with qwen/qwen3-reranker-0.6b
 
-🧠 Creating OpenAI LLM client...
-   ✅ OpenAI LLM client created (model: gpt-4o-mini)
+No API keys or external services needed!
 
-🔤 Creating OpenAI embedder client...
-   ✅ OpenAI embedder client created (model: text-embedding-3-small)
+[1/5] Setting up Ladybug embedded graph database...
+      Ladybug driver created (embedded database at ./example_graph.db)
+[2/5] Setting up RustBert GPT-2 for text generation...
+      RustBert GPT-2 text generation model loaded
+[3/5] Setting up EmbedEverything embedder with qwen/qwen3-embedding-0.6b...
+      EmbedEverything embedder created (model: qwen/qwen3-embedding-0.6b)
+[4/5] Setting up EmbedEverything reranker with qwen/qwen3-reranker-0.6b...
+      EmbedEverything reranker created (model: qwen/qwen3-reranker-0.6b)
+[5/5] Creating Predicato client...
+      Predicato client created (group: example-group)
 
-🌐 Creating Predicato client...
-   ✅ Predicato client created (group: example-group)
+================================================================================
+All components initialized successfully!
+================================================================================
 
-📝 Preparing sample episodes...
-Adding episodes to the knowledge graph...
-✅ Episodes successfully added to the knowledge graph!
+Adding sample episodes to the knowledge graph...
+Added 3 episodes to the knowledge graph
 
-Searching the knowledge graph...
-✅ Found 2 nodes and 1 edges
+Searching the knowledge graph for: "API design and deadlines"
+Found 5 nodes and 3 edges
 
-Sample nodes found:
-  - Meeting with Alice (episode)
-  - Project Research (episode)
+Search results (before reranking):
+----------------------------------
+  1. Meeting with Alice (episode)
+     Had a productive meeting with Alice about the new project...
+  2. Project Research (episode)
+     Researched various approaches for implementing the API...
 
+Reranking results with qwen/qwen3-reranker-0.6b...
+
+Search results (after reranking):
+---------------------------------
+  1. (score: 0.892) Had a productive meeting with Alice about the deadline...
+  2. (score: 0.756) Researched various approaches for implementing the API...
+
+Demonstrating text generation with RustBert GPT-2...
+Prompt: The advantages of using a knowledge graph are
+Generated: The advantages of using a knowledge graph are numerous and...
+
+================================================================================
 Example completed successfully!
-```
+================================================================================
 
-## Testing
+Summary:
+  - Used Ladybug embedded database (no Neo4j server)
+  - Used RustBert GPT-2 for text generation (no OpenAI API)
+  - Used qwen/qwen3-embedding-0.6b for embeddings (no API)
+  - Used qwen/qwen3-reranker-0.6b for reranking (no API)
 
-Run the tests to verify everything works correctly:
-```bash
-go test -v ./...
+For external API examples, see: examples/external_apis/
 ```
 
 ## Troubleshooting
 
-### Missing Environment Variables
-If you see error messages about missing environment variables, the example will provide helpful instructions on how to set them up.
+### CGO not enabled
+```
+# Error: undefined: embedder.NewEmbedEverythingClient
+export CGO_ENABLED=1
+go run .
+```
 
-### Neo4j Connection Issues
-- Ensure Neo4j is running and accessible at the configured URI
-- Verify your username and password are correct
-- Check that the Neo4j ports (7687, 7474) are not blocked by a firewall
+### Model download fails
+```
+# Check internet connection and retry
+# Models are downloaded from Hugging Face Hub
 
-### OpenAI API Issues
-- Verify your API key is valid and has sufficient credits
-- Check your OpenAI API usage limits
+# If behind a proxy:
+export HTTP_PROXY=http://proxy:port
+export HTTPS_PROXY=http://proxy:port
+```
+
+### Out of memory
+```
+# The example requires ~4GB RAM
+# Close other applications or use a machine with more memory
+
+# Alternatively, use the external_apis example which offloads
+# ML to cloud services
+```
+
+### Slow first run
+First run downloads ~1.7GB of models. Subsequent runs use cached models and start much faster.
 
 ## What This Example Demonstrates
 
-1. **Client Setup**: How to create and configure all the necessary clients (Neo4j, OpenAI LLM, OpenAI Embedder, Predicato)
-2. **Data Ingestion**: Adding structured episodes to the knowledge graph
-3. **Information Retrieval**: Searching the knowledge graph with natural language queries
-4. **Error Handling**: Graceful handling of missing dependencies or configuration issues
+1. **Zero External Dependencies**: No API keys, no database servers, no cloud services
+2. **Embedded Database**: Ladybug stores the knowledge graph locally
+3. **Local ML**: All embeddings, reranking, and text generation run locally
+4. **Privacy**: All data stays on your machine
+5. **Reranking**: Demonstrates how reranking improves search result relevance
+
+## Alternative: External APIs
+
+For production deployments or if you prefer cloud services, see:
+- `examples/external_apis/` - Uses Neo4j and OpenAI
+
+## Related Examples
+
+- **[External APIs Example](../external_apis/)**: Neo4j + OpenAI setup
+- **[Chat Example](../chat/)**: Interactive chat with internal services

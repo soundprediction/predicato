@@ -1,3 +1,26 @@
+// Package main demonstrates how to use predicato with external APIs and services.
+//
+// This example shows how to integrate predicato with:
+// - Ollama (local LLM server with OpenAI-compatible API)
+// - LocalAI (local LLM server)
+// - vLLM (high-performance inference server)
+// - OpenAI API (cloud LLM service)
+// - Neo4j (external graph database)
+//
+// Use this example when you need:
+// - Cloud-scale database (Neo4j)
+// - High-quality cloud LLM responses (OpenAI GPT-4)
+// - GPU-accelerated inference (vLLM)
+// - Team collaboration on shared knowledge graphs
+//
+// For a fully local setup with no external dependencies, see:
+// - examples/basic/ - Uses internal services (Ladybug + RustBert + EmbedEverything)
+// - examples/chat/ - Interactive chat with internal services
+//
+// Prerequisites:
+// - For Ollama examples: Install Ollama and run `ollama serve`
+// - For Neo4j examples: NEO4J_PASSWORD environment variable
+// - For OpenAI examples: OPENAI_API_KEY environment variable
 package main
 
 import (
@@ -11,8 +34,8 @@ import (
 	"github.com/soundprediction/predicato"
 	"github.com/soundprediction/predicato/pkg/driver"
 	"github.com/soundprediction/predicato/pkg/embedder"
-	"github.com/soundprediction/predicato/pkg/nlp"
 	predicatoLogger "github.com/soundprediction/predicato/pkg/logger"
+	"github.com/soundprediction/predicato/pkg/nlp"
 	"github.com/soundprediction/predicato/pkg/types"
 )
 
