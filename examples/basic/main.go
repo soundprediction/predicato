@@ -15,7 +15,7 @@
 //
 // First run will download models (~1.5GB total):
 // - qwen/qwen3-embedding-0.6b (~600MB)
-// - qwen/qwen3-reranker-0.6b (~600MB)
+// - zhiqing/Qwen3-Reranker-0.6B-ONNX (~600MB)
 // - GPT-2 (~500MB)
 //
 // Memory Requirements:
@@ -47,7 +47,7 @@ func main() {
 	fmt.Println("  - Ladybug: embedded graph database (no server required)")
 	fmt.Println("  - RustBert GPT-2: local text generation (no API required)")
 	fmt.Println("  - EmbedEverything: local embeddings with qwen/qwen3-embedding-0.6b")
-	fmt.Println("  - EmbedEverything: local reranking with qwen/qwen3-reranker-0.6b")
+	fmt.Println("  - EmbedEverything: local reranking with zhiqing/Qwen3-Reranker-0.6B-ONNX")
 	fmt.Println()
 	fmt.Println("No API keys or external services needed!")
 	fmt.Println()
@@ -108,12 +108,12 @@ func main() {
 	// ========================================
 	// 4. Create Reranker Client (Local Reranking)
 	// ========================================
-	fmt.Println("[4/5] Setting up EmbedEverything reranker with qwen/qwen3-reranker-0.6b...")
+	fmt.Println("[4/5] Setting up EmbedEverything reranker with zhiqing/Qwen3-Reranker-0.6B-ONNX...")
 	fmt.Println("      (First run will download the model, please wait...)")
 
 	rerankerConfig := &crossencoder.EmbedEverythingConfig{
 		Config: &crossencoder.Config{
-			Model:     "qwen/qwen3-reranker-0.6b",
+			Model:     "zhiqing/Qwen3-Reranker-0.6B-ONNX",
 			BatchSize: 32,
 		},
 	}
@@ -122,7 +122,7 @@ func main() {
 		log.Fatalf("Failed to create reranker client: %v", err)
 	}
 	defer rerankerClient.Close()
-	fmt.Println("      EmbedEverything reranker created (model: qwen/qwen3-reranker-0.6b)")
+	fmt.Println("      EmbedEverything reranker created (model: zhiqing/Qwen3-Reranker-0.6B-ONNX)")
 
 	// ========================================
 	// 5. Create Predicato Client
@@ -232,7 +232,7 @@ func main() {
 		// Example: Rerank Search Results
 		// ========================================
 		fmt.Println()
-		fmt.Println("Reranking results with qwen/qwen3-reranker-0.6b...")
+		fmt.Println("Reranking results with zhiqing/Qwen3-Reranker-0.6B-ONNX...")
 
 		// Extract passages for reranking
 		passages := make([]string, len(results.Nodes))
@@ -284,7 +284,7 @@ func main() {
 	fmt.Println("  - Used Ladybug embedded database (no Neo4j server)")
 	fmt.Println("  - Used RustBert GPT-2 for text generation (no OpenAI API)")
 	fmt.Println("  - Used qwen/qwen3-embedding-0.6b for embeddings (no API)")
-	fmt.Println("  - Used qwen/qwen3-reranker-0.6b for reranking (no API)")
+	fmt.Println("  - Used zhiqing/Qwen3-Reranker-0.6B-ONNX for reranking (no API)")
 	fmt.Println()
 	fmt.Println("For external API examples, see: examples/external_apis/")
 }

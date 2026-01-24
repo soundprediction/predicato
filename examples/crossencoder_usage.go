@@ -14,7 +14,7 @@ import (
 // no external services, followed by external API options for production deployments.
 //
 // Internal Services (Recommended for getting started):
-// - EmbedEverything with qwen/qwen3-reranker-0.6b (no API key, runs locally)
+// - EmbedEverything with zhiqing/Qwen3-Reranker-0.6B-ONNX (no API key, runs locally)
 //
 // External APIs (For production/cloud deployments):
 // - vLLM, LocalAI, Jina AI (require running servers or API keys)
@@ -41,13 +41,13 @@ func main() {
 	// Example 1: RECOMMENDED - Using EmbedEverything (Internal, No API Required)
 	// ========================================
 	fmt.Println("1. [RECOMMENDED] EmbedEverything Reranker (Internal - No API Required)")
-	fmt.Println("   Model: qwen/qwen3-reranker-0.6b")
+	fmt.Println("   Model: zhiqing/Qwen3-Reranker-0.6B-ONNX")
 	fmt.Println("   (First run will download the model, ~600MB)")
 	fmt.Println()
 
 	embedEverythingConfig := &crossencoder.EmbedEverythingConfig{
 		Config: &crossencoder.Config{
-			Model:     "qwen/qwen3-reranker-0.6b",
+			Model:     "zhiqing/Qwen3-Reranker-0.6B-ONNX",
 			BatchSize: 32,
 		},
 	}
@@ -189,7 +189,7 @@ func main() {
 	fmt.Println("================================================================================")
 	fmt.Println()
 	fmt.Println("Recommended Approach:")
-	fmt.Println("  1. Start with EmbedEverything (qwen/qwen3-reranker-0.6b) - no API needed")
+	fmt.Println("  1. Start with EmbedEverything (zhiqing/Qwen3-Reranker-0.6B-ONNX) - no API needed")
 	fmt.Println("  2. Use Local Fallback if CGO is not available")
 	fmt.Println("  3. Upgrade to external APIs (vLLM, Jina) for production scale")
 	fmt.Println()
@@ -216,7 +216,7 @@ func demonstrateSearchIntegration() {
 	// Recommended: Use EmbedEverything for internal reranking
 	config := &crossencoder.EmbedEverythingConfig{
 		Config: &crossencoder.Config{
-			Model:     "qwen/qwen3-reranker-0.6b",
+			Model:     "zhiqing/Qwen3-Reranker-0.6B-ONNX",
 			BatchSize: 32,
 		},
 	}
