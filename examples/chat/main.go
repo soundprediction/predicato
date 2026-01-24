@@ -85,7 +85,7 @@ func main() {
 	fmt.Println("  - Ladybug: embedded graph database (no server required)")
 	fmt.Println("  - RustBert GPT-2: local text generation (no API required)")
 	fmt.Println("  - EmbedEverything: local embeddings with qwen/qwen3-embedding-0.6b")
-	fmt.Println("  - EmbedEverything: local reranking with qwen/qwen3-reranker-0.6b")
+	fmt.Println("  - EmbedEverything: local reranking with zhiqing/Qwen3-Reranker-0.6B-ONNX")
 	fmt.Println()
 	fmt.Println("No API keys or external services needed!")
 	fmt.Printf("User ID: %s\n", *userID)
@@ -145,11 +145,11 @@ func initializeClients(userID, globalDBPath, userDBDir string, skipGlobal bool) 
 	// ========================================
 	// 3. Create Reranker Client (Local Reranking)
 	// ========================================
-	fmt.Println("[3/4] Setting up EmbedEverything reranker with qwen/qwen3-reranker-0.6b...")
+	fmt.Println("[3/4] Setting up EmbedEverything reranker with zhiqing/Qwen3-Reranker-0.6B-ONNX...")
 
 	rerankerConfig := &crossencoder.EmbedEverythingConfig{
 		Config: &crossencoder.Config{
-			Model:     "qwen/qwen3-reranker-0.6b",
+			Model:     "zhiqing/Qwen3-Reranker-0.6B-ONNX",
 			BatchSize: 32,
 		},
 	}

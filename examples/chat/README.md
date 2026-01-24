@@ -8,7 +8,7 @@ This example demonstrates how to build an interactive chat application using pre
 |-----------|---------|-------|
 | **Database** | Ladybug | Embedded graph database |
 | **Embeddings** | go-embedeverything | `qwen/qwen3-embedding-0.6b` |
-| **Reranking** | go-embedeverything | `qwen/qwen3-reranker-0.6b` |
+| **Reranking** | go-embedeverything | `zhiqing/Qwen3-Reranker-0.6B-ONNX` |
 | **Text Generation** | go-rust-bert | GPT-2 |
 
 ## Features
@@ -16,7 +16,7 @@ This example demonstrates how to build an interactive chat application using pre
 - **Dual Knowledge Stores**: Separates global knowledge (shared facts) from user-specific episodic memory
 - **Local Text Generation**: Uses RustBert GPT-2 for responses (no API required)
 - **Local Embeddings**: Uses qwen/qwen3-embedding-0.6b for semantic search
-- **Reranking**: Uses qwen/qwen3-reranker-0.6b to improve search result quality
+- **Reranking**: Uses zhiqing/Qwen3-Reranker-0.6B-ONNX to improve search result quality
 - **Conversation Continuity**: Uses `AddToEpisode` to maintain a single episode per chat session
 - **UUID v7 Episode IDs**: Leverages time-sortable UUIDs for natural episode ordering
 - **Interactive Commands**: Supports history viewing and direct knowledge base queries
@@ -77,7 +77,7 @@ On first run, the example will automatically download the required models:
 | Model | Size | Purpose |
 |-------|------|---------|
 | `qwen/qwen3-embedding-0.6b` | ~600MB | Text embeddings |
-| `qwen/qwen3-reranker-0.6b` | ~600MB | Result reranking |
+| `zhiqing/Qwen3-Reranker-0.6B-ONNX` | ~600MB | Result reranking |
 | GPT-2 | ~500MB | Text generation |
 
 **Total: ~1.7GB**
@@ -144,7 +144,7 @@ This chat uses predicato's internal services:
   - Ladybug: embedded graph database (no server required)
   - RustBert GPT-2: local text generation (no API required)
   - EmbedEverything: local embeddings with qwen/qwen3-embedding-0.6b
-  - EmbedEverything: local reranking with qwen/qwen3-reranker-0.6b
+  - EmbedEverything: local reranking with zhiqing/Qwen3-Reranker-0.6B-ONNX
 
 No API keys or external services needed!
 User ID: alice
@@ -156,7 +156,7 @@ Initializing internal services...
       RustBert GPT-2 loaded
 [2/4] Setting up EmbedEverything embedder with qwen/qwen3-embedding-0.6b...
       EmbedEverything embedder loaded
-[3/4] Setting up EmbedEverything reranker with qwen/qwen3-reranker-0.6b...
+[3/4] Setting up EmbedEverything reranker with zhiqing/Qwen3-Reranker-0.6B-ONNX...
       EmbedEverything reranker loaded
 [4/4] Setting up Predicato clients...
       User database initialized at ./user_dbs/user_alice.ladybugdb

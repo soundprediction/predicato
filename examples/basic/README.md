@@ -8,7 +8,7 @@ This example demonstrates using predicato with **only internal services** - no e
 |-----------|---------|-------|
 | **Database** | Ladybug | Embedded graph database |
 | **Embeddings** | go-embedeverything | `qwen/qwen3-embedding-0.6b` |
-| **Reranking** | go-embedeverything | `qwen/qwen3-reranker-0.6b` |
+| **Reranking** | go-embedeverything | `zhiqing/Qwen3-Reranker-0.6B-ONNX` |
 | **Text Generation** | go-rust-bert | GPT-2 |
 
 ## Features
@@ -72,7 +72,7 @@ On first run, the example will automatically download the required models:
 | Model | Size | Purpose |
 |-------|------|---------|
 | `qwen/qwen3-embedding-0.6b` | ~600MB | Text embeddings |
-| `qwen/qwen3-reranker-0.6b` | ~600MB | Result reranking |
+| `zhiqing/Qwen3-Reranker-0.6B-ONNX` | ~600MB | Result reranking |
 | GPT-2 | ~500MB | Text generation |
 
 **Total: ~1.7GB**
@@ -113,7 +113,7 @@ This example uses predicato's internal services:
   - Ladybug: embedded graph database (no server required)
   - RustBert GPT-2: local text generation (no API required)
   - EmbedEverything: local embeddings with qwen/qwen3-embedding-0.6b
-  - EmbedEverything: local reranking with qwen/qwen3-reranker-0.6b
+  - EmbedEverything: local reranking with zhiqing/Qwen3-Reranker-0.6B-ONNX
 
 No API keys or external services needed!
 
@@ -123,8 +123,8 @@ No API keys or external services needed!
       RustBert GPT-2 text generation model loaded
 [3/5] Setting up EmbedEverything embedder with qwen/qwen3-embedding-0.6b...
       EmbedEverything embedder created (model: qwen/qwen3-embedding-0.6b)
-[4/5] Setting up EmbedEverything reranker with qwen/qwen3-reranker-0.6b...
-      EmbedEverything reranker created (model: qwen/qwen3-reranker-0.6b)
+[4/5] Setting up EmbedEverything reranker with zhiqing/Qwen3-Reranker-0.6B-ONNX...
+      EmbedEverything reranker created (model: zhiqing/Qwen3-Reranker-0.6B-ONNX)
 [5/5] Creating Predicato client...
       Predicato client created (group: example-group)
 
@@ -145,7 +145,7 @@ Search results (before reranking):
   2. Project Research (episode)
      Researched various approaches for implementing the API...
 
-Reranking results with qwen/qwen3-reranker-0.6b...
+Reranking results with zhiqing/Qwen3-Reranker-0.6B-ONNX...
 
 Search results (after reranking):
 ---------------------------------
@@ -164,7 +164,7 @@ Summary:
   - Used Ladybug embedded database (no Neo4j server)
   - Used RustBert GPT-2 for text generation (no OpenAI API)
   - Used qwen/qwen3-embedding-0.6b for embeddings (no API)
-  - Used qwen/qwen3-reranker-0.6b for reranking (no API)
+  - Used zhiqing/Qwen3-Reranker-0.6B-ONNX for reranking (no API)
 
 For external API examples, see: examples/external_apis/
 ```

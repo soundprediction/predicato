@@ -261,7 +261,7 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 func TestEmbedEverythingQwenReranker(t *testing.T) {
-	// This test validates the qwen/qwen3-reranker-0.6b model which is the
+	// This test validates the zhiqing/Qwen3-Reranker-0.6B-ONNX model which is the
 	// recommended internal reranker for predicato examples.
 	// It requires model downloads from Hugging Face and may be skipped if:
 	// 1. No internet connection
@@ -269,14 +269,14 @@ func TestEmbedEverythingQwenReranker(t *testing.T) {
 	// 3. Insufficient disk space (~600MB)
 	config := &EmbedEverythingConfig{
 		Config: &Config{
-			Model:     "qwen/qwen3-reranker-0.6b",
+			Model:     "zhiqing/Qwen3-Reranker-0.6B-ONNX",
 			BatchSize: 100,
 		},
 	}
 
 	client, err := NewEmbedEverythingClient(config)
 	if err != nil {
-		t.Skipf("Skipping qwen reranker test (model may need download): %v", err)
+		t.Skipf("Skipping Qwen3 reranker test (model may need download): %v", err)
 		return
 	}
 	defer client.Close()
