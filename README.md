@@ -209,6 +209,10 @@ predicato/
 
 ## Internal Services Stack
 
+We rely on golang bindings for prediction models implemented originally in Rust. In particular we use https://github.com/guillaume-be/rust-bert (RustBert -> go-rust-bert), https://github.com/fbilhaut/gline-rs (Gline-rs), and https://github.com/StarlightSearch/EmbedAnything (EmbedEverything -> go-embed-everything). Please see upstream repositories for more details on models supported. Predicato will automatically download models on first use and cache to `~/.cache/huggingface/`.
+
+Here is an example configuration and the model sizes involved:
+
 | Component | Model | Download Size |
 |-----------|-------|---------------|
 | Embeddings | `qwen/qwen3-embedding-0.6b` | ~600MB |
