@@ -13,7 +13,7 @@ Most agentic memory libraries require external services (OpenAI, Pinecone, Neo4j
 | **Reranking** | go-embedeverything | Jina, Cohere |
 | **Text Generation** | go-rust-bert (GPT-2) | OpenAI, Anthropic, Ollama |
 | **Entity Extraction** | GLiNER (ONNX) | LLM-based extraction |
-| **Fact Storage** | DoltDB (embedded) | DoltDB server |
+| **Fact Storage** | DoltGres (embedded) | PostgreSQL + pgvector |
 
 **Why choose Predicato:**
 - **Run offline** - Embedded database + local ML models = no network required
@@ -200,7 +200,7 @@ predicato/
 ├── pkg/rustbert/      # Local text generation (GPT-2, NER, summarization)
 ├── pkg/nlp/           # LLM clients (OpenAI-compatible APIs)
 ├── pkg/search/        # Hybrid search (semantic + BM25 + graph traversal)
-├── pkg/factstore/     # Versioned fact storage (DoltDB)
+├── pkg/factstore/     # Versioned fact storage (PostgreSQL/DoltGres + pgvector)
 └── pkg/types/         # Core types (nodes, edges, episodes)
 ```
 
@@ -231,6 +231,57 @@ Models download automatically on first use and cache to `~/.cache/huggingface/`.
 - Circuit breakers with provider fallback
 - Token usage tracking and cost calculation
 - Error telemetry with DB persistence
+
+## Fact Storage & RAG
+
+Predicato includes a **fact storage system** for extracted entities and relationships that can be used independently for RAG (Retrieval-Augmented Generation) without requiring graph queries.
+
+### PostgreSQL Backend
+
+The fact storage uses PostgreSQL-compatible databases with **pgvector** for native vector similarity search:
+
+| Mode | Database | Use Case |
+|------|----------|----------|
+| **Embedded** | DoltGres | Development, single-node deployment |
+| **External** | PostgreSQL + pgvector | Production, managed databases (RDS, Cloud SQL) |
+
+If no external PostgreSQL is configured, Predicato automatically uses **DoltGres** (embedded PostgreSQL-compatible database with git-like versioning).
+
+### Configuration
+
+```go
+// Option 1: Automatic embedded DoltGres (no config needed)
+client, _ := predicato.NewClient(db, llm, embedder, &predicato.Config{
+    GroupID: "my-app",
+}, nil)
+
+// Option 2: External PostgreSQL with pgvector
+client, _ := predicato.NewClient(db, llm, embedder, &predicato.Config{
+    GroupID: "my-app",
+    FactStoreConfig: &factstore.FactStoreConfig{
+        Type:             "postgres",
+        ConnectionString: "postgres://user:pass@localhost:5432/facts?sslmode=disable",
+    },
+}, nil)
+```
+
+### RAG Search (without Graph)
+
+For simpler RAG use cases that don't need relationship traversal:
+
+```go
+// Search extracted facts directly (no graph queries)
+results, _ := client.SearchFacts(ctx, "API design patterns", &types.SearchConfig{
+    Limit:    10,
+    MinScore: 0.7,
+})
+
+for _, node := range results.Nodes {
+    fmt.Printf("Found: %s (score: %.2f)\n", node.Name, node.Score)
+}
+```
+
+This performs hybrid search (vector similarity + keyword matching) using pgvector and PostgreSQL full-text search.
 
 ## CLI & Server
 

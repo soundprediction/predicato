@@ -5,18 +5,26 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math"
+	"strings"
+	"time"
 
 	_ "github.com/dolthub/driver"
 )
 
 // DoltDB implements FactsDB using a Dolt SQL database.
+// Deprecated: Use PostgresDB with DoltGres for better search capabilities including pgvector.
+// DoltDB is maintained for backward compatibility but uses in-memory vector search.
 type DoltDB struct {
 	db *sql.DB
 }
 
 // NewDoltDB creates a new DoltDB instance.
+// Deprecated: Use NewPostgresDB with DoltGres for better search capabilities.
 // connectionString should be a valid Dolt DSN, e.g., "file:///path/to/databases?commitname=User&commitemail=user@example.com&database=mydb"
 func NewDoltDB(connectionString string) (*DoltDB, error) {
+	fmt.Println("Warning: DoltDB is deprecated. Consider using PostgresDB with DoltGres for pgvector support.")
+
 	db, err := sql.Open("dolt", connectionString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database connection: %w", err)
@@ -50,22 +58,27 @@ func (d *DoltDB) Initialize(ctx context.Context) error {
 		`CREATE TABLE IF NOT EXISTS extracted_nodes (
 			id VARCHAR(255) PRIMARY KEY,
 			source_id VARCHAR(255),
+			group_id VARCHAR(255),
 			name TEXT,
 			type VARCHAR(50),
 			description TEXT,
 			embedding JSON,
 			chunk_index INT,
+			created_at TIMESTAMP,
 			FOREIGN KEY (source_id) REFERENCES sources(id)
 		)`,
 		`CREATE TABLE IF NOT EXISTS extracted_edges (
 			id VARCHAR(255) PRIMARY KEY,
 			source_id VARCHAR(255),
+			group_id VARCHAR(255),
 			source_node_name TEXT,
 			target_node_name TEXT,
 			relation TEXT,
 			description TEXT,
+			embedding JSON,
 			weight FLOAT,
 			chunk_index INT,
+			created_at TIMESTAMP,
 			FOREIGN KEY (source_id) REFERENCES sources(id)
 		)`,
 	}
@@ -99,7 +112,14 @@ func (d *DoltDB) SaveExtractedKnowledge(ctx context.Context, sourceID string, no
 	}
 	defer tx.Rollback()
 
-	nodeStmt, err := tx.PrepareContext(ctx, `INSERT INTO extracted_nodes (id, source_id, name, type, description, embedding, chunk_index) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+	// Get source's group_id for nodes/edges
+	var groupID string
+	err = tx.QueryRowContext(ctx, "SELECT group_id FROM sources WHERE id = ?", sourceID).Scan(&groupID)
+	if err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("failed to get source group_id: %w", err)
+	}
+
+	nodeStmt, err := tx.PrepareContext(ctx, `INSERT INTO extracted_nodes (id, source_id, group_id, name, type, description, embedding, chunk_index, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return fmt.Errorf("failed to prepare node statement: %w", err)
 	}
@@ -110,19 +130,39 @@ func (d *DoltDB) SaveExtractedKnowledge(ctx context.Context, sourceID string, no
 		if err != nil {
 			return fmt.Errorf("failed to marshal embedding for node %s: %w", node.ID, err)
 		}
-		if _, err := nodeStmt.ExecContext(ctx, node.ID, sourceID, node.Name, node.Type, node.Description, embeddingJSON, node.ChunkIndex); err != nil {
+		nodeGroupID := node.GroupID
+		if nodeGroupID == "" {
+			nodeGroupID = groupID
+		}
+		createdAt := node.CreatedAt
+		if createdAt.IsZero() {
+			createdAt = time.Now()
+		}
+		if _, err := nodeStmt.ExecContext(ctx, node.ID, sourceID, nodeGroupID, node.Name, node.Type, node.Description, embeddingJSON, node.ChunkIndex, createdAt); err != nil {
 			return fmt.Errorf("failed to insert node %s: %w", node.ID, err)
 		}
 	}
 
-	edgeStmt, err := tx.PrepareContext(ctx, `INSERT INTO extracted_edges (id, source_id, source_node_name, target_node_name, relation, description, weight, chunk_index) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+	edgeStmt, err := tx.PrepareContext(ctx, `INSERT INTO extracted_edges (id, source_id, group_id, source_node_name, target_node_name, relation, description, embedding, weight, chunk_index, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return fmt.Errorf("failed to prepare edge statement: %w", err)
 	}
 	defer edgeStmt.Close()
 
 	for _, edge := range edges {
-		if _, err := edgeStmt.ExecContext(ctx, edge.ID, sourceID, edge.SourceNodeName, edge.TargetNodeName, edge.Relation, edge.Description, edge.Weight, edge.ChunkIndex); err != nil {
+		embeddingJSON, err := json.Marshal(edge.Embedding)
+		if err != nil {
+			return fmt.Errorf("failed to marshal embedding for edge %s: %w", edge.ID, err)
+		}
+		edgeGroupID := edge.GroupID
+		if edgeGroupID == "" {
+			edgeGroupID = groupID
+		}
+		createdAt := edge.CreatedAt
+		if createdAt.IsZero() {
+			createdAt = time.Now()
+		}
+		if _, err := edgeStmt.ExecContext(ctx, edge.ID, sourceID, edgeGroupID, edge.SourceNodeName, edge.TargetNodeName, edge.Relation, edge.Description, embeddingJSON, edge.Weight, edge.ChunkIndex, createdAt); err != nil {
 			return fmt.Errorf("failed to insert edge %s: %w", edge.ID, err)
 		}
 	}
@@ -140,12 +180,6 @@ func (d *DoltDB) GetSource(ctx context.Context, sourceID string) (*Source, error
 	var s Source
 	var metadataBytes []byte
 
-	// Using generic scanning and converting
-	// To ensure CreatedAt is parsed correctly, we usually add ?parseTime=true to DSN.
-	// We'll assume the user configures DSN correctly, but handle both if possible or just rely on driver.
-	// For simplicity, we scan into a temporary holding variable if needed, but let's try direct time.Time scan.
-	// If it fails, we know DSN needs parseTime=true.
-
 	if err := row.Scan(&s.ID, &s.Name, &s.Content, &s.GroupID, &metadataBytes, &s.CreatedAt); err != nil {
 		return nil, fmt.Errorf("failed to scan source: %w", err)
 	}
@@ -160,7 +194,7 @@ func (d *DoltDB) GetSource(ctx context.Context, sourceID string) (*Source, error
 }
 
 func (d *DoltDB) GetExtractedNodes(ctx context.Context, sourceID string) ([]*ExtractedNode, error) {
-	rows, err := d.db.QueryContext(ctx, "SELECT id, source_id, name, type, description, embedding, chunk_index FROM extracted_nodes WHERE source_id = ?", sourceID)
+	rows, err := d.db.QueryContext(ctx, "SELECT id, source_id, group_id, name, type, description, embedding, chunk_index, created_at FROM extracted_nodes WHERE source_id = ?", sourceID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query extracted nodes: %w", err)
 	}
@@ -170,8 +204,16 @@ func (d *DoltDB) GetExtractedNodes(ctx context.Context, sourceID string) ([]*Ext
 	for rows.Next() {
 		var n ExtractedNode
 		var embeddingBytes []byte
-		if err := rows.Scan(&n.ID, &n.SourceID, &n.Name, &n.Type, &n.Description, &embeddingBytes, &n.ChunkIndex); err != nil {
+		var groupID sql.NullString
+		var createdAt sql.NullTime
+		if err := rows.Scan(&n.ID, &n.SourceID, &groupID, &n.Name, &n.Type, &n.Description, &embeddingBytes, &n.ChunkIndex, &createdAt); err != nil {
 			return nil, err
+		}
+		if groupID.Valid {
+			n.GroupID = groupID.String
+		}
+		if createdAt.Valid {
+			n.CreatedAt = createdAt.Time
 		}
 		if len(embeddingBytes) > 0 {
 			if err := json.Unmarshal(embeddingBytes, &n.Embedding); err != nil {
@@ -184,7 +226,7 @@ func (d *DoltDB) GetExtractedNodes(ctx context.Context, sourceID string) ([]*Ext
 }
 
 func (d *DoltDB) GetExtractedEdges(ctx context.Context, sourceID string) ([]*ExtractedEdge, error) {
-	rows, err := d.db.QueryContext(ctx, "SELECT id, source_id, source_node_name, target_node_name, relation, description, weight, chunk_index FROM extracted_edges WHERE source_id = ?", sourceID)
+	rows, err := d.db.QueryContext(ctx, "SELECT id, source_id, group_id, source_node_name, target_node_name, relation, description, embedding, weight, chunk_index, created_at FROM extracted_edges WHERE source_id = ?", sourceID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query extracted edges: %w", err)
 	}
@@ -193,8 +235,22 @@ func (d *DoltDB) GetExtractedEdges(ctx context.Context, sourceID string) ([]*Ext
 	var edges []*ExtractedEdge
 	for rows.Next() {
 		var e ExtractedEdge
-		if err := rows.Scan(&e.ID, &e.SourceID, &e.SourceNodeName, &e.TargetNodeName, &e.Relation, &e.Description, &e.Weight, &e.ChunkIndex); err != nil {
+		var embeddingBytes []byte
+		var groupID sql.NullString
+		var createdAt sql.NullTime
+		if err := rows.Scan(&e.ID, &e.SourceID, &groupID, &e.SourceNodeName, &e.TargetNodeName, &e.Relation, &e.Description, &embeddingBytes, &e.Weight, &e.ChunkIndex, &createdAt); err != nil {
 			return nil, err
+		}
+		if groupID.Valid {
+			e.GroupID = groupID.String
+		}
+		if createdAt.Valid {
+			e.CreatedAt = createdAt.Time
+		}
+		if len(embeddingBytes) > 0 {
+			if err := json.Unmarshal(embeddingBytes, &e.Embedding); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal embedding: %w", err)
+			}
 		}
 		edges = append(edges, &e)
 	}
@@ -234,7 +290,7 @@ func (d *DoltDB) GetAllSources(ctx context.Context, limit int) ([]*Source, error
 }
 
 func (d *DoltDB) GetAllNodes(ctx context.Context, limit int) ([]*ExtractedNode, error) {
-	query := "SELECT id, source_id, name, type, description, embedding, chunk_index FROM extracted_nodes"
+	query := "SELECT id, source_id, group_id, name, type, description, embedding, chunk_index, created_at FROM extracted_nodes"
 	var rows *sql.Rows
 	var err error
 	if limit > 0 {
@@ -252,8 +308,16 @@ func (d *DoltDB) GetAllNodes(ctx context.Context, limit int) ([]*ExtractedNode, 
 	for rows.Next() {
 		var n ExtractedNode
 		var embeddingBytes []byte
-		if err := rows.Scan(&n.ID, &n.SourceID, &n.Name, &n.Type, &n.Description, &embeddingBytes, &n.ChunkIndex); err != nil {
+		var groupID sql.NullString
+		var createdAt sql.NullTime
+		if err := rows.Scan(&n.ID, &n.SourceID, &groupID, &n.Name, &n.Type, &n.Description, &embeddingBytes, &n.ChunkIndex, &createdAt); err != nil {
 			return nil, err
+		}
+		if groupID.Valid {
+			n.GroupID = groupID.String
+		}
+		if createdAt.Valid {
+			n.CreatedAt = createdAt.Time
 		}
 		if len(embeddingBytes) > 0 {
 			if err := json.Unmarshal(embeddingBytes, &n.Embedding); err != nil {
@@ -266,7 +330,7 @@ func (d *DoltDB) GetAllNodes(ctx context.Context, limit int) ([]*ExtractedNode, 
 }
 
 func (d *DoltDB) GetAllEdges(ctx context.Context, limit int) ([]*ExtractedEdge, error) {
-	query := "SELECT id, source_id, source_node_name, target_node_name, relation, description, weight, chunk_index FROM extracted_edges"
+	query := "SELECT id, source_id, group_id, source_node_name, target_node_name, relation, description, embedding, weight, chunk_index, created_at FROM extracted_edges"
 	var rows *sql.Rows
 	var err error
 	if limit > 0 {
@@ -283,8 +347,22 @@ func (d *DoltDB) GetAllEdges(ctx context.Context, limit int) ([]*ExtractedEdge, 
 	var edges []*ExtractedEdge
 	for rows.Next() {
 		var e ExtractedEdge
-		if err := rows.Scan(&e.ID, &e.SourceID, &e.SourceNodeName, &e.TargetNodeName, &e.Relation, &e.Description, &e.Weight, &e.ChunkIndex); err != nil {
+		var embeddingBytes []byte
+		var groupID sql.NullString
+		var createdAt sql.NullTime
+		if err := rows.Scan(&e.ID, &e.SourceID, &groupID, &e.SourceNodeName, &e.TargetNodeName, &e.Relation, &e.Description, &embeddingBytes, &e.Weight, &e.ChunkIndex, &createdAt); err != nil {
 			return nil, err
+		}
+		if groupID.Valid {
+			e.GroupID = groupID.String
+		}
+		if createdAt.Valid {
+			e.CreatedAt = createdAt.Time
+		}
+		if len(embeddingBytes) > 0 {
+			if err := json.Unmarshal(embeddingBytes, &e.Embedding); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal embedding: %w", err)
+			}
 		}
 		edges = append(edges, &e)
 	}
@@ -309,4 +387,285 @@ func (d *DoltDB) GetStats(ctx context.Context) (*Stats, error) {
 
 func (d *DoltDB) Close() error {
 	return d.db.Close()
+}
+
+// --- Search Methods (In-memory implementation for DoltDB) ---
+// Note: These methods use in-memory search since Dolt doesn't have pgvector.
+// For production use with large datasets, migrate to PostgresDB/DoltGres with pgvector.
+
+func (d *DoltDB) SearchNodes(ctx context.Context, query string, embedding []float32, config *FactSearchConfig) ([]*ExtractedNode, []float64, error) {
+	if config == nil {
+		config = &FactSearchConfig{Limit: 10}
+	}
+	if config.Limit <= 0 {
+		config.Limit = 10
+	}
+
+	// Load all nodes for in-memory search
+	allNodes, err := d.GetAllNodes(ctx, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Filter and score nodes
+	type scoredNode struct {
+		node  *ExtractedNode
+		score float64
+	}
+
+	var scored []scoredNode
+
+	for _, node := range allNodes {
+		// Apply filters
+		if config.GroupID != "" && node.GroupID != config.GroupID {
+			continue
+		}
+		if len(config.NodeTypes) > 0 {
+			found := false
+			for _, t := range config.NodeTypes {
+				if node.Type == t {
+					found = true
+					break
+				}
+			}
+			if !found {
+				continue
+			}
+		}
+		if config.TimeRange != nil {
+			if !config.TimeRange.Start.IsZero() && node.CreatedAt.Before(config.TimeRange.Start) {
+				continue
+			}
+			if !config.TimeRange.End.IsZero() && node.CreatedAt.After(config.TimeRange.End) {
+				continue
+			}
+		}
+
+		var score float64 = 0
+
+		// Vector similarity
+		if embedding != nil && len(embedding) > 0 && len(node.Embedding) > 0 {
+			score = cosineSimilarity(embedding, node.Embedding)
+		}
+
+		// Keyword matching (simple approach)
+		if query != "" {
+			queryLower := strings.ToLower(query)
+			textLower := strings.ToLower(node.Name + " " + node.Description)
+			if strings.Contains(textLower, queryLower) {
+				score += 0.5 // Boost for keyword match
+			}
+		}
+
+		if score >= config.MinScore {
+			scored = append(scored, scoredNode{node: node, score: score})
+		}
+	}
+
+	// Sort by score descending
+	for i := 0; i < len(scored)-1; i++ {
+		for j := i + 1; j < len(scored); j++ {
+			if scored[j].score > scored[i].score {
+				scored[i], scored[j] = scored[j], scored[i]
+			}
+		}
+	}
+
+	// Extract results
+	var nodes []*ExtractedNode
+	var scores []float64
+
+	for i := 0; i < len(scored) && i < config.Limit; i++ {
+		nodes = append(nodes, scored[i].node)
+		scores = append(scores, scored[i].score)
+	}
+
+	return nodes, scores, nil
+}
+
+func (d *DoltDB) SearchEdges(ctx context.Context, query string, embedding []float32, config *FactSearchConfig) ([]*ExtractedEdge, []float64, error) {
+	if config == nil {
+		config = &FactSearchConfig{Limit: 10}
+	}
+	if config.Limit <= 0 {
+		config.Limit = 10
+	}
+
+	allEdges, err := d.GetAllEdges(ctx, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	type scoredEdge struct {
+		edge  *ExtractedEdge
+		score float64
+	}
+
+	var scored []scoredEdge
+
+	for _, edge := range allEdges {
+		if config.GroupID != "" && edge.GroupID != config.GroupID {
+			continue
+		}
+		if config.TimeRange != nil {
+			if !config.TimeRange.Start.IsZero() && edge.CreatedAt.Before(config.TimeRange.Start) {
+				continue
+			}
+			if !config.TimeRange.End.IsZero() && edge.CreatedAt.After(config.TimeRange.End) {
+				continue
+			}
+		}
+
+		var score float64 = 0
+
+		// Vector similarity
+		if embedding != nil && len(embedding) > 0 && len(edge.Embedding) > 0 {
+			score = cosineSimilarity(embedding, edge.Embedding)
+		}
+
+		// Keyword matching
+		if query != "" {
+			queryLower := strings.ToLower(query)
+			textLower := strings.ToLower(edge.Relation + " " + edge.Description)
+			if strings.Contains(textLower, queryLower) {
+				score += 0.5
+			}
+		}
+
+		if score >= config.MinScore {
+			scored = append(scored, scoredEdge{edge: edge, score: score})
+		}
+	}
+
+	// Sort
+	for i := 0; i < len(scored)-1; i++ {
+		for j := i + 1; j < len(scored); j++ {
+			if scored[j].score > scored[i].score {
+				scored[i], scored[j] = scored[j], scored[i]
+			}
+		}
+	}
+
+	var edges []*ExtractedEdge
+	var scores []float64
+
+	for i := 0; i < len(scored) && i < config.Limit; i++ {
+		edges = append(edges, scored[i].edge)
+		scores = append(scores, scored[i].score)
+	}
+
+	return edges, scores, nil
+}
+
+func (d *DoltDB) SearchSources(ctx context.Context, query string, config *FactSearchConfig) ([]*Source, []float64, error) {
+	if config == nil {
+		config = &FactSearchConfig{Limit: 10}
+	}
+	if query == "" {
+		return []*Source{}, []float64{}, nil
+	}
+
+	allSources, err := d.GetAllSources(ctx, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	type scoredSource struct {
+		source *Source
+		score  float64
+	}
+
+	var scored []scoredSource
+	queryLower := strings.ToLower(query)
+
+	for _, source := range allSources {
+		if config.GroupID != "" && source.GroupID != config.GroupID {
+			continue
+		}
+		if config.TimeRange != nil {
+			if !config.TimeRange.Start.IsZero() && source.CreatedAt.Before(config.TimeRange.Start) {
+				continue
+			}
+			if !config.TimeRange.End.IsZero() && source.CreatedAt.After(config.TimeRange.End) {
+				continue
+			}
+		}
+
+		textLower := strings.ToLower(source.Name + " " + source.Content)
+		if strings.Contains(textLower, queryLower) {
+			// Simple scoring based on match count
+			score := float64(strings.Count(textLower, queryLower)) * 0.1
+			if score < 0.1 {
+				score = 0.1
+			}
+			if score >= config.MinScore {
+				scored = append(scored, scoredSource{source: source, score: score})
+			}
+		}
+	}
+
+	// Sort
+	for i := 0; i < len(scored)-1; i++ {
+		for j := i + 1; j < len(scored); j++ {
+			if scored[j].score > scored[i].score {
+				scored[i], scored[j] = scored[j], scored[i]
+			}
+		}
+	}
+
+	var sources []*Source
+	var scores []float64
+
+	for i := 0; i < len(scored) && i < config.Limit; i++ {
+		sources = append(sources, scored[i].source)
+		scores = append(scores, scored[i].score)
+	}
+
+	return sources, scores, nil
+}
+
+func (d *DoltDB) HybridSearch(ctx context.Context, query string, embedding []float32, config *FactSearchConfig) (*FactSearchResults, error) {
+	if config == nil {
+		config = &FactSearchConfig{Limit: 10}
+	}
+
+	nodes, nodeScores, err := d.SearchNodes(ctx, query, embedding, config)
+	if err != nil {
+		return nil, fmt.Errorf("node search failed: %w", err)
+	}
+
+	edges, edgeScores, err := d.SearchEdges(ctx, query, embedding, config)
+	if err != nil {
+		return nil, fmt.Errorf("edge search failed: %w", err)
+	}
+
+	return &FactSearchResults{
+		Nodes:      nodes,
+		Edges:      edges,
+		NodeScores: nodeScores,
+		EdgeScores: edgeScores,
+		Query:      query,
+		Total:      len(nodes) + len(edges),
+	}, nil
+}
+
+// cosineSimilarity calculates the cosine similarity between two vectors
+func cosineSimilarity(a, b []float32) float64 {
+	if len(a) != len(b) || len(a) == 0 {
+		return 0
+	}
+
+	var dotProduct, normA, normB float64
+
+	for i := range a {
+		dotProduct += float64(a[i]) * float64(b[i])
+		normA += float64(a[i]) * float64(a[i])
+		normB += float64(b[i]) * float64(b[i])
+	}
+
+	if normA == 0 || normB == 0 {
+		return 0
+	}
+
+	return dotProduct / (math.Sqrt(normA) * math.Sqrt(normB))
 }

@@ -3,6 +3,7 @@ package predicato
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -97,6 +98,11 @@ type Predicato interface {
 
 	// GetFactStore returns the underlying fact store
 	GetFactStore() factstore.FactsDB
+
+	// SearchFacts performs RAG search directly on the factstore without graph queries.
+	// This is useful for simpler RAG use cases that don't need relationship traversal.
+	// The query is embedded using the configured embedder, then hybrid search is performed.
+	SearchFacts(ctx context.Context, query string, config *types.SearchConfig) (*factstore.FactSearchResults, error)
 }
 
 // Client is the main implementation of the Predicato interface.
@@ -139,7 +145,12 @@ type Config struct {
 	EdgeTypes   map[string]interface{}
 
 	// FactsDBURL is the connection string for the Dolt facts database
+	// Deprecated: Use FactStoreConfig instead for PostgreSQL/DoltGres support
 	FactsDBURL string
+
+	// FactStoreConfig configures the factstore backend (PostgreSQL/DoltGres)
+	// If nil and FactsDBURL is set, falls back to legacy Dolt behavior
+	FactStoreConfig *factstore.FactStoreConfig
 
 	EdgeMap map[string]map[string][]interface{}
 	// NlpModels holds specialized NLP clients for different steps
@@ -194,7 +205,19 @@ func NewClient(driver driver.GraphDriver, nlProcessor nlp.Client, embedderClient
 	communityBuilder := community.NewBuilder(driver, nlProcessor, config.NlpModels.Summarization, embedderClient)
 
 	var factStore factstore.FactsDB
-	if config.FactsDBURL != "" {
+	var err error
+
+	// Prefer FactStoreConfig over deprecated FactsDBURL
+	if config.FactStoreConfig != nil {
+		factStore, err = factstore.NewFactsDB(config.FactStoreConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create factstore: %w", err)
+		}
+		if err := factStore.Initialize(context.Background()); err != nil {
+			return nil, fmt.Errorf("failed to initialize factstore: %w", err)
+		}
+	} else if config.FactsDBURL != "" {
+		// Legacy Dolt support (deprecated)
 		fdb, err := factstore.NewDoltDB(config.FactsDBURL)
 		if err != nil {
 			return nil, err
