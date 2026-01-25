@@ -1,12 +1,91 @@
-# predicato
+# Predicato
 
-A temporal information extraction and knowledge graph library for Go with internal NLP model capabilities (or support for external services).
+A temporal knowledge graph library for Go with a fully local ML stack - no API keys required.
 
 ## What Makes Predicato Different
 
-Most agentic memory libraries require external services (LLMs, vector databases, graph databasesj).
-Predicato has implemented embeedded alternatives for all components so it can be used without external service dependencies.
- Predicato is **modular by design** - every component can run locally OR connect to external services. Start with the internal stack for development, then swap in cloud services for production without changing your code.
+Most agentic memory libraries require external services (language models, vector databases, graph databases). Predicato has implemented embedded alternatives for all components so it can run without any external dependencies.
+
+Predicato is **modular by design** - every component can run locally OR connect to external services. Start with the internal stack for development, then swap in cloud services for production without changing your code.
+
+## Design
+
+Predicato implements a **two-layer architecture** that separates raw fact extraction from graph modeling:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Episodes                                 │
+│              (documents, conversations, events)                  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Entity Extraction                             │
+│         (GLiNER for NER, NLP models for relationships)           │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+              ┌───────────────┴───────────────┐
+              ▼                               ▼
+┌─────────────────────────┐     ┌─────────────────────────────────┐
+│      Fact Store         │     │       Knowledge Graph            │
+│  (PostgreSQL/DoltGres)  │     │    (Ladybug/Neo4j/Memgraph)      │
+│                         │     │                                  │
+│  • Raw extracted nodes  │     │  • Resolved entities             │
+│  • Raw extracted edges  │     │  • Temporal relationships        │
+│  • Source documents     │     │  • Community structures          │
+│  • Vector embeddings    │     │  • Episode connections           │
+│                         │     │                                  │
+│  ┌───────────────────┐  │     │  ┌───────────────────────────┐   │
+│  │   RAG Search      │  │     │  │    Hybrid Search          │   │
+│  │  (pgvector/JSONB) │  │     │  │  (semantic + BM25 + graph)│   │
+│  └───────────────────┘  │     │  └───────────────────────────┘   │
+└─────────────────────────┘     └─────────────────────────────────┘
+```
+
+### Why Two Layers?
+
+**Fact Store (Layer 1)** - Stores raw extractions exactly as they were found:
+- Preserves source provenance (which document, which chunk)
+- Enables re-processing with different models or parameters
+- Supports simple RAG without graph complexity
+- Uses PostgreSQL/pgvector for production-grade vector search
+
+**Knowledge Graph (Layer 2)** - Stores resolved, interconnected knowledge:
+- Entity resolution merges duplicates ("Bob Smith" = "Robert Smith")
+- Temporal modeling tracks when facts were valid vs. when recorded
+- Community detection groups related entities
+- Graph traversal finds multi-hop relationships
+
+This separation enables:
+1. **Multiple views** - Generate different graph representations from the same facts
+2. **Incremental updates** - Re-process only changed documents
+3. **Simpler RAG** - Use `SearchFacts()` when you don't need graph features
+4. **Audit trail** - Track exactly what was extracted from each source
+
+### Bi-Temporal Model
+
+Every fact in Predicato has two time dimensions:
+
+| Dimension | Field | Meaning |
+|-----------|-------|---------|
+| **Transaction Time** | `created_at` | When the fact was recorded in the system |
+| **Valid Time** | `valid_from`, `valid_to` | When the fact was true in the real world |
+
+This enables queries like:
+- "What did we know about X as of last Tuesday?" (transaction time)
+- "What was true about X during Q3 2024?" (valid time)
+- "Show me facts that were recorded wrong and later corrected" (both)
+
+### Entity Resolution
+
+When adding episodes, Predicato automatically:
+1. Extracts entities using GLiNER or NLP model prompts
+2. Generates embeddings for each entity
+3. Compares against existing entities (cosine similarity)
+4. Merges duplicates above a threshold (default: 0.85)
+5. Creates temporal edges between resolved entities
+
+## Components
 
 | Component | Internal (No API) | External Services |
 |-----------|-----------------|---------------------|
