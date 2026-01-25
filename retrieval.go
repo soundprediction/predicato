@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/soundprediction/predicato/pkg/driver"
+	"github.com/soundprediction/predicato/pkg/factstore"
 	"github.com/soundprediction/predicato/pkg/search"
 	"github.com/soundprediction/predicato/pkg/types"
 )
@@ -208,4 +209,69 @@ func convertReranker(reranker string) search.RerankerType {
 	default:
 		return search.RRFRerankType // Default fallback
 	}
+}
+
+// SearchFacts performs RAG search directly on the factstore without graph queries.
+// This is useful for simpler RAG use cases that don't need relationship traversal.
+// The query is embedded using the configured embedder, then hybrid search is performed.
+func (c *Client) SearchFacts(ctx context.Context, query string, config *types.SearchConfig) (*factstore.FactSearchResults, error) {
+	// Check if factstore is configured
+	if c.factStore == nil {
+		return nil, fmt.Errorf("factstore not configured: set FactStoreConfig or FactsDBURL in Config")
+	}
+
+	// Check if embedder is available
+	if c.embedder == nil {
+		return nil, fmt.Errorf("embedder not configured: required for SearchFacts")
+	}
+
+	// Generate embedding from query using EmbedSingle
+	embedding, err := c.embedder.EmbedSingle(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to embed query: %w", err)
+	}
+
+	// Convert types.SearchConfig to factstore.FactSearchConfig
+	factConfig := &factstore.FactSearchConfig{
+		GroupID:  c.config.GroupID,
+		Limit:    10,
+		MinScore: 0.0,
+	}
+
+	if config != nil {
+		if config.Limit > 0 {
+			factConfig.Limit = config.Limit
+		}
+		if config.MinScore > 0 {
+			factConfig.MinScore = config.MinScore
+		}
+
+		// Map search methods from NodeConfig if available
+		if config.NodeConfig != nil && len(config.NodeConfig.SearchMethods) > 0 {
+			factConfig.SearchMethods = convertToFactstoreSearchMethods(config.NodeConfig.SearchMethods)
+		}
+	}
+
+	// Perform hybrid search on factstore
+	results, err := c.factStore.HybridSearch(ctx, query, embedding, factConfig)
+	if err != nil {
+		return nil, fmt.Errorf("factstore search failed: %w", err)
+	}
+
+	return results, nil
+}
+
+// convertToFactstoreSearchMethods converts types.SearchConfig search method strings
+// to factstore.SearchMethod values.
+func convertToFactstoreSearchMethods(methods []string) []factstore.SearchMethod {
+	var factMethods []factstore.SearchMethod
+	for _, m := range methods {
+		switch m {
+		case "cosine_similarity", "vector":
+			factMethods = append(factMethods, factstore.VectorSearch)
+		case "bm25", "keyword":
+			factMethods = append(factMethods, factstore.KeywordSearch)
+		}
+	}
+	return factMethods
 }

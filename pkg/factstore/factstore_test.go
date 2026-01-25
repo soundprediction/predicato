@@ -1,0 +1,377 @@
+package factstore
+
+import (
+	"encoding/json"
+	"testing"
+	"time"
+)
+
+// TestSearchMethodJSON verifies SearchMethod serializes correctly
+func TestSearchMethodJSON(t *testing.T) {
+	tests := []struct {
+		method   SearchMethod
+		expected string
+	}{
+		{VectorSearch, `"vector"`},
+		{KeywordSearch, `"keyword"`},
+	}
+
+	for _, tt := range tests {
+		b, err := json.Marshal(tt.method)
+		if err != nil {
+			t.Errorf("Failed to marshal %v: %v", tt.method, err)
+			continue
+		}
+		if string(b) != tt.expected {
+			t.Errorf("Expected %s, got %s", tt.expected, string(b))
+		}
+	}
+}
+
+// TestFactSearchConfigDefaults tests default values
+func TestFactSearchConfigDefaults(t *testing.T) {
+	config := &FactSearchConfig{}
+
+	if config.Limit != 0 {
+		t.Errorf("Expected default Limit to be 0, got %d", config.Limit)
+	}
+	if config.MinScore != 0 {
+		t.Errorf("Expected default MinScore to be 0, got %f", config.MinScore)
+	}
+	if config.GroupID != "" {
+		t.Errorf("Expected default GroupID to be empty, got %s", config.GroupID)
+	}
+}
+
+// TestFactSearchResultsJSON tests JSON serialization of results
+func TestFactSearchResultsJSON(t *testing.T) {
+	now := time.Now().Truncate(time.Second)
+	results := &FactSearchResults{
+		Nodes: []*ExtractedNode{
+			{
+				ID:          "node-1",
+				SourceID:    "source-1",
+				GroupID:     "group-1",
+				Name:        "Test Entity",
+				Type:        "person",
+				Description: "A test entity",
+				ChunkIndex:  0,
+				CreatedAt:   now,
+			},
+		},
+		Edges: []*ExtractedEdge{
+			{
+				ID:             "edge-1",
+				SourceID:       "source-1",
+				GroupID:        "group-1",
+				SourceNodeName: "Test Entity",
+				TargetNodeName: "Other Entity",
+				Relation:       "knows",
+				Description:    "Test relationship",
+				Weight:         1.0,
+				ChunkIndex:     0,
+				CreatedAt:      now,
+			},
+		},
+		NodeScores: []float64{0.95},
+		EdgeScores: []float64{0.85},
+		Query:      "test query",
+		Total:      2,
+	}
+
+	b, err := json.Marshal(results)
+	if err != nil {
+		t.Fatalf("Failed to marshal results: %v", err)
+	}
+
+	var unmarshaled FactSearchResults
+	if err := json.Unmarshal(b, &unmarshaled); err != nil {
+		t.Fatalf("Failed to unmarshal results: %v", err)
+	}
+
+	if len(unmarshaled.Nodes) != 1 {
+		t.Errorf("Expected 1 node, got %d", len(unmarshaled.Nodes))
+	}
+	if len(unmarshaled.Edges) != 1 {
+		t.Errorf("Expected 1 edge, got %d", len(unmarshaled.Edges))
+	}
+	if unmarshaled.Query != "test query" {
+		t.Errorf("Expected query 'test query', got %s", unmarshaled.Query)
+	}
+	if unmarshaled.Total != 2 {
+		t.Errorf("Expected total 2, got %d", unmarshaled.Total)
+	}
+}
+
+// TestFactStoreConfigValidation tests config validation
+func TestFactStoreConfigValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      *FactStoreConfig
+		expectError bool
+	}{
+		{
+			name:        "nil config",
+			config:      nil,
+			expectError: true,
+		},
+		{
+			name: "missing connection string",
+			config: &FactStoreConfig{
+				Type: FactStoreTypePostgres,
+			},
+			expectError: true,
+		},
+		{
+			name: "valid postgres config",
+			config: &FactStoreConfig{
+				Type:             FactStoreTypePostgres,
+				ConnectionString: "postgres://localhost:5432/test",
+			},
+			expectError: false, // Will fail to connect, but validation passes
+		},
+		{
+			name: "valid doltgres config",
+			config: &FactStoreConfig{
+				Type:             FactStoreTypeDoltGres,
+				ConnectionString: "postgres://localhost:5432/test",
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewFactsDB(tt.config)
+			if tt.expectError && err == nil {
+				// For configs that should error before connection
+				if tt.config == nil || tt.config.ConnectionString == "" {
+					t.Errorf("Expected error for %s, got nil", tt.name)
+				}
+			}
+		})
+	}
+}
+
+// TestTimeRangeJSON tests TimeRange serialization
+func TestTimeRangeJSON(t *testing.T) {
+	now := time.Now().Truncate(time.Second)
+	tr := &TimeRange{
+		Start: now.Add(-24 * time.Hour),
+		End:   now,
+	}
+
+	b, err := json.Marshal(tr)
+	if err != nil {
+		t.Fatalf("Failed to marshal TimeRange: %v", err)
+	}
+
+	var unmarshaled TimeRange
+	if err := json.Unmarshal(b, &unmarshaled); err != nil {
+		t.Fatalf("Failed to unmarshal TimeRange: %v", err)
+	}
+
+	if !unmarshaled.Start.Equal(tr.Start) {
+		t.Errorf("Start time mismatch: expected %v, got %v", tr.Start, unmarshaled.Start)
+	}
+	if !unmarshaled.End.Equal(tr.End) {
+		t.Errorf("End time mismatch: expected %v, got %v", tr.End, unmarshaled.End)
+	}
+}
+
+// TestExtractedNodeJSON tests ExtractedNode serialization
+func TestExtractedNodeJSON(t *testing.T) {
+	node := &ExtractedNode{
+		ID:          "node-123",
+		SourceID:    "source-456",
+		GroupID:     "group-789",
+		Name:        "Test Node",
+		Type:        "concept",
+		Description: "A test concept node",
+		Embedding:   []float32{0.1, 0.2, 0.3, 0.4, 0.5},
+		ChunkIndex:  2,
+		CreatedAt:   time.Now().Truncate(time.Second),
+	}
+
+	b, err := json.Marshal(node)
+	if err != nil {
+		t.Fatalf("Failed to marshal node: %v", err)
+	}
+
+	var unmarshaled ExtractedNode
+	if err := json.Unmarshal(b, &unmarshaled); err != nil {
+		t.Fatalf("Failed to unmarshal node: %v", err)
+	}
+
+	if unmarshaled.ID != node.ID {
+		t.Errorf("ID mismatch: expected %s, got %s", node.ID, unmarshaled.ID)
+	}
+	if unmarshaled.Name != node.Name {
+		t.Errorf("Name mismatch: expected %s, got %s", node.Name, unmarshaled.Name)
+	}
+	if len(unmarshaled.Embedding) != len(node.Embedding) {
+		t.Errorf("Embedding length mismatch: expected %d, got %d", len(node.Embedding), len(unmarshaled.Embedding))
+	}
+}
+
+// TestExtractedEdgeJSON tests ExtractedEdge serialization
+func TestExtractedEdgeJSON(t *testing.T) {
+	edge := &ExtractedEdge{
+		ID:             "edge-123",
+		SourceID:       "source-456",
+		GroupID:        "group-789",
+		SourceNodeName: "Node A",
+		TargetNodeName: "Node B",
+		Relation:       "relates_to",
+		Description:    "A relates to B",
+		Embedding:      []float32{0.5, 0.4, 0.3, 0.2, 0.1},
+		Weight:         0.85,
+		ChunkIndex:     1,
+		CreatedAt:      time.Now().Truncate(time.Second),
+	}
+
+	b, err := json.Marshal(edge)
+	if err != nil {
+		t.Fatalf("Failed to marshal edge: %v", err)
+	}
+
+	var unmarshaled ExtractedEdge
+	if err := json.Unmarshal(b, &unmarshaled); err != nil {
+		t.Fatalf("Failed to unmarshal edge: %v", err)
+	}
+
+	if unmarshaled.ID != edge.ID {
+		t.Errorf("ID mismatch: expected %s, got %s", edge.ID, unmarshaled.ID)
+	}
+	if unmarshaled.Relation != edge.Relation {
+		t.Errorf("Relation mismatch: expected %s, got %s", edge.Relation, unmarshaled.Relation)
+	}
+	if unmarshaled.Weight != edge.Weight {
+		t.Errorf("Weight mismatch: expected %f, got %f", edge.Weight, unmarshaled.Weight)
+	}
+}
+
+// TestCosineSimilarity tests the cosine similarity function
+func TestCosineSimilarity(t *testing.T) {
+	tests := []struct {
+		name     string
+		a        []float32
+		b        []float32
+		expected float64
+		delta    float64
+	}{
+		{
+			name:     "identical vectors",
+			a:        []float32{1, 0, 0},
+			b:        []float32{1, 0, 0},
+			expected: 1.0,
+			delta:    0.001,
+		},
+		{
+			name:     "orthogonal vectors",
+			a:        []float32{1, 0, 0},
+			b:        []float32{0, 1, 0},
+			expected: 0.0,
+			delta:    0.001,
+		},
+		{
+			name:     "opposite vectors",
+			a:        []float32{1, 0, 0},
+			b:        []float32{-1, 0, 0},
+			expected: -1.0,
+			delta:    0.001,
+		},
+		{
+			name:     "similar vectors",
+			a:        []float32{1, 1, 0},
+			b:        []float32{1, 0, 0},
+			expected: 0.707,
+			delta:    0.01,
+		},
+		{
+			name:     "empty vectors",
+			a:        []float32{},
+			b:        []float32{},
+			expected: 0.0,
+			delta:    0.001,
+		},
+		{
+			name:     "mismatched length",
+			a:        []float32{1, 2, 3},
+			b:        []float32{1, 2},
+			expected: 0.0,
+			delta:    0.001,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := cosineSimilarity(tt.a, tt.b)
+			diff := result - tt.expected
+			if diff < 0 {
+				diff = -diff
+			}
+			if diff > tt.delta {
+				t.Errorf("Expected %f (±%f), got %f", tt.expected, tt.delta, result)
+			}
+		})
+	}
+}
+
+// TestSourceJSON tests Source serialization
+func TestSourceJSON(t *testing.T) {
+	source := &Source{
+		ID:      "source-123",
+		Name:    "Test Document",
+		Content: "This is the content of the test document.",
+		GroupID: "group-456",
+		Metadata: map[string]interface{}{
+			"author": "Test Author",
+			"date":   "2024-01-01",
+		},
+		CreatedAt: time.Now().Truncate(time.Second),
+	}
+
+	b, err := json.Marshal(source)
+	if err != nil {
+		t.Fatalf("Failed to marshal source: %v", err)
+	}
+
+	var unmarshaled Source
+	if err := json.Unmarshal(b, &unmarshaled); err != nil {
+		t.Fatalf("Failed to unmarshal source: %v", err)
+	}
+
+	if unmarshaled.ID != source.ID {
+		t.Errorf("ID mismatch: expected %s, got %s", source.ID, unmarshaled.ID)
+	}
+	if unmarshaled.Content != source.Content {
+		t.Errorf("Content mismatch")
+	}
+	if unmarshaled.Metadata["author"] != source.Metadata["author"] {
+		t.Errorf("Metadata author mismatch")
+	}
+}
+
+// TestStatsJSON tests Stats serialization
+func TestStatsJSON(t *testing.T) {
+	stats := &Stats{
+		SourceCount: 10,
+		NodeCount:   100,
+		EdgeCount:   50,
+	}
+
+	b, err := json.Marshal(stats)
+	if err != nil {
+		t.Fatalf("Failed to marshal stats: %v", err)
+	}
+
+	var unmarshaled Stats
+	if err := json.Unmarshal(b, &unmarshaled); err != nil {
+		t.Fatalf("Failed to unmarshal stats: %v", err)
+	}
+
+	if unmarshaled.SourceCount != stats.SourceCount {
+		t.Errorf("SourceCount mismatch: expected %d, got %d", stats.SourceCount, unmarshaled.SourceCount)
+	}
+}
