@@ -245,9 +245,23 @@ func (c *Client) AddEpisode(ctx context.Context, episode types.Episode, options 
 	// If FactsDB is configured, use the decoupled pipeline
 	if c.factStore != nil {
 		c.logger.Info("Using FactsDB pipeline", "episode_id", episode.ID)
-		if err := c.ExtractToFacts(ctx, episode, options); err != nil {
+		extractionResult, err := c.ExtractToFacts(ctx, episode, options)
+		if err != nil {
 			return nil, fmt.Errorf("failed to extract to facts: %w", err)
 		}
+
+		// If ExtractOnly is set, return a minimal result with just the extraction info
+		if options.ExtractOnly {
+			c.logger.Info("ExtractOnly mode - skipping graph promotion",
+				"episode_id", episode.ID,
+				"nodes", extractionResult.NodeCount(),
+				"edges", extractionResult.EdgeCount())
+			return &types.AddEpisodeResults{
+				Nodes: []*types.Node{},
+				Edges: []*types.Edge{},
+			}, nil
+		}
+
 		return c.PromoteToGraph(ctx, episode.ID, options)
 	}
 

@@ -6,15 +6,20 @@ import (
 	"time"
 
 	"github.com/soundprediction/predicato/pkg/factstore"
+	"github.com/soundprediction/predicato/pkg/modeler"
 	"github.com/soundprediction/predicato/pkg/prompts"
 	"github.com/soundprediction/predicato/pkg/types"
 	"github.com/soundprediction/predicato/pkg/utils/maintenance"
 )
 
 // ExtractToFacts extracts knowledge from an episode and saves it to the facts database.
-func (c *Client) ExtractToFacts(ctx context.Context, episode types.Episode, options *AddEpisodeOptions) error {
+// Returns ExtractionResults containing the raw extracted entities and relationships
+// before graph modeling/resolution.
+func (c *Client) ExtractToFacts(ctx context.Context, episode types.Episode, options *AddEpisodeOptions) (*types.ExtractionResults, error) {
+	startTime := time.Now()
+
 	if c.factStore == nil {
-		return fmt.Errorf("facts DB not configured")
+		return nil, fmt.Errorf("facts DB not configured")
 	}
 
 	if options == nil {
@@ -24,19 +29,19 @@ func (c *Client) ExtractToFacts(ctx context.Context, episode types.Episode, opti
 	// 1. Prepare and Chunk
 	chunks, err := c.prepareAndValidateEpisode(&episode, options, options.MaxCharacters)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// 2. Get Context
 	previousEpisodes, err := c.getPreviousEpisodesForContext(ctx, episode, options)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// 3. Create Structures
 	chunkData, err := c.createChunkEpisodeStructures(ctx, episode, chunks, previousEpisodes, options)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// 4. Extract Entities (Raw)
@@ -51,7 +56,7 @@ func (c *Client) ExtractToFacts(ctx context.Context, episode types.Episode, opti
 
 	extractedNodesByChunk, err := c.extractEntitiesFromAllChunks(ctx, episode.ID, chunkData.chunkEpisodeNodes, previousEpisodes, options, nodeOps)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// 5. Prepare Facts Data (Nodes)
@@ -99,7 +104,7 @@ func (c *Client) ExtractToFacts(ctx context.Context, episode types.Episode, opti
 			// Extract edges using the chunk's context
 			extracted, err := edgeOps.ExtractEdges(ctx, chunkData.chunkEpisodeNodes[chunkIdx], nodes, previousEpisodes, edgeTypeMap, options.EdgeTypes, episode.GroupID)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			for _, e := range extracted {
@@ -166,13 +171,101 @@ func (c *Client) ExtractToFacts(ctx context.Context, episode types.Episode, opti
 		CreatedAt: episode.CreatedAt,
 	}
 	if err := c.factStore.SaveSource(ctx, source); err != nil {
-		return err
+		return nil, err
 	}
 
-	return c.factStore.SaveExtractedKnowledge(ctx, episode.ID, factsNodes, factsEdges)
+	if err := c.factStore.SaveExtractedKnowledge(ctx, episode.ID, factsNodes, factsEdges); err != nil {
+		return nil, err
+	}
+
+	// 8. Return ExtractionResults
+	return &types.ExtractionResults{
+		SourceID:       episode.ID,
+		ExtractedNodes: factsNodes,
+		ExtractedEdges: factsEdges,
+		ChunkCount:     len(chunks),
+		ExtractionTime: time.Since(startTime),
+	}, nil
+}
+
+// getOrCreateModeler returns the GraphModeler to use, checking options, config, then creating default.
+func (c *Client) getOrCreateModeler(options *AddEpisodeOptions) (modeler.GraphModeler, error) {
+	// 1. Check options
+	if options != nil && options.GraphModeler != nil {
+		return options.GraphModeler, nil
+	}
+
+	// 2. Check config
+	if c.config != nil && c.config.DefaultGraphModeler != nil {
+		return c.config.DefaultGraphModeler, nil
+	}
+
+	// 3. Create DefaultModeler
+	nlpModels := &modeler.NlpModels{
+		NodeExtraction: c.nlpModels.NodeExtraction,
+		NodeReflexion:  c.nlpModels.NodeReflexion,
+		NodeResolution: c.nlpModels.NodeResolution,
+		NodeAttribute:  c.nlpModels.NodeAttribute,
+		EdgeExtraction: c.nlpModels.EdgeExtraction,
+		EdgeResolution: c.nlpModels.EdgeResolution,
+		Summarization:  c.nlpModels.Summarization,
+	}
+
+	defaultModeler, err := modeler.NewDefaultModeler(&modeler.DefaultModelerOptions{
+		Driver:    c.driver,
+		NlpClient: c.nlProcessor,
+		Embedder:  c.embedder,
+		NlpModels: nlpModels,
+		Logger:    c.logger,
+		UseYAML:   options != nil && options.UseYAML,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create default modeler: %w", err)
+	}
+
+	return defaultModeler, nil
+}
+
+// handleModelerError handles errors from GraphModeler based on ModelerErrorHandling setting.
+// Returns: (shouldContinue bool, fallbackModeler GraphModeler, error)
+func (c *Client) handleModelerError(step string, err error, options *AddEpisodeOptions) (bool, modeler.GraphModeler, error) {
+	handling := modeler.FailOnError
+	if options != nil {
+		handling = options.ModelerErrorHandling
+	}
+
+	modelerErr := modeler.NewModelerError(step, err)
+
+	switch handling {
+	case modeler.FailOnError:
+		return false, nil, modelerErr
+
+	case modeler.FallbackOnError:
+		c.logger.Warn("GraphModeler failed, falling back to DefaultModeler",
+			"step", step,
+			"error", err)
+
+		// Create a fresh DefaultModeler for fallback
+		fallback, createErr := c.getOrCreateModeler(nil) // nil forces DefaultModeler
+		if createErr != nil {
+			return false, nil, fmt.Errorf("failed to create fallback modeler: %w", createErr)
+		}
+		return true, fallback, modelerErr.WithFallback()
+
+	case modeler.SkipOnError:
+		c.logger.Warn("GraphModeler failed, skipping step",
+			"step", step,
+			"error", err)
+		return true, nil, modelerErr.WithSkipped()
+
+	default:
+		return false, nil, modelerErr
+	}
 }
 
 // PromoteToGraph reads extracted knowledge from facts DB and ingests it into the graph.
+// Uses the configured GraphModeler (from options, config, or DefaultModeler) for
+// entity resolution, relationship resolution, and community detection.
 func (c *Client) PromoteToGraph(ctx context.Context, sourceID string, options *AddEpisodeOptions) (*types.AddEpisodeResults, error) {
 	if c.factStore == nil {
 		return nil, fmt.Errorf("facts DB not configured")
@@ -223,75 +316,33 @@ func (c *Client) PromoteToGraph(ctx context.Context, sourceID string, options *A
 		return nil, err
 	}
 
-	// 3. Reconstruct Nodes aligned with Chunks
-	extractedNodesByChunk := make([][]*types.Node, len(chunks))
-	// Validation: check max chunk index
-	maxIdx := 0
-	for _, n := range extNodes {
-		if n.ChunkIndex > maxIdx {
-			maxIdx = n.ChunkIndex
-		}
-	}
-	if maxIdx >= len(extractedNodesByChunk) {
-		// Resize if stored chunks exceed recalculated chunks
-		newSlice := make([][]*types.Node, maxIdx+1)
-		copy(newSlice, extractedNodesByChunk)
-		extractedNodesByChunk = newSlice
-	}
-
+	// 3. Reconstruct Nodes from Facts
 	uuidToNode := make(map[string]*types.Node)
+	var allExtractedNodes []*types.Node
 
 	for _, n := range extNodes {
 		tn := &types.Node{
 			Uuid:      n.ID,
 			Name:      n.Name,
 			Summary:   n.Description,
-			Type:      types.EntityNodeType, // Default
+			Type:      types.EntityNodeType,
 			Embedding: n.Embedding,
 			GroupID:   source.GroupID,
-			// Important defaults to prevent validation errors
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 			ValidFrom: time.Now(),
 		}
-		// override type if possible, or assume simple entity
 		if n.Type != "" {
 			tn.Type = types.NodeType(n.Type)
-		} else {
-			tn.Type = types.EntityNodeType
-		}
-
-		if n.ChunkIndex < len(extractedNodesByChunk) {
-			extractedNodesByChunk[n.ChunkIndex] = append(extractedNodesByChunk[n.ChunkIndex], tn)
-		} else {
-			// Fallback
-			extractedNodesByChunk[0] = append(extractedNodesByChunk[0], tn)
 		}
 		uuidToNode[n.ID] = tn
+		allExtractedNodes = append(allExtractedNodes, tn)
 	}
 
-	// 4. Ingestion Pipeline (Dedupe)
-	nodeOps := maintenance.NewNodeOperations(c.driver, c.nlpModels.NodeExtraction, c.embedder, prompts.NewLibrary())
-	nodeOps.ReflexionNLP = c.nlpModels.NodeReflexion
-	nodeOps.ResolutionNLP = c.nlpModels.NodeResolution
-	nodeOps.AttributeNLP = c.nlpModels.NodeAttribute
-	if options.UseYAML {
-		nodeOps.UseYAML = true
-	}
-	nodeOps.SetLogger(c.logger)
-
-	// Ignore dedupeResult. Using _ to avoid lint error.
-	_, allResolvedNodes, err := c.deduplicateEntitiesAcrossChunks(ctx, source.ID, extractedNodesByChunk, chunkData.episodeTuples, options, nodeOps)
-	if err != nil {
-		return nil, err
-	}
-
-	// 5. Reconstruct Edges
+	// 4. Reconstruct Edges from Facts
 	var allExtractedEdges []*types.Edge
 	for _, e := range extEdges {
 		var sUUID, tUUID string
-		// Resolve using Names within current set of nodes
-
 		for _, n := range uuidToNode {
 			if n.Name == e.SourceNodeName {
 				sUUID = n.Uuid
@@ -302,7 +353,6 @@ func (c *Client) PromoteToGraph(ctx context.Context, sourceID string, options *A
 		}
 
 		if sUUID != "" && tUUID != "" {
-			// Construct types.EntityEdge (alias Edge)
 			te := &types.Edge{
 				BaseEdge: types.BaseEdge{
 					Uuid:         e.ID,
@@ -313,7 +363,7 @@ func (c *Client) PromoteToGraph(ctx context.Context, sourceID string, options *A
 				},
 				Name:     e.Relation,
 				Summary:  e.Description,
-				Fact:     e.Description, // Summary/Fact usually same
+				Fact:     e.Description,
 				Strength: e.Weight,
 				Type:     types.EntityEdgeType,
 				SourceID: sUUID,
@@ -323,37 +373,152 @@ func (c *Client) PromoteToGraph(ctx context.Context, sourceID string, options *A
 		}
 	}
 
-	// 6. Resolve Edges
-	edgeOps := maintenance.NewEdgeOperations(c.driver, c.nlProcessor, c.embedder, prompts.NewLibrary())
-	edgeOps.ExtractionNLP = c.nlpModels.EdgeExtraction
-	edgeOps.ResolutionNLP = c.nlpModels.EdgeResolution
-	edgeOps.SkipResolution = options.SkipEdgeResolution
-	edgeOps.UseYAML = options.UseYAML
-	edgeOps.SetLogger(c.logger)
-
-	resolvedEdges, _, err := c.resolveAndPersistRelationships(ctx, source.ID, allExtractedEdges, chunkData.mainEpisodeNode, allResolvedNodes, options, edgeOps)
+	// 5. Get or create GraphModeler
+	gm, err := c.getOrCreateModeler(options)
 	if err != nil {
 		return nil, err
 	}
 
-	// 7. Episodic Edges (Entities <-> Episode)
-	episodicEdges, err := c.buildEpisodicEdgesForEntities(ctx, allResolvedNodes, chunkData.mainEpisodeNode, time.Now(), edgeOps)
-	if err != nil {
-		return nil, err
+	c.logger.Info("Using GraphModeler for promotion",
+		"source_id", sourceID,
+		"modeler_type", fmt.Sprintf("%T", gm),
+		"nodes", len(allExtractedNodes),
+		"edges", len(allExtractedEdges))
+
+	// 6. Resolve Entities using GraphModeler
+	entityInput := &modeler.EntityResolutionInput{
+		ExtractedNodes:   allExtractedNodes,
+		Episode:          chunkData.mainEpisodeNode,
+		PreviousEpisodes: previousEpisodes,
+		EntityTypes:      options.EntityTypes,
+		GroupID:          source.GroupID,
+		Options: &modeler.EntityResolutionOptions{
+			SkipResolution: options.SkipResolution,
+			SkipReflexion:  options.SkipReflexion,
+			SkipAttributes: options.SkipAttributes,
+		},
 	}
 
-	// 8. Update Communities
-	communities, communityEdges, err := c.UpdateCommunities(ctx, source.ID, source.GroupID)
+	entityOutput, err := gm.ResolveEntities(ctx, entityInput)
 	if err != nil {
-		c.logger.Warn("Failed to update communities", "error", err)
+		shouldContinue, fallback, handledErr := c.handleModelerError("ResolveEntities", err, options)
+		if !shouldContinue {
+			return nil, handledErr
+		}
+		if fallback != nil {
+			// Retry with fallback modeler
+			entityOutput, err = fallback.ResolveEntities(ctx, entityInput)
+			if err != nil {
+				return nil, fmt.Errorf("fallback ResolveEntities failed: %w", err)
+			}
+		} else {
+			// Skipped - use identity mapping
+			entityOutput = &modeler.EntityResolutionOutput{
+				ResolvedNodes: allExtractedNodes,
+				UUIDMap:       make(map[string]string),
+				NewCount:      len(allExtractedNodes),
+			}
+			for _, n := range allExtractedNodes {
+				entityOutput.UUIDMap[n.Uuid] = n.Uuid
+			}
+		}
+	}
+
+	c.logger.Info("Entity resolution complete",
+		"resolved", len(entityOutput.ResolvedNodes),
+		"merged", entityOutput.MergedCount,
+		"new", entityOutput.NewCount)
+
+	// 7. Resolve Relationships using GraphModeler
+	relInput := &modeler.RelationshipResolutionInput{
+		ExtractedEdges: allExtractedEdges,
+		ResolvedNodes:  entityOutput.ResolvedNodes,
+		UUIDMap:        entityOutput.UUIDMap,
+		Episode:        chunkData.mainEpisodeNode,
+		GroupID:        source.GroupID,
+		EdgeTypes:      options.EdgeTypes,
+		Options: &modeler.RelationshipResolutionOptions{
+			SkipEdgeResolution: options.SkipEdgeResolution,
+		},
+	}
+
+	relOutput, err := gm.ResolveRelationships(ctx, relInput)
+	if err != nil {
+		shouldContinue, fallback, handledErr := c.handleModelerError("ResolveRelationships", err, options)
+		if !shouldContinue {
+			return nil, handledErr
+		}
+		if fallback != nil {
+			relOutput, err = fallback.ResolveRelationships(ctx, relInput)
+			if err != nil {
+				return nil, fmt.Errorf("fallback ResolveRelationships failed: %w", err)
+			}
+		} else {
+			// Skipped - use edges as-is with identity mapping
+			relOutput = &modeler.RelationshipResolutionOutput{
+				ResolvedEdges: allExtractedEdges,
+				EpisodicEdges: []*types.Edge{},
+				NewCount:      len(allExtractedEdges),
+			}
+		}
+	}
+
+	c.logger.Info("Relationship resolution complete",
+		"resolved_edges", len(relOutput.ResolvedEdges),
+		"episodic_edges", len(relOutput.EpisodicEdges),
+		"new", relOutput.NewCount)
+
+	// 8. Build Communities using GraphModeler
+	commInput := &modeler.CommunityInput{
+		Nodes:     entityOutput.ResolvedNodes,
+		Edges:     relOutput.ResolvedEdges,
+		GroupID:   source.GroupID,
+		EpisodeID: source.ID,
+	}
+
+	var communities []*types.Node
+	var communityEdges []*types.Edge
+
+	commOutput, err := gm.BuildCommunities(ctx, commInput)
+	if err != nil {
+		shouldContinue, fallback, handledErr := c.handleModelerError("BuildCommunities", err, options)
+		if !shouldContinue {
+			return nil, handledErr
+		}
+		if fallback != nil {
+			commOutput, err = fallback.BuildCommunities(ctx, commInput)
+			if err != nil {
+				c.logger.Warn("Fallback BuildCommunities failed", "error", err)
+				// Community detection is optional, continue without it
+			}
+		}
+		// If skipped or fallback failed, commOutput stays nil
+		_ = handledErr // Acknowledged but not returned
+	}
+
+	if commOutput != nil {
+		communities = commOutput.Communities
+		communityEdges = commOutput.CommunityEdges
+		c.logger.Info("Community detection complete",
+			"communities", len(communities),
+			"community_edges", len(communityEdges))
 	}
 
 	return &types.AddEpisodeResults{
 		Episode:        chunkData.mainEpisodeNode,
-		EpisodicEdges:  episodicEdges,
-		Nodes:          allResolvedNodes,
-		Edges:          resolvedEdges,
+		EpisodicEdges:  relOutput.EpisodicEdges,
+		Nodes:          entityOutput.ResolvedNodes,
+		Edges:          relOutput.ResolvedEdges,
 		Communities:    communities,
 		CommunityEdges: communityEdges,
 	}, nil
+}
+
+// ValidateModeler tests a GraphModeler implementation with sample data to verify
+// it works correctly before using it in production.
+func (c *Client) ValidateModeler(ctx context.Context, gm modeler.GraphModeler) (*modeler.ModelerValidationResult, error) {
+	opts := &modeler.ValidateModelerOptions{
+		GroupID: c.config.GroupID,
+	}
+	return modeler.ValidateModeler(ctx, gm, opts)
 }
