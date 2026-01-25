@@ -27,19 +27,24 @@ Predicato implements a **two-layer architecture** that separates raw fact extrac
               ┌───────────────┴───────────────┐
               ▼                               ▼
 ┌─────────────────────────┐     ┌─────────────────────────────────┐
-│      Fact Store         │     │       Knowledge Graph            │
-│  (PostgreSQL/DoltGres)  │     │    (Ladybug/Neo4j/Memgraph)      │
+│      Fact Store         │     │        GraphModeler              │
+│  (PostgreSQL/DoltGres)  │     │    (pluggable interface)         │
 │                         │     │                                  │
-│  • Raw extracted nodes  │     │  • Resolved entities             │
-│  • Raw extracted edges  │     │  • Temporal relationships        │
-│  • Source documents     │     │  • Community structures          │
-│  • Vector embeddings    │     │  • Episode connections           │
-│                         │     │                                  │
-│  ┌───────────────────┐  │     │  ┌───────────────────────────┐   │
-│  │   RAG Search      │  │     │  │    Hybrid Search          │   │
-│  │  (pgvector/JSONB) │  │     │  │  (semantic + BM25 + graph)│   │
-│  └───────────────────┘  │     │  └───────────────────────────┘   │
-└─────────────────────────┘     └─────────────────────────────────┘
+│  • Raw extracted nodes  │     │  ┌───────────────────────────┐   │
+│  • Raw extracted edges  │     │  │  • ResolveEntities        │   │
+│  • Source documents     │     │  │  • ResolveRelationships   │   │
+│  • Vector embeddings    │     │  │  • BuildCommunities       │   │
+│                         │     │  └───────────────────────────┘   │
+│  ExtractOnly=true       │     │            │                     │
+│  stops here ───────────►│     │            ▼                     │
+│                         │     │  ┌───────────────────────────┐   │
+│  ┌───────────────────┐  │     │  │    Knowledge Graph        │   │
+│  │   RAG Search      │  │     │  │  (Ladybug/Neo4j/Memgraph) │   │
+│  │  (pgvector/JSONB) │  │     │  │  • Resolved entities      │   │
+│  └───────────────────┘  │     │  │  • Temporal relationships │   │
+│                         │     │  │  • Communities            │   │
+└─────────────────────────┘     │  └───────────────────────────┘   │
+                                └─────────────────────────────────┘
 ```
 
 ### Why Two Layers?
@@ -76,6 +81,29 @@ This enables queries like:
 - "What was true about X during Q3 2024?" (valid time)
 - "Show me facts that were recorded wrong and later corrected" (both)
 
+### Pipeline Architecture
+
+Predicato supports two ingestion modes:
+
+**End-to-End Pipeline** (default):
+```
+Episode -> Extract -> Resolve -> Graph
+```
+
+**Decoupled Pipeline** (with FactStore):
+```
+Episode -> Extract -> FactStore    (ExtractOnly=true)
+                         |
+                         v
+         FactStore -> GraphModeler -> Graph
+```
+
+The decoupled mode enables:
+- **Custom graph modeling**: Implement `GraphModeler` interface to customize entity resolution, relationship handling, and community detection
+- **Batch processing**: Extract facts in bulk, then promote to graph on schedule
+- **Re-processing**: Re-model the same facts with different parameters
+- **Validation**: Test custom modelers before production use
+
 ### Entity Resolution
 
 When adding episodes, Predicato automatically:
@@ -84,6 +112,37 @@ When adding episodes, Predicato automatically:
 3. Compares against existing entities (cosine similarity)
 4. Merges duplicates above a threshold (default: 0.85)
 5. Creates temporal edges between resolved entities
+
+### Custom Graph Modeling
+
+Override the default resolution logic by implementing `GraphModeler`:
+
+```go
+type GraphModeler interface {
+    ResolveEntities(ctx, input) (*EntityResolutionOutput, error)
+    ResolveRelationships(ctx, input) (*RelationshipResolutionOutput, error)
+    BuildCommunities(ctx, input) (*CommunityOutput, error)
+}
+
+// Use with AddEpisodeOptions
+client.AddEpisode(ctx, episode, &predicato.AddEpisodeOptions{
+    GraphModeler: myCustomModeler,
+})
+
+// Or set as default
+client, _ := predicato.NewClient(db, llm, embedder, &predicato.Config{
+    DefaultGraphModeler: myCustomModeler,
+})
+```
+
+Validate custom modelers before use:
+
+```go
+result, _ := client.ValidateModeler(ctx, myCustomModeler)
+if !result.Valid {
+    log.Fatalf("Modeler validation failed: %v", result.EntityResolution.Error)
+}
+```
 
 ## Components
 

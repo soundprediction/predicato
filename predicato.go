@@ -11,6 +11,7 @@ import (
 	"github.com/soundprediction/predicato/pkg/driver"
 	"github.com/soundprediction/predicato/pkg/embedder"
 	"github.com/soundprediction/predicato/pkg/factstore"
+	"github.com/soundprediction/predicato/pkg/modeler"
 	"github.com/soundprediction/predicato/pkg/nlp"
 	"github.com/soundprediction/predicato/pkg/search"
 	"github.com/soundprediction/predicato/pkg/types"
@@ -103,6 +104,33 @@ type Predicato interface {
 	// This is useful for simpler RAG use cases that don't need relationship traversal.
 	// The query is embedded using the configured embedder, then hybrid search is performed.
 	SearchFacts(ctx context.Context, query string, config *types.SearchConfig) (*factstore.FactSearchResults, error)
+
+	// ExtractToFacts extracts entities and relationships from an episode and stores them
+	// in the fact store without promoting to the graph. Use PromoteToGraph to later
+	// promote facts to the graph with custom GraphModeler logic.
+	//
+	// This is the first step of the two-phase ingestion pipeline when you want to
+	// decouple extraction from graph modeling.
+	//
+	// Requires FactStoreConfig to be set in Config.
+	ExtractToFacts(ctx context.Context, episode types.Episode, options *AddEpisodeOptions) (*types.ExtractionResults, error)
+
+	// PromoteToGraph takes previously extracted facts from the fact store and promotes
+	// them to the knowledge graph using the configured GraphModeler.
+	//
+	// This is the second step of the two-phase ingestion pipeline. It reads extracted
+	// entities and relationships from the fact store and applies entity resolution,
+	// relationship resolution, and community detection according to the GraphModeler.
+	//
+	// The sourceID parameter is the episode UUID returned from ExtractToFacts.
+	PromoteToGraph(ctx context.Context, sourceID string, options *AddEpisodeOptions) (*types.AddEpisodeResults, error)
+
+	// ValidateModeler tests a GraphModeler implementation with sample data to verify
+	// it works correctly before using it in production.
+	//
+	// Returns validation results including pass/fail status for each method,
+	// latency measurements, and any warnings.
+	ValidateModeler(ctx context.Context, gm modeler.GraphModeler) (*modeler.ModelerValidationResult, error)
 }
 
 // Client is the main implementation of the Predicato interface.
@@ -155,6 +183,10 @@ type Config struct {
 	EdgeMap map[string]map[string][]interface{}
 	// NlpModels holds specialized NLP clients for different steps
 	NlpModels NlpModels
+
+	// DefaultGraphModeler is the default GraphModeler used for graph promotion.
+	// If nil, a DefaultModeler is created using the client's NLP/embedder config.
+	DefaultGraphModeler modeler.GraphModeler
 }
 
 // AddEpisodeOptions holds options for adding a single episode.
@@ -184,6 +216,19 @@ type AddEpisodeOptions struct {
 
 	// UseYAML toggles between CSV/TSV (default) and YAML for LLM interchange
 	UseYAML bool
+
+	// ExtractOnly stops after extraction, storing facts in the factstore but not
+	// promoting to the graph. Use PromoteToGraph to complete ingestion later.
+	// Requires FactStoreConfig to be configured.
+	ExtractOnly bool
+
+	// GraphModeler overrides the default graph modeler for this episode.
+	// If nil, uses Config.DefaultGraphModeler or creates a DefaultModeler.
+	GraphModeler modeler.GraphModeler
+
+	// ModelerErrorHandling controls how errors from GraphModeler are handled.
+	// Default is FailOnError.
+	ModelerErrorHandling modeler.ModelerErrorHandling
 }
 
 // NewClient creates a new Predicato client with the provided configuration.
