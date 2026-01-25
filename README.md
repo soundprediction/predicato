@@ -1,21 +1,24 @@
 # predicato
 
-A temporal knowledge graph library for Go with a fully local ML stack - no API keys required.
+A temporal information extraction and knowledge graph library for Go with internal NLP model capabilities (or support for external services).
 
 ## What Makes Predicato Different
 
-Most agentic memory libraries require external services (OpenAI, Pinecone, Neo4j). Predicato is **modular by design** - every component can run locally OR connect to external services. Start with the internal stack for development, then swap in cloud services for production without changing your code.
+Most agentic memory libraries require external services (LLMs, vector databases, graph databasesj).
+Predicato has implemented embeedded alternatives for all components so it can be used without external service dependencies.
+ Predicato is **modular by design** - every component can run locally OR connect to external services. Start with the internal stack for development, then swap in cloud services for production without changing your code.
 
-| Component | Internal (No API) | External (Cloud) |
+| Component | Internal (No API) | External Services |
 |-----------|-----------------|---------------------|
 | **Graph Database** | Ladybug (embedded) | Neo4j, Memgraph |
-| **Embeddings** | go-embedeverything | OpenAI, Voyage, Gemini |
+| **Embeddings** | go-embedeverything | OpenAI compatible APIs, AWS bedrock, Gemini |
 | **Reranking** | go-embedeverything | Jina, Cohere |
-| **Text Generation** | go-rust-bert (GPT-2) | OpenAI, Anthropic, Ollama |
+| **Text Generation** | go-rust-bert (BERT models) | OpenAI compatible APIs |
 | **Entity Extraction** | GLiNER (ONNX) | LLM-based extraction |
 | **Fact Storage** | DoltGres (embedded) | PostgreSQL + pgvector |
 
 **Why choose Predicato:**
+- **Security** - Don't expose your data to external services
 - **Run offline** - Embedded database + local ML models = no network required
 - **Swap components freely** - Same code works with local models or cloud APIs
 - **Bi-temporal knowledge** - Track when facts were recorded AND when they were valid
