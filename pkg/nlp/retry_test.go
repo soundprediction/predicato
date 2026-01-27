@@ -263,9 +263,12 @@ func TestRetryClient_ExponentialBackoff(t *testing.T) {
 		InitialDelay:      100 * time.Millisecond,
 		MaxDelay:          1 * time.Second,
 		BackoffMultiplier: 2.0,
+		JitterFraction:    0, // Disable jitter for predictable testing
 	}
 
-	retryClient, _ := NewRetryClient(nil, config)
+	// Use a mock client since NewRetryClient requires non-nil client
+	mock := &mockClient{}
+	retryClient, _ := NewRetryClient(mock, config)
 
 	// Test delay calculation
 	delays := []time.Duration{
@@ -342,6 +345,20 @@ func TestDefaultRetryConfig(t *testing.T) {
 
 	if config.BackoffMultiplier != 2.0 {
 		t.Errorf("expected BackoffMultiplier = 2.0, got %f", config.BackoffMultiplier)
+	}
+
+	if config.JitterFraction != 0.1 {
+		t.Errorf("expected JitterFraction = 0.1, got %f", config.JitterFraction)
+	}
+}
+
+func TestNewRetryClient_NilClient(t *testing.T) {
+	_, err := NewRetryClient(nil, nil)
+	if err == nil {
+		t.Error("expected error for nil client, got nil")
+	}
+	if err.Error() != "client cannot be nil" {
+		t.Errorf("unexpected error message: %s", err.Error())
 	}
 }
 
