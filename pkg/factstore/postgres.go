@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
+	"sort"
 	"strings"
 	"time"
 
@@ -603,9 +605,8 @@ func (p *PostgresDB) SearchSources(ctx context.Context, query string, config *Fa
 		}
 	}
 
-	sqlQuery += " ORDER BY score DESC"
-	sqlQuery += fmt.Sprintf(" LIMIT $%d", argIdx)
-	args = append(args, config.Limit)
+	// Add limit to prevent loading too many rows into memory
+	sqlQuery += fmt.Sprintf(" LIMIT %d", MaxInMemorySearchResults)
 
 	rows, err := p.db.QueryContext(ctx, sqlQuery, args...)
 	if err != nil {
@@ -760,10 +761,15 @@ func (p *PostgresDB) vectorSearchNodes(ctx context.Context, embedding []float32,
 	return nodes, scores, nil
 }
 
+// MaxInMemorySearchResults is the maximum number of results to process in-memory
+// to prevent excessive memory usage on large datasets.
+const MaxInMemorySearchResults = 10000
+
 // inMemoryVectorSearchNodes performs vector search by loading embeddings and computing
 // cosine similarity in Go. Used for DoltGres which doesn't support pgvector.
 func (p *PostgresDB) inMemoryVectorSearchNodes(ctx context.Context, embedding []float32, config *FactSearchConfig) ([]*ExtractedNode, []float64, error) {
 	// Build query to fetch all nodes with embeddings
+	// Limit to MaxInMemorySearchResults to prevent excessive memory usage
 	sqlQuery := `
 		SELECT id, source_id, group_id, name, type, description, embedding, chunk_index, created_at
 		FROM extracted_nodes
@@ -841,14 +847,15 @@ func (p *PostgresDB) inMemoryVectorSearchNodes(ctx context.Context, embedding []
 		}
 	}
 
-	// Sort by score descending
-	for i := 0; i < len(candidates)-1; i++ {
-		for j := i + 1; j < len(candidates); j++ {
-			if candidates[j].score > candidates[i].score {
-				candidates[i], candidates[j] = candidates[j], candidates[i]
-			}
-		}
+	// Log warning if we hit the limit
+	if len(candidates) >= MaxInMemorySearchResults {
+		log.Printf("WARNING: In-memory vector search hit limit of %d results. Consider using pgvector for better performance.", MaxInMemorySearchResults)
 	}
+
+	// Sort by score descending using O(n log n) sort
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].score > candidates[j].score
+	})
 
 	// Extract top results
 	var nodes []*ExtractedNode
