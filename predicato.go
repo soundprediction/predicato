@@ -23,20 +23,11 @@ type driverWrapper struct {
 	driver.GraphDriver
 }
 
-// Provider converts driver.GraphProvider to types.GraphProvider
+// Provider returns the graph provider type.
+// Since driver.GraphProvider is now an alias to types.GraphProvider,
+// no conversion is needed.
 func (w *driverWrapper) Provider() types.GraphProvider {
-	switch w.GraphDriver.Provider() {
-	case driver.GraphProviderLadybug:
-		return types.GraphProviderLadybug
-	case driver.GraphProviderNeo4j:
-		return types.GraphProviderNeo4j
-	case driver.GraphProviderFalkorDB:
-		return types.GraphProviderFalkorDB
-	case driver.GraphProviderNeptune:
-		return types.GraphProviderNeptune
-	default:
-		return types.GraphProviderLadybug // default fallback
-	}
+	return w.GraphDriver.Provider()
 }
 
 // nodeOpsWrapper adapts maintenance.NodeOperations to utils.NodeOperations interface

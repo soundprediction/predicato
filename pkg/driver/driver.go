@@ -8,18 +8,17 @@ import (
 	"github.com/soundprediction/predicato/pkg/types"
 )
 
-// GraphProvider represents the type of graph database provider.
-// Note: This type is intentionally duplicated from pkg/types.GraphProvider for package isolation.
-// The canonical definition is in pkg/types/edge.go. Both types should be kept in sync.
-// A conversion function is provided in predicato.go for interoperability.
-type GraphProvider string
+// GraphProvider is an alias to types.GraphProvider for backward compatibility.
+// The canonical definition is in pkg/types/edge.go.
+type GraphProvider = types.GraphProvider
 
+// GraphProvider constants are re-exported from types for backward compatibility.
 const (
-	GraphProviderNeo4j    GraphProvider = "neo4j"
-	GraphProviderMemgraph GraphProvider = "memgraph"
-	GraphProviderFalkorDB GraphProvider = "falkordb"
-	GraphProviderLadybug  GraphProvider = "ladybug"
-	GraphProviderNeptune  GraphProvider = "neptune"
+	GraphProviderNeo4j    = types.GraphProviderNeo4j
+	GraphProviderMemgraph = types.GraphProviderMemgraph
+	GraphProviderFalkorDB = types.GraphProviderFalkorDB
+	GraphProviderLadybug  = types.GraphProviderLadybug
+	GraphProviderNeptune  = types.GraphProviderNeptune
 )
 
 // GraphDriverSession defines the interface for database sessions (matching Python GraphDriverSession)
