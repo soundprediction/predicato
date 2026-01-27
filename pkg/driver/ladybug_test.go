@@ -360,7 +360,7 @@ func TestLadybugDriver_UpsertEpisodicEdge(t *testing.T) {
 		MATCH (e:Episodic {uuid: $episode_uuid})-[m:MENTIONS]->(n:Entity {uuid: $entity_uuid})
 		RETURN m.group_id AS group_id, m.created_at AS created_at
 	`
-	result, _, _, err := d.ExecuteQuery(query, map[string]interface{}{
+	result, _, _, err := d.ExecuteQuery(ctx, query, map[string]interface{}{
 		"episode_uuid": episodeNode.Uuid,
 		"entity_uuid":  entityNode.Uuid,
 	})
@@ -429,7 +429,7 @@ func TestLadybugDriver_UpsertCommunityEdge(t *testing.T) {
 		MATCH (c:Community {uuid: $community_uuid})-[h:HAS_MEMBER {uuid: $edge_uuid}]->(n:Entity {uuid: $entity_uuid})
 		RETURN h.group_id AS group_id, h.created_at AS created_at, h.uuid AS uuid
 	`
-	result, _, _, err := d.ExecuteQuery(query, map[string]interface{}{
+	result, _, _, err := d.ExecuteQuery(ctx, query, map[string]interface{}{
 		"community_uuid": communityNode.Uuid,
 		"entity_uuid":    entityNode.Uuid,
 		"edge_uuid":      edgeUUID,
