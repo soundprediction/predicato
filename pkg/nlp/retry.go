@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/rand"
 	"net/http"
 	"strings"
 	"time"
@@ -22,6 +23,9 @@ type RetryConfig struct {
 	MaxDelay time.Duration
 	// BackoffMultiplier is the multiplier for exponential backoff (default: 2.0)
 	BackoffMultiplier float64
+	// JitterFraction is the fraction of delay to use as random jitter (default: 0.1 = 10%)
+	// Setting to 0 disables jitter
+	JitterFraction float64
 }
 
 // DefaultRetryConfig returns the default retry configuration
@@ -31,6 +35,7 @@ func DefaultRetryConfig() *RetryConfig {
 		InitialDelay:      1 * time.Second,
 		MaxDelay:          60 * time.Second,
 		BackoffMultiplier: 2.0,
+		JitterFraction:    0.1, // 10% jitter by default
 	}
 }
 
@@ -153,7 +158,7 @@ func (r *RetryClient) GetCapabilities() []TaskCapability {
 	return r.client.GetCapabilities()
 }
 
-// calculateDelay calculates the delay for a given retry attempt using exponential backoff
+// calculateDelay calculates the delay for a given retry attempt using exponential backoff with jitter
 func (r *RetryClient) calculateDelay(attempt int) time.Duration {
 	// Calculate exponential backoff: InitialDelay * (BackoffMultiplier ^ (attempt - 1))
 	delay := float64(r.config.InitialDelay) * math.Pow(r.config.BackoffMultiplier, float64(attempt-1))
@@ -161,6 +166,19 @@ func (r *RetryClient) calculateDelay(attempt int) time.Duration {
 	// Cap at MaxDelay
 	if delay > float64(r.config.MaxDelay) {
 		delay = float64(r.config.MaxDelay)
+	}
+
+	// Add jitter to prevent thundering herd problem
+	// Jitter adds a random value between -JitterFraction*delay and +JitterFraction*delay
+	if r.config.JitterFraction > 0 {
+		jitterRange := delay * r.config.JitterFraction
+		// rand.Float64() returns [0.0, 1.0), so (rand.Float64()*2 - 1) returns [-1.0, 1.0)
+		jitter := jitterRange * (rand.Float64()*2 - 1)
+		delay += jitter
+		// Ensure delay doesn't go negative
+		if delay < 0 {
+			delay = 0
+		}
 	}
 
 	return time.Duration(delay)
