@@ -45,8 +45,12 @@ type RetryClient struct {
 	config *RetryConfig
 }
 
-// NewRetryClient creates a new retry client wrapper
-func NewRetryClient(client Client, config *RetryConfig) *RetryClient {
+// NewRetryClient creates a new retry client wrapper.
+// Returns an error if client is nil.
+func NewRetryClient(client Client, config *RetryConfig) (*RetryClient, error) {
+	if client == nil {
+		return nil, fmt.Errorf("client cannot be nil")
+	}
 	if config == nil {
 		config = DefaultRetryConfig()
 	}
@@ -67,7 +71,17 @@ func NewRetryClient(client Client, config *RetryConfig) *RetryClient {
 	return &RetryClient{
 		client: client,
 		config: config,
+	}, nil
+}
+
+// MustNewRetryClient creates a new retry client wrapper, panicking if client is nil.
+// Use this when you're certain the client is not nil.
+func MustNewRetryClient(client Client, config *RetryConfig) *RetryClient {
+	rc, err := NewRetryClient(client, config)
+	if err != nil {
+		panic(err)
 	}
+	return rc
 }
 
 // Chat implements the Client interface with retry logic
