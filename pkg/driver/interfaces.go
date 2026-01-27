@@ -7,9 +7,32 @@ import (
 	"github.com/soundprediction/predicato/pkg/types"
 )
 
-// This file defines focused interfaces that follow the Interface Segregation Principle.
+// This file defines focused interfaces that follow the Interface Segregation Principle (ISP).
 // The main GraphDriver interface is composed from these smaller interfaces for backward compatibility.
-// Consumers should depend on the smallest interface that meets their needs.
+//
+// Benefits of Interface Segregation:
+//
+// 1. Easier Testing: Mock implementations only need to implement the methods being tested.
+//    Example: A test for search functionality can mock only GraphSearcher.
+//
+// 2. Clear Dependencies: Code that accepts a focused interface documents its actual requirements.
+//    Example: func ProcessSearch(searcher GraphSearcher) clearly shows only search is needed.
+//
+// 3. Flexibility: New implementations can satisfy only the interfaces they need.
+//    Example: A read-only cache could implement GraphSearcher without write operations.
+//
+// Usage Pattern:
+//
+//	// Accept the focused interface when possible
+//	func SearchNodes(searcher GraphSearcher, query string) ([]*types.Node, error) {
+//	    return searcher.SearchNodes(ctx, query, groupID, opts)
+//	}
+//
+//	// Existing code using GraphDriver continues to work
+//	func ProcessGraph(driver GraphDriver) {
+//	    // driver implements all focused interfaces
+//	    SearchNodes(driver, "query")  // Works because GraphDriver embeds GraphSearcher
+//	}
 
 // GraphCore provides core database operations that all graph drivers must implement.
 // This includes session management, query execution, and lifecycle management.

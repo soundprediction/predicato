@@ -8,9 +8,32 @@ import (
 	"github.com/soundprediction/predicato/pkg/types"
 )
 
-// This file defines focused interfaces that follow the Interface Segregation Principle.
+// This file defines focused interfaces that follow the Interface Segregation Principle (ISP).
 // The main Predicato interface is composed from these smaller interfaces for backward compatibility.
-// Consumers should depend on the smallest interface that meets their needs.
+//
+// Benefits of Interface Segregation:
+//
+// 1. Easier Testing: Mock implementations only need to implement the methods being tested.
+//    Example: A test for search functionality can mock only GraphQuerier.
+//
+// 2. Clear Dependencies: Code that accepts a focused interface documents its actual requirements.
+//    Example: func HandleSearch(q GraphQuerier) clearly shows only query capabilities are needed.
+//
+// 3. Flexibility: New implementations can satisfy only the interfaces they need.
+//    Example: A read-only client could implement GraphQuerier without episode management.
+//
+// Usage Pattern:
+//
+//	// Accept the focused interface when possible
+//	func SearchGraph(querier GraphQuerier, query string) (*types.SearchResults, error) {
+//	    return querier.Search(ctx, query, config)
+//	}
+//
+//	// Existing code using Predicato continues to work
+//	func ProcessKnowledgeGraph(p Predicato) {
+//	    // p implements all focused interfaces
+//	    SearchGraph(p, "query")  // Works because Predicato embeds GraphQuerier
+//	}
 
 // EpisodeManager provides operations for managing episodes in the knowledge graph.
 // Use this interface when you only need to add, remove, or retrieve episodes.
