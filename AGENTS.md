@@ -48,22 +48,39 @@ If you are being run in a loop, only output this exact text when ALL tasks are c
 
 ## Build Instructions
 
-This project uses CGO for native library dependencies. Different build modes are available depending on which features you need.
+This project uses CGO for the Ladybug embedded graph database. The build system handles native library setup automatically via Make targets.
 
 ### Prerequisites
 
 - Go 1.21+
 - GCC (for CGO compilation)
-- Make (optional, for convenience targets)
+- Make (recommended)
+- curl (for downloading native libraries)
+
+### Quick Start (Recommended)
+
+```bash
+# Download native libs + build everything
+make build
+
+# Run all tests
+make test
+
+# Run only pure Go tests (no CGO setup needed)
+make test-nocgo
+```
 
 ### Quick Reference
 
 | Command | Description |
 |---------|-------------|
-| `go build ./pkg/...` | Build packages without CGO dependencies |
-| `go test ./pkg/factstore/...` | Test factstore (no CGO required) |
-| `make build` | Full build with Ladybug (downloads native libs) |
-| `make test` | Run all tests |
+| `make generate` | Download Ladybug native library |
+| `make build` | Full build (includes generate) |
+| `make build-cli` | Build CLI binary to `bin/predicato` |
+| `make test` | Run all tests (CGO + non-CGO) |
+| `make test-cgo` | Run tests requiring Ladybug |
+| `make test-nocgo` | Run pure Go tests (no CGO needed) |
+| `make run-server` | Start the HTTP server |
 
 ### Building Without CGO (Pure Go Packages)
 
@@ -77,62 +94,43 @@ go build ./pkg/nlp/...
 go build ./pkg/types/...
 
 # Run tests for pure Go packages
-go test ./pkg/factstore/...
-go test ./pkg/embedder/...
-go test ./pkg/nlp/...
-go test ./pkg/prompts/...
+make test-nocgo
+# or manually:
+go test ./pkg/factstore/... ./pkg/embedder/... ./pkg/nlp/... ./pkg/prompts/... ./pkg/logger/...
 ```
 
 ### Building With CGO (Full Feature Set)
 
-For Ladybug embedded database and other native features:
-
-#### Step 1: Download Native Libraries
-
-The `go:generate` directive downloads the Ladybug native library:
+For Ladybug embedded database, use the Makefile which handles CGO_LDFLAGS automatically:
 
 ```bash
-# Download Ladybug library for the main CLI
-go generate ./cmd/main.go
-
-# Or for examples
-go generate ./examples/basic/cgo.go
-```
-
-This runs:
-```bash
-curl -sL https://raw.githubusercontent.com/LadybugDB/go-ladybug/refs/heads/master/download_lbug.sh | bash -s -- -out lib-ladybug
-```
-
-#### Step 2: Build with CGO
-
-```bash
-# Build everything with system_ladybug tag
-go build -tags system_ladybug ./...
-
-# Build CLI binary
-go build -tags system_ladybug -o bin/predicato ./cmd/main.go
-```
-
-#### Using Make (Recommended)
-
-```bash
-# Full build (includes go generate)
+# Download native library + build
 make build
 
-# Build CLI
-make build-cli
+# Or step by step:
+make generate                    # Download liblbug.so to cmd/lib-ladybug/
+make build-cli                   # Build CLI binary
+```
 
-# Run server
-make run-server
+#### Manual CGO Build (without Make)
 
-# Run tests
-make test
+If you need to build manually without Make:
+
+```bash
+# Step 1: Download Ladybug library
+go generate ./cmd/main.go
+
+# Step 2: Set library path and build
+export CGO_LDFLAGS="-L$(pwd)/cmd/lib-ladybug -Wl,-rpath,$(pwd)/cmd/lib-ladybug"
+go build -tags system_ladybug ./...
+
+# Step 3: Run tests
+go test -tags system_ladybug ./pkg/driver/...
 ```
 
 ### CGO File Structure
 
-Each executable that uses Ladybug needs a `cgo.go` file:
+The main entry point (`cmd/main.go`) contains CGO directives:
 
 ```go
 package main
@@ -140,9 +138,10 @@ package main
 //go:generate sh -c "curl -sL https://raw.githubusercontent.com/LadybugDB/go-ladybug/refs/heads/master/download_lbug.sh | bash -s -- -out lib-ladybug"
 
 /*
-#cgo darwin LDFLAGS: -L${SRCDIR}/lib-ladybug -Wl,-rpath,${SRCDIR}/lib-ladybug
-#cgo linux LDFLAGS: -L${SRCDIR}/lib-ladybug -Wl,-rpath,${SRCDIR}/lib-ladybug
-#cgo windows LDFLAGS: -L${SRCDIR}/lib-ladybug
+#cgo darwin LDFLAGS: -L${SRCDIR}/lib-ladybug -llbug -Wl,-rpath,${SRCDIR}/lib-ladybug
+#cgo linux LDFLAGS: -L${SRCDIR}/lib-ladybug -llbug -Wl,-rpath,${SRCDIR}/lib-ladybug
+#cgo windows LDFLAGS: -L${SRCDIR}/lib-ladybug -llbug_shared
+#include <stdlib.h>
 */
 import "C"
 ```
@@ -150,26 +149,32 @@ import "C"
 ### Troubleshooting
 
 #### "cannot find -llbug"
-The Ladybug native library hasn't been downloaded. Run:
+The Ladybug native library hasn't been downloaded:
 ```bash
-go generate ./cmd/main.go
-# or
-make build
+make generate
+# or: go generate ./cmd/main.go
 ```
 
-#### CGO-related test failures
-Some tests require native libraries. To run only pure Go tests:
+#### CGO tests fail to link
+Ensure you're using the Makefile targets which set `CGO_LDFLAGS`:
 ```bash
-go test ./pkg/factstore/... ./pkg/embedder/... ./pkg/nlp/... ./pkg/prompts/...
+make test-cgo   # Correct way
+# Instead of: go test ./pkg/driver/...
 ```
 
 #### LSP errors about CGO
-LSP may show errors for files with CGO dependencies if libraries aren't downloaded. This doesn't affect `go build` - just run `go generate` first.
+LSP may show errors for CGO files if libraries aren't downloaded. Run `make generate` first. These errors don't affect command-line builds.
+
+#### Run tests without CGO setup
+Use the `test-nocgo` target:
+```bash
+make test-nocgo
+```
 
 ### Cross-Compilation
 
 ```bash
-# Build for multiple platforms (requires native libs for each)
+# Build for multiple platforms
 make build-cli-all
 ```
 

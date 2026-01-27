@@ -302,25 +302,60 @@ func main() {
 go get github.com/soundprediction/predicato
 ```
 
-For internal services (requires CGO):
+### Building with Ladybug (Embedded Graph Database)
+
+Predicato uses CGO for the Ladybug embedded graph database. Use Make for the easiest setup:
 
 ```bash
-# Download native libraries
-go generate ./...
+# Clone the repository
+git clone https://github.com/soundprediction/predicato
+cd predicato
 
-# Build with Ladybug support
+# Download native libraries + build
+make build
+
+# Run tests
+make test
+
+# Build CLI binary
+make build-cli
+```
+
+#### Manual Build (without Make)
+
+```bash
+# Step 1: Download Ladybug library
+go generate ./cmd/main.go
+
+# Step 2: Build with CGO flags
+export CGO_LDFLAGS="-L$(pwd)/cmd/lib-ladybug -Wl,-rpath,$(pwd)/cmd/lib-ladybug"
 go build -tags system_ladybug ./...
+```
+
+### Building Without CGO
+
+Many packages work without CGO dependencies:
+
+```bash
+# Build core packages (no CGO required)
+go build ./pkg/factstore/...
+go build ./pkg/embedder/...
+go build ./pkg/nlp/...
+
+# Run pure Go tests
+make test-nocgo
 ```
 
 ### Prerequisites
 
-**Internal stack:**
-- Go 1.24+
-- CGO enabled (`go env CGO_ENABLED` should return `1`)
+**Internal stack (Ladybug embedded database):**
+- Go 1.21+
+- GCC (for CGO compilation)
+- Make (recommended)
 - ~4GB RAM for local models
 
-**External APIs:**
-- Go 1.24+
+**External APIs only (no CGO needed):**
+- Go 1.21+
 - API keys for your chosen providers
 
 ## Examples
