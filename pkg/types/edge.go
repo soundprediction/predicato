@@ -22,7 +22,7 @@ const (
 
 // EdgeOperations provides methods for edge-related database operations
 type EdgeOperations interface {
-	ExecuteQuery(query string, params map[string]interface{}) (interface{}, interface{}, interface{}, error)
+	ExecuteQuery(ctx context.Context, query string, params map[string]interface{}) (interface{}, interface{}, interface{}, error)
 	Provider() GraphProvider
 	GetAossClient() interface{}
 }
@@ -60,7 +60,7 @@ func (e *BaseEdge) GetCreatedAt() time.Time   { return e.CreatedAt }
 func (e *BaseEdge) Delete(ctx context.Context, driver EdgeOperations) error {
 	if driver.Provider() == GraphProviderLadybug {
 		// ladybug provider logic (lines 56-70 in Python)
-		_, _, _, err := driver.ExecuteQuery(`
+		_, _, _, err := driver.ExecuteQuery(ctx, `
 			MATCH (n)-[e:MENTIONS|HAS_MEMBER {uuid: $uuid}]->(m)
 			DELETE e
 		`, map[string]interface{}{
@@ -70,7 +70,7 @@ func (e *BaseEdge) Delete(ctx context.Context, driver EdgeOperations) error {
 			return err
 		}
 
-		_, _, _, err = driver.ExecuteQuery(`
+		_, _, _, err = driver.ExecuteQuery(ctx, `
 			MATCH (e:RelatesToNode_ {uuid: $uuid})
 			DETACH DELETE e
 		`, map[string]interface{}{
@@ -79,7 +79,7 @@ func (e *BaseEdge) Delete(ctx context.Context, driver EdgeOperations) error {
 		return err
 	} else {
 		// Non-ladybug provider logic (lines 71-78 in Python)
-		_, _, _, err := driver.ExecuteQuery(`
+		_, _, _, err := driver.ExecuteQuery(ctx, `
 			MATCH (n)-[e:MENTIONS|RELATES_TO|HAS_MEMBER {uuid: $uuid}]->(m)
 			DELETE e
 		`, map[string]interface{}{
@@ -101,7 +101,7 @@ func DeleteEdgesByUUIDs(ctx context.Context, driver EdgeOperations, uuids []stri
 
 	if driver.Provider() == GraphProviderLadybug {
 		// ladybug provider logic (lines 91-107 in Python)
-		_, _, _, err := driver.ExecuteQuery(`
+		_, _, _, err := driver.ExecuteQuery(ctx, `
 			MATCH (n)-[e:MENTIONS|HAS_MEMBER]->(m)
 			WHERE e.uuid IN $uuids
 			DELETE e
@@ -112,7 +112,7 @@ func DeleteEdgesByUUIDs(ctx context.Context, driver EdgeOperations, uuids []stri
 			return err
 		}
 
-		_, _, _, err = driver.ExecuteQuery(`
+		_, _, _, err = driver.ExecuteQuery(ctx, `
 			MATCH (e:RelatesToNode_)
 			WHERE e.uuid IN $uuids
 			DETACH DELETE e
@@ -122,7 +122,7 @@ func DeleteEdgesByUUIDs(ctx context.Context, driver EdgeOperations, uuids []stri
 		return err
 	} else {
 		// Non-ladybug provider logic (lines 108-116 in Python)
-		_, _, _, err := driver.ExecuteQuery(`
+		_, _, _, err := driver.ExecuteQuery(ctx, `
 			MATCH (n)-[e:MENTIONS|RELATES_TO|HAS_MEMBER]->(m)
 			WHERE e.uuid IN $uuids
 			DELETE e
@@ -144,7 +144,7 @@ type EpisodicEdge struct {
 
 // Save implements the Python EpisodicEdge.save() method
 func (e *EpisodicEdge) Save(ctx context.Context, driver EdgeOperations) error {
-	_, _, _, err := driver.ExecuteQuery("EPISODIC_EDGE_SAVE_QUERY", map[string]interface{}{
+	_, _, _, err := driver.ExecuteQuery(ctx, "EPISODIC_EDGE_SAVE_QUERY", map[string]interface{}{
 		"episode_uuid": e.SourceNodeID,
 		"entity_uuid":  e.TargetNodeID,
 		"uuid":         e.Uuid,
@@ -156,7 +156,7 @@ func (e *EpisodicEdge) Save(ctx context.Context, driver EdgeOperations) error {
 
 // GetByUUID implements the Python EpisodicEdge.get_by_uuid() class method
 func GetEpisodicEdgeByUUID(ctx context.Context, driver EdgeOperations, uuid string) (*EpisodicEdge, error) {
-	records, _, _, err := driver.ExecuteQuery(`
+	records, _, _, err := driver.ExecuteQuery(ctx, `
 		MATCH (n:Episodic)-[e:MENTIONS {uuid: $uuid}]->(m:Entity)
 		RETURN e.uuid AS uuid, e.group_id AS group_id, 
 		       n.uuid AS source_node_uuid, m.uuid AS target_node_uuid,
@@ -191,7 +191,7 @@ func GetEpisodicEdgesByUUIDs(ctx context.Context, driver EdgeOperations, uuids [
 		return []*EpisodicEdge{}, nil
 	}
 
-	records, _, _, err := driver.ExecuteQuery(`
+	records, _, _, err := driver.ExecuteQuery(ctx, `
 		MATCH (n:Episodic)-[e:MENTIONS]->(m:Entity)
 		WHERE e.uuid IN $uuids
 		RETURN e.uuid AS uuid, e.group_id AS group_id,
@@ -344,7 +344,7 @@ func (e *EntityEdge) Save(ctx context.Context, driver EdgeOperations) error {
 		attributesJSON, _ := json.Marshal(e.Attributes)
 		edgeData["attributes"] = string(attributesJSON)
 
-		_, _, _, err := driver.ExecuteQuery("ENTITY_EDGE_SAVE_QUERY_ladybug", edgeData)
+		_, _, _, err := driver.ExecuteQuery(ctx, "ENTITY_EDGE_SAVE_QUERY_ladybug", edgeData)
 		return err
 	} else {
 		// Non-ladybug logic (lines 326-335 in Python)
@@ -355,7 +355,7 @@ func (e *EntityEdge) Save(ctx context.Context, driver EdgeOperations) error {
 		// TODO: Add AOSS client support if needed
 		// if driver.GetAossClient() != nil { ... }
 
-		_, _, _, err := driver.ExecuteQuery("ENTITY_EDGE_SAVE_QUERY", map[string]interface{}{
+		_, _, _, err := driver.ExecuteQuery(ctx, "ENTITY_EDGE_SAVE_QUERY", map[string]interface{}{
 			"edge_data": edgeData,
 		})
 		return err
@@ -383,7 +383,7 @@ func GetEntityEdgeByUUID(ctx context.Context, driver EdgeOperations, uuid string
 		`
 	}
 
-	records, _, _, err := driver.ExecuteQuery(query, map[string]interface{}{
+	records, _, _, err := driver.ExecuteQuery(ctx, query, map[string]interface{}{
 		"uuid": uuid,
 	})
 	if err != nil {
