@@ -20,16 +20,56 @@ type DoltDB struct {
 	db *sql.DB
 }
 
+// DoltDBConfig holds configuration options for DoltDB connection pool.
+type DoltDBConfig struct {
+	// MaxOpenConns is the maximum number of open connections to the database.
+	// Default: 25
+	MaxOpenConns int
+
+	// MaxIdleConns is the maximum number of connections in the idle connection pool.
+	// Default: 5
+	MaxIdleConns int
+
+	// ConnMaxLifetime is the maximum amount of time a connection may be reused.
+	// Default: 5 minutes
+	ConnMaxLifetime time.Duration
+}
+
+// DefaultDoltDBConfig returns the default DoltDB configuration.
+func DefaultDoltDBConfig() *DoltDBConfig {
+	return &DoltDBConfig{
+		MaxOpenConns:    25,
+		MaxIdleConns:    5,
+		ConnMaxLifetime: 5 * time.Minute,
+	}
+}
+
 // NewDoltDB creates a new DoltDB instance.
 // Deprecated: Use NewPostgresDB with DoltGres for better search capabilities.
 // connectionString should be a valid Dolt DSN, e.g., "file:///path/to/databases?commitname=User&commitemail=user@example.com&database=mydb"
 func NewDoltDB(connectionString string) (*DoltDB, error) {
+	return NewDoltDBWithConfig(connectionString, nil)
+}
+
+// NewDoltDBWithConfig creates a new DoltDB instance with custom configuration.
+// Deprecated: Use NewPostgresDB with DoltGres for better search capabilities.
+// If config is nil, default configuration values are used.
+func NewDoltDBWithConfig(connectionString string, config *DoltDBConfig) (*DoltDB, error) {
 	fmt.Println("Warning: DoltDB is deprecated. Consider using PostgresDB with DoltGres for VectorChord support.")
+
+	if config == nil {
+		config = DefaultDoltDBConfig()
+	}
 
 	db, err := sql.Open("dolt", connectionString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database connection: %w", err)
 	}
+
+	// Configure connection pool
+	db.SetMaxOpenConns(config.MaxOpenConns)
+	db.SetMaxIdleConns(config.MaxIdleConns)
+	db.SetConnMaxLifetime(config.ConnMaxLifetime)
 
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)

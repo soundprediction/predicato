@@ -22,23 +22,46 @@ type PostgresDB struct {
 	usePgVector         bool // true for PostgreSQL with VectorChord, false for DoltGres
 }
 
+// PostgresDBConfig holds configuration options for PostgresDB connection pool.
+type PostgresDBConfig struct {
+	// MaxOpenConns is the maximum number of open connections to the database.
+	// Default: 25
+	MaxOpenConns int
+
+	// MaxIdleConns is the maximum number of connections in the idle connection pool.
+	// Default: 5
+	MaxIdleConns int
+
+	// ConnMaxLifetime is the maximum amount of time a connection may be reused.
+	// Default: 5 minutes
+	ConnMaxLifetime time.Duration
+}
+
+// DefaultPostgresDBConfig returns the default PostgresDB configuration.
+func DefaultPostgresDBConfig() *PostgresDBConfig {
+	return &PostgresDBConfig{
+		MaxOpenConns:    25,
+		MaxIdleConns:    5,
+		ConnMaxLifetime: 5 * time.Minute,
+	}
+}
+
 // NewPostgresDB creates a new PostgresDB instance for external PostgreSQL with VectorChord.
 // connectionString should be a valid PostgreSQL DSN, e.g.:
 // "postgres://user:password@localhost:5432/dbname?sslmode=disable"
 func NewPostgresDB(connectionString string, embeddingDimensions int) (*PostgresDB, error) {
-	return newPostgresDB(connectionString, embeddingDimensions, true)
+	return NewPostgresDBWithConfig(connectionString, embeddingDimensions, true, nil)
 }
 
-// NewDoltGresDB creates a new PostgresDB instance for DoltGres (without VectorChord).
-// Uses in-memory vector search since DoltGres doesn't support VectorChord extension.
-// connectionString should be a valid PostgreSQL DSN for DoltGres server.
-func NewDoltGresDB(connectionString string, embeddingDimensions int) (*PostgresDB, error) {
-	return newPostgresDB(connectionString, embeddingDimensions, false)
-}
-
-func newPostgresDB(connectionString string, embeddingDimensions int, usePgVector bool) (*PostgresDB, error) {
+// NewPostgresDBWithConfig creates a new PostgresDB instance with custom configuration.
+// If config is nil, default configuration values are used.
+func NewPostgresDBWithConfig(connectionString string, embeddingDimensions int, usePgVector bool, config *PostgresDBConfig) (*PostgresDB, error) {
 	if embeddingDimensions <= 0 {
 		embeddingDimensions = 1024 // Default for qwen3-embedding
+	}
+
+	if config == nil {
+		config = DefaultPostgresDBConfig()
 	}
 
 	db, err := sql.Open("postgres", connectionString)
@@ -47,9 +70,9 @@ func newPostgresDB(connectionString string, embeddingDimensions int, usePgVector
 	}
 
 	// Configure connection pool
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	db.SetMaxOpenConns(config.MaxOpenConns)
+	db.SetMaxIdleConns(config.MaxIdleConns)
+	db.SetConnMaxLifetime(config.ConnMaxLifetime)
 
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
@@ -60,6 +83,19 @@ func newPostgresDB(connectionString string, embeddingDimensions int, usePgVector
 		embeddingDimensions: embeddingDimensions,
 		usePgVector:         usePgVector,
 	}, nil
+}
+
+// NewDoltGresDB creates a new PostgresDB instance for DoltGres (without VectorChord).
+// Uses in-memory vector search since DoltGres doesn't support VectorChord extension.
+// connectionString should be a valid PostgreSQL DSN for DoltGres server.
+func NewDoltGresDB(connectionString string, embeddingDimensions int) (*PostgresDB, error) {
+	return NewPostgresDBWithConfig(connectionString, embeddingDimensions, false, nil)
+}
+
+// NewDoltGresDBWithConfig creates a new PostgresDB instance for DoltGres with custom configuration.
+// If config is nil, default configuration values are used.
+func NewDoltGresDBWithConfig(connectionString string, embeddingDimensions int, config *PostgresDBConfig) (*PostgresDB, error) {
+	return NewPostgresDBWithConfig(connectionString, embeddingDimensions, false, config)
 }
 
 func (p *PostgresDB) Initialize(ctx context.Context) error {
