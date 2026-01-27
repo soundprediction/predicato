@@ -30,8 +30,21 @@ const (
 	RoleAssistant types.Role = "assistant"
 )
 
-// Config holds legacy configuration for LLM clients (deprecated, use LLMConfig)
-// Kept for backward compatibility
+// Config holds legacy configuration for LLM clients.
+//
+// Deprecated: Use LLMConfig instead, which provides a fluent builder API
+// and better support for various LLM providers. Migration example:
+//
+//	// Old:
+//	config := &nlp.Config{Model: "gpt-4", Temperature: &temp}
+//
+//	// New:
+//	config := nlp.NewLLMConfig().
+//	    WithModel("gpt-4").
+//	    WithTemperature(temp).
+//	    WithAPIKey(apiKey)
+//
+// Config is kept for backward compatibility but will be removed in v2.0.
 type Config struct {
 	Model       string   `json:"model"`
 	Temperature *float32 `json:"temperature,omitempty"`

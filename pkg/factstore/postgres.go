@@ -13,24 +13,24 @@ import (
 	_ "github.com/lib/pq"
 )
 
-// PostgresDB implements FactsDB using PostgreSQL with pgvector extension.
-// For external PostgreSQL: uses pgvector for native vector search
-// For DoltGres: uses in-memory vector search (pgvector not available)
+// PostgresDB implements FactsDB using PostgreSQL with VectorChord extension.
+// For external PostgreSQL: uses VectorChord for native vector search
+// For DoltGres: uses in-memory vector search (VectorChord not available)
 type PostgresDB struct {
 	db                  *sql.DB
 	embeddingDimensions int
-	usePgVector         bool // true for PostgreSQL with pgvector, false for DoltGres
+	usePgVector         bool // true for PostgreSQL with VectorChord, false for DoltGres
 }
 
-// NewPostgresDB creates a new PostgresDB instance for external PostgreSQL with pgvector.
+// NewPostgresDB creates a new PostgresDB instance for external PostgreSQL with VectorChord.
 // connectionString should be a valid PostgreSQL DSN, e.g.:
 // "postgres://user:password@localhost:5432/dbname?sslmode=disable"
 func NewPostgresDB(connectionString string, embeddingDimensions int) (*PostgresDB, error) {
 	return newPostgresDB(connectionString, embeddingDimensions, true)
 }
 
-// NewDoltGresDB creates a new PostgresDB instance for DoltGres (without pgvector).
-// Uses in-memory vector search since DoltGres doesn't support pgvector extension.
+// NewDoltGresDB creates a new PostgresDB instance for DoltGres (without VectorChord).
+// Uses in-memory vector search since DoltGres doesn't support VectorChord extension.
 // connectionString should be a valid PostgreSQL DSN for DoltGres server.
 func NewDoltGresDB(connectionString string, embeddingDimensions int) (*PostgresDB, error) {
 	return newPostgresDB(connectionString, embeddingDimensions, false)
@@ -63,7 +63,7 @@ func newPostgresDB(connectionString string, embeddingDimensions int, usePgVector
 }
 
 func (p *PostgresDB) Initialize(ctx context.Context) error {
-	// Enable pgvector extension only for PostgreSQL (not DoltGres)
+	// Enable VectorChord extension only for PostgreSQL (not DoltGres)
 	if p.usePgVector {
 		if _, err := p.db.ExecContext(ctx, "CREATE EXTENSION IF NOT EXISTS vector"); err != nil {
 			return fmt.Errorf("failed to create vector extension: %w", err)
@@ -85,7 +85,7 @@ func (p *PostgresDB) Initialize(ctx context.Context) error {
 	}
 
 	// Create extracted_nodes table
-	// Use vector type for PostgreSQL with pgvector, JSONB for DoltGres
+	// Use vector type for PostgreSQL with VectorChord, JSONB for DoltGres
 	var nodesTable string
 	if p.usePgVector {
 		nodesTable = fmt.Sprintf(`
@@ -673,14 +673,14 @@ func (p *PostgresDB) HybridSearch(ctx context.Context, query string, embedding [
 // --- Internal search methods ---
 
 func (p *PostgresDB) vectorSearchNodes(ctx context.Context, embedding []float32, config *FactSearchConfig) ([]*ExtractedNode, []float64, error) {
-	// For DoltGres (no pgvector), use in-memory cosine similarity
+	// For DoltGres (no VectorChord), use in-memory cosine similarity
 	if !p.usePgVector {
 		return p.inMemoryVectorSearchNodes(ctx, embedding, config)
 	}
 
 	embeddingStr := p.embeddingToString(embedding)
 
-	// Build query with filters (pgvector mode)
+	// Build query with filters (VectorChord mode)
 	sqlQuery := `
 		SELECT id, source_id, group_id, name, type, description, embedding, chunk_index, created_at,
 			   1 - (embedding <=> $1::vector) AS score
@@ -952,7 +952,7 @@ func (p *PostgresDB) keywordSearchNodes(ctx context.Context, query string, confi
 }
 
 func (p *PostgresDB) vectorSearchEdges(ctx context.Context, embedding []float32, config *FactSearchConfig) ([]*ExtractedEdge, []float64, error) {
-	// For DoltGres (no pgvector), use in-memory cosine similarity
+	// For DoltGres (no VectorChord), use in-memory cosine similarity
 	if !p.usePgVector {
 		return p.inMemoryVectorSearchEdges(ctx, embedding, config)
 	}

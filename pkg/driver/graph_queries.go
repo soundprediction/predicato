@@ -204,30 +204,33 @@ func (qb *QueryBuilder) SetProvider(provider GraphProvider) {
 	qb.provider = provider
 }
 
+// luceneReplacer is a package-level replacer for escaping special characters
+// in fulltext search queries. Defined at package level to avoid recreation
+// on each call to EscapeQueryString, improving performance.
+var luceneReplacer = strings.NewReplacer(
+	`"`, `\"`,
+	`\`, `\\`,
+	`+`, `\+`,
+	`-`, `\-`,
+	`!`, `\!`,
+	`(`, `\(`,
+	`)`, `\)`,
+	`{`, `\{`,
+	`}`, `\}`,
+	`[`, `\[`,
+	`]`, `\]`,
+	`^`, `\^`,
+	`~`, `\~`,
+	`*`, `\*`,
+	`?`, `\?`,
+	`:`, `\:`,
+	`|`, `\|`,
+	`&`, `\&`,
+)
+
 // EscapeQueryString escapes special characters in search queries
 func EscapeQueryString(query string) string {
-	// Escape special characters for fulltext search
-	replacer := strings.NewReplacer(
-		`"`, `\"`,
-		`\`, `\\`,
-		`+`, `\+`,
-		`-`, `\-`,
-		`!`, `\!`,
-		`(`, `\(`,
-		`)`, `\)`,
-		`{`, `\{`,
-		`}`, `\}`,
-		`[`, `\[`,
-		`]`, `\]`,
-		`^`, `\^`,
-		`~`, `\~`,
-		`*`, `\*`,
-		`?`, `\?`,
-		`:`, `\:`,
-		`|`, `\|`,
-		`&`, `\&`,
-	)
-	return replacer.Replace(query)
+	return luceneReplacer.Replace(query)
 }
 
 // BuildParameterizedQuery builds a query with parameter placeholders

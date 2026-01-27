@@ -14,7 +14,7 @@ import (
 )
 
 // DoltDB implements FactsDB using a Dolt SQL database.
-// Deprecated: Use PostgresDB with DoltGres for better search capabilities including pgvector.
+// Deprecated: Use PostgresDB with DoltGres for better search capabilities including VectorChord.
 // DoltDB is maintained for backward compatibility but uses in-memory vector search.
 type DoltDB struct {
 	db *sql.DB
@@ -24,7 +24,7 @@ type DoltDB struct {
 // Deprecated: Use NewPostgresDB with DoltGres for better search capabilities.
 // connectionString should be a valid Dolt DSN, e.g., "file:///path/to/databases?commitname=User&commitemail=user@example.com&database=mydb"
 func NewDoltDB(connectionString string) (*DoltDB, error) {
-	fmt.Println("Warning: DoltDB is deprecated. Consider using PostgresDB with DoltGres for pgvector support.")
+	fmt.Println("Warning: DoltDB is deprecated. Consider using PostgresDB with DoltGres for VectorChord support.")
 
 	db, err := sql.Open("dolt", connectionString)
 	if err != nil {
@@ -391,8 +391,8 @@ func (d *DoltDB) Close() error {
 }
 
 // --- Search Methods (In-memory implementation for DoltDB) ---
-// Note: These methods use in-memory search since Dolt doesn't have pgvector.
-// For production use with large datasets, migrate to PostgresDB/DoltGres with pgvector.
+// Note: These methods use in-memory search since Dolt doesn't have VectorChord.
+// For production use with large datasets, migrate to PostgresDB/DoltGres with VectorChord.
 
 func (d *DoltDB) SearchNodes(ctx context.Context, query string, embedding []float32, config *FactSearchConfig) ([]*ExtractedNode, []float64, error) {
 	if config == nil {

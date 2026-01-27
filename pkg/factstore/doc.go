@@ -6,7 +6,7 @@
 // # Supported Backends
 //
 // The following storage backends are supported:
-//   - PostgresDB: PostgreSQL with optional pgvector extension for vector search
+//   - PostgresDB: PostgreSQL with optional VectorChord extension for vector search
 //   - DoltDB: Dolt SQL database (deprecated, use PostgresDB with DoltGres)
 //
 // # Usage
@@ -36,7 +36,7 @@
 //
 // # Vector Search
 //
-// For best performance, use PostgreSQL with pgvector extension.
-// Without pgvector (e.g., DoltGres), vector search falls back to
+// For best performance, use PostgreSQL with VectorChord extension.
+// Without VectorChord (e.g., DoltGres), vector search falls back to
 // in-memory cosine similarity calculation.
 package factstore
