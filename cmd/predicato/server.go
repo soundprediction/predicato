@@ -266,7 +266,10 @@ func initializePredicato(cfg *config.Config) (predicato.Predicato, error) {
 				return nil, fmt.Errorf("failed to create NLP client: %w", err)
 			}
 			// Wrap with retry client for automatic retry on errors
-			retryClient := nlp.NewRetryClient(baseNLPClient, nlp.DefaultRetryConfig())
+			retryClient, err := nlp.NewRetryClient(baseNLPClient, nlp.DefaultRetryConfig())
+			if err != nil {
+				return nil, fmt.Errorf("failed to create retry client: %w", err)
+			}
 
 			// Telemetry using Parquet
 			trackingPath := cfg.Telemetry.ParquetPath

@@ -13,32 +13,55 @@ import (
 	_ "github.com/lib/pq"
 )
 
-// PostgresDB implements FactsDB using PostgreSQL with pgvector extension.
-// For external PostgreSQL: uses pgvector for native vector search
-// For DoltGres: uses in-memory vector search (pgvector not available)
+// PostgresDB implements FactsDB using PostgreSQL with VectorChord extension.
+// For external PostgreSQL: uses VectorChord for native vector search
+// For DoltGres: uses in-memory vector search (VectorChord not available)
 type PostgresDB struct {
 	db                  *sql.DB
 	embeddingDimensions int
-	usePgVector         bool // true for PostgreSQL with pgvector, false for DoltGres
+	usePgVector         bool // true for PostgreSQL with VectorChord, false for DoltGres
 }
 
-// NewPostgresDB creates a new PostgresDB instance for external PostgreSQL with pgvector.
+// PostgresDBConfig holds configuration options for PostgresDB connection pool.
+type PostgresDBConfig struct {
+	// MaxOpenConns is the maximum number of open connections to the database.
+	// Default: 25
+	MaxOpenConns int
+
+	// MaxIdleConns is the maximum number of connections in the idle connection pool.
+	// Default: 5
+	MaxIdleConns int
+
+	// ConnMaxLifetime is the maximum amount of time a connection may be reused.
+	// Default: 5 minutes
+	ConnMaxLifetime time.Duration
+}
+
+// DefaultPostgresDBConfig returns the default PostgresDB configuration.
+func DefaultPostgresDBConfig() *PostgresDBConfig {
+	return &PostgresDBConfig{
+		MaxOpenConns:    25,
+		MaxIdleConns:    5,
+		ConnMaxLifetime: 5 * time.Minute,
+	}
+}
+
+// NewPostgresDB creates a new PostgresDB instance for external PostgreSQL with VectorChord.
 // connectionString should be a valid PostgreSQL DSN, e.g.:
 // "postgres://user:password@localhost:5432/dbname?sslmode=disable"
 func NewPostgresDB(connectionString string, embeddingDimensions int) (*PostgresDB, error) {
-	return newPostgresDB(connectionString, embeddingDimensions, true)
+	return NewPostgresDBWithConfig(connectionString, embeddingDimensions, true, nil)
 }
 
-// NewDoltGresDB creates a new PostgresDB instance for DoltGres (without pgvector).
-// Uses in-memory vector search since DoltGres doesn't support pgvector extension.
-// connectionString should be a valid PostgreSQL DSN for DoltGres server.
-func NewDoltGresDB(connectionString string, embeddingDimensions int) (*PostgresDB, error) {
-	return newPostgresDB(connectionString, embeddingDimensions, false)
-}
-
-func newPostgresDB(connectionString string, embeddingDimensions int, usePgVector bool) (*PostgresDB, error) {
+// NewPostgresDBWithConfig creates a new PostgresDB instance with custom configuration.
+// If config is nil, default configuration values are used.
+func NewPostgresDBWithConfig(connectionString string, embeddingDimensions int, usePgVector bool, config *PostgresDBConfig) (*PostgresDB, error) {
 	if embeddingDimensions <= 0 {
 		embeddingDimensions = 1024 // Default for qwen3-embedding
+	}
+
+	if config == nil {
+		config = DefaultPostgresDBConfig()
 	}
 
 	db, err := sql.Open("postgres", connectionString)
@@ -47,9 +70,9 @@ func newPostgresDB(connectionString string, embeddingDimensions int, usePgVector
 	}
 
 	// Configure connection pool
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	db.SetMaxOpenConns(config.MaxOpenConns)
+	db.SetMaxIdleConns(config.MaxIdleConns)
+	db.SetConnMaxLifetime(config.ConnMaxLifetime)
 
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
@@ -62,8 +85,21 @@ func newPostgresDB(connectionString string, embeddingDimensions int, usePgVector
 	}, nil
 }
 
+// NewDoltGresDB creates a new PostgresDB instance for DoltGres (without VectorChord).
+// Uses in-memory vector search since DoltGres doesn't support VectorChord extension.
+// connectionString should be a valid PostgreSQL DSN for DoltGres server.
+func NewDoltGresDB(connectionString string, embeddingDimensions int) (*PostgresDB, error) {
+	return NewPostgresDBWithConfig(connectionString, embeddingDimensions, false, nil)
+}
+
+// NewDoltGresDBWithConfig creates a new PostgresDB instance for DoltGres with custom configuration.
+// If config is nil, default configuration values are used.
+func NewDoltGresDBWithConfig(connectionString string, embeddingDimensions int, config *PostgresDBConfig) (*PostgresDB, error) {
+	return NewPostgresDBWithConfig(connectionString, embeddingDimensions, false, config)
+}
+
 func (p *PostgresDB) Initialize(ctx context.Context) error {
-	// Enable pgvector extension only for PostgreSQL (not DoltGres)
+	// Enable VectorChord extension only for PostgreSQL (not DoltGres)
 	if p.usePgVector {
 		if _, err := p.db.ExecContext(ctx, "CREATE EXTENSION IF NOT EXISTS vector"); err != nil {
 			return fmt.Errorf("failed to create vector extension: %w", err)
@@ -85,7 +121,7 @@ func (p *PostgresDB) Initialize(ctx context.Context) error {
 	}
 
 	// Create extracted_nodes table
-	// Use vector type for PostgreSQL with pgvector, JSONB for DoltGres
+	// Use vector type for PostgreSQL with VectorChord, JSONB for DoltGres
 	var nodesTable string
 	if p.usePgVector {
 		nodesTable = fmt.Sprintf(`
@@ -673,14 +709,14 @@ func (p *PostgresDB) HybridSearch(ctx context.Context, query string, embedding [
 // --- Internal search methods ---
 
 func (p *PostgresDB) vectorSearchNodes(ctx context.Context, embedding []float32, config *FactSearchConfig) ([]*ExtractedNode, []float64, error) {
-	// For DoltGres (no pgvector), use in-memory cosine similarity
+	// For DoltGres (no VectorChord), use in-memory cosine similarity
 	if !p.usePgVector {
 		return p.inMemoryVectorSearchNodes(ctx, embedding, config)
 	}
 
 	embeddingStr := p.embeddingToString(embedding)
 
-	// Build query with filters (pgvector mode)
+	// Build query with filters (VectorChord mode)
 	sqlQuery := `
 		SELECT id, source_id, group_id, name, type, description, embedding, chunk_index, created_at,
 			   1 - (embedding <=> $1::vector) AS score
@@ -766,7 +802,7 @@ func (p *PostgresDB) vectorSearchNodes(ctx context.Context, embedding []float32,
 const MaxInMemorySearchResults = 10000
 
 // inMemoryVectorSearchNodes performs vector search by loading embeddings and computing
-// cosine similarity in Go. Used for DoltGres which doesn't support pgvector.
+// cosine similarity in Go. Used for DoltGres which doesn't support VectorChord.
 func (p *PostgresDB) inMemoryVectorSearchNodes(ctx context.Context, embedding []float32, config *FactSearchConfig) ([]*ExtractedNode, []float64, error) {
 	// Build query to fetch all nodes with embeddings
 	// Limit to MaxInMemorySearchResults to prevent excessive memory usage
@@ -849,7 +885,7 @@ func (p *PostgresDB) inMemoryVectorSearchNodes(ctx context.Context, embedding []
 
 	// Log warning if we hit the limit
 	if len(candidates) >= MaxInMemorySearchResults {
-		log.Printf("WARNING: In-memory vector search hit limit of %d results. Consider using pgvector for better performance.", MaxInMemorySearchResults)
+		log.Printf("WARNING: In-memory vector search hit limit of %d results. Consider using VectorChord for better performance.", MaxInMemorySearchResults)
 	}
 
 	// Sort by score descending using O(n log n) sort
@@ -952,7 +988,7 @@ func (p *PostgresDB) keywordSearchNodes(ctx context.Context, query string, confi
 }
 
 func (p *PostgresDB) vectorSearchEdges(ctx context.Context, embedding []float32, config *FactSearchConfig) ([]*ExtractedEdge, []float64, error) {
-	// For DoltGres (no pgvector), use in-memory cosine similarity
+	// For DoltGres (no VectorChord), use in-memory cosine similarity
 	if !p.usePgVector {
 		return p.inMemoryVectorSearchEdges(ctx, embedding, config)
 	}
@@ -1290,7 +1326,7 @@ func (p *PostgresDB) embeddingToString(embedding []float32) string {
 	if len(embedding) == 0 {
 		return ""
 	}
-	// Format as pgvector string: [1.0,2.0,3.0]
+	// Format as vector string: [1.0,2.0,3.0]
 	parts := make([]string, len(embedding))
 	for i, v := range embedding {
 		parts[i] = fmt.Sprintf("%f", v)
@@ -1335,7 +1371,7 @@ func (p *PostgresDB) parseEmbeddingJSON(s string) []float32 {
 		return embedding
 	}
 
-	// Fall back to pgvector format parsing
+	// Fall back to vector format parsing
 	return p.parseEmbedding(s)
 }
 

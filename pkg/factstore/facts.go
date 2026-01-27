@@ -68,7 +68,7 @@ type FactSearchResults struct {
 type FactStoreType string
 
 const (
-	// FactStoreTypePostgres uses external PostgreSQL with pgvector
+	// FactStoreTypePostgres uses external PostgreSQL with VectorChord
 	FactStoreTypePostgres FactStoreType = "postgres"
 	// FactStoreTypeDoltGres uses embedded DoltGres (PostgreSQL-compatible)
 	FactStoreTypeDoltGres FactStoreType = "doltgres"

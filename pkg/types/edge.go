@@ -7,11 +7,14 @@ import (
 	"time"
 )
 
-// GraphProvider represents the type of graph database provider
+// GraphProvider represents the type of graph database provider.
+// This is the canonical definition. pkg/driver also defines this type for package isolation.
+// Both definitions should be kept in sync. A conversion function is provided in predicato.go.
 type GraphProvider string
 
 const (
 	GraphProviderNeo4j    GraphProvider = "neo4j"
+	GraphProviderMemgraph GraphProvider = "memgraph"
 	GraphProviderFalkorDB GraphProvider = "falkordb"
 	GraphProviderLadybug  GraphProvider = "ladybug"
 	GraphProviderNeptune  GraphProvider = "neptune"

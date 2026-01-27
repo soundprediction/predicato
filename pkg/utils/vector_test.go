@@ -304,3 +304,182 @@ func BenchmarkCosineSimilarity32(b *testing.B) {
 		CosineSimilarity32(a, bVec)
 	}
 }
+
+func TestTopKByScore(t *testing.T) {
+	t.Run("basic top k", func(t *testing.T) {
+		items := []ScoredItem[string]{
+			{Item: "a", Score: 0.5},
+			{Item: "b", Score: 0.9},
+			{Item: "c", Score: 0.3},
+			{Item: "d", Score: 0.7},
+			{Item: "e", Score: 0.1},
+		}
+
+		result := TopKByScore(items, 3)
+		if len(result) != 3 {
+			t.Fatalf("expected 3 items, got %d", len(result))
+		}
+
+		// Should be sorted descending
+		if result[0].Score != 0.9 || result[0].Item != "b" {
+			t.Errorf("expected first item to be b with score 0.9, got %v", result[0])
+		}
+		if result[1].Score != 0.7 || result[1].Item != "d" {
+			t.Errorf("expected second item to be d with score 0.7, got %v", result[1])
+		}
+		if result[2].Score != 0.5 || result[2].Item != "a" {
+			t.Errorf("expected third item to be a with score 0.5, got %v", result[2])
+		}
+	})
+
+	t.Run("k greater than length", func(t *testing.T) {
+		items := []ScoredItem[int]{
+			{Item: 1, Score: 0.5},
+			{Item: 2, Score: 0.9},
+		}
+
+		result := TopKByScore(items, 10)
+		if len(result) != 2 {
+			t.Fatalf("expected 2 items, got %d", len(result))
+		}
+		if result[0].Score != 0.9 {
+			t.Errorf("expected first score 0.9, got %f", result[0].Score)
+		}
+	})
+
+	t.Run("k equals length", func(t *testing.T) {
+		items := []ScoredItem[int]{
+			{Item: 1, Score: 0.3},
+			{Item: 2, Score: 0.9},
+			{Item: 3, Score: 0.6},
+		}
+
+		result := TopKByScore(items, 3)
+		if len(result) != 3 {
+			t.Fatalf("expected 3 items, got %d", len(result))
+		}
+	})
+
+	t.Run("k is zero", func(t *testing.T) {
+		items := []ScoredItem[int]{
+			{Item: 1, Score: 0.5},
+		}
+
+		result := TopKByScore(items, 0)
+		if result != nil {
+			t.Errorf("expected nil for k=0, got %v", result)
+		}
+	})
+
+	t.Run("empty items", func(t *testing.T) {
+		var items []ScoredItem[int]
+
+		result := TopKByScore(items, 5)
+		if result != nil {
+			t.Errorf("expected nil for empty items, got %v", result)
+		}
+	})
+
+	t.Run("k is one", func(t *testing.T) {
+		items := []ScoredItem[string]{
+			{Item: "low", Score: 0.1},
+			{Item: "high", Score: 0.9},
+			{Item: "mid", Score: 0.5},
+		}
+
+		result := TopKByScore(items, 1)
+		if len(result) != 1 {
+			t.Fatalf("expected 1 item, got %d", len(result))
+		}
+		if result[0].Item != "high" || result[0].Score != 0.9 {
+			t.Errorf("expected high with 0.9, got %v", result[0])
+		}
+	})
+
+	t.Run("duplicate scores", func(t *testing.T) {
+		items := []ScoredItem[int]{
+			{Item: 1, Score: 0.5},
+			{Item: 2, Score: 0.5},
+			{Item: 3, Score: 0.9},
+			{Item: 4, Score: 0.5},
+		}
+
+		result := TopKByScore(items, 2)
+		if len(result) != 2 {
+			t.Fatalf("expected 2 items, got %d", len(result))
+		}
+		if result[0].Score != 0.9 {
+			t.Errorf("expected first score 0.9, got %f", result[0].Score)
+		}
+		if result[1].Score != 0.5 {
+			t.Errorf("expected second score 0.5, got %f", result[1].Score)
+		}
+	})
+}
+
+func TestTopKIndicesByScore(t *testing.T) {
+	t.Run("basic indices", func(t *testing.T) {
+		scores := []float64{0.3, 0.9, 0.5, 0.1, 0.7}
+
+		result := TopKIndicesByScore(scores, 3)
+		if len(result) != 3 {
+			t.Fatalf("expected 3 indices, got %d", len(result))
+		}
+
+		// Index 1 has score 0.9 (highest)
+		// Index 4 has score 0.7 (second)
+		// Index 2 has score 0.5 (third)
+		if result[0] != 1 {
+			t.Errorf("expected first index 1, got %d", result[0])
+		}
+		if result[1] != 4 {
+			t.Errorf("expected second index 4, got %d", result[1])
+		}
+		if result[2] != 2 {
+			t.Errorf("expected third index 2, got %d", result[2])
+		}
+	})
+
+	t.Run("empty scores", func(t *testing.T) {
+		result := TopKIndicesByScore([]float64{}, 5)
+		if result != nil {
+			t.Errorf("expected nil, got %v", result)
+		}
+	})
+
+	t.Run("k zero", func(t *testing.T) {
+		result := TopKIndicesByScore([]float64{0.5, 0.3}, 0)
+		if result != nil {
+			t.Errorf("expected nil, got %v", result)
+		}
+	})
+}
+
+func BenchmarkTopKByScore(b *testing.B) {
+	// Simulate 10,000 items (typical for in-memory search)
+	items := make([]ScoredItem[int], 10000)
+	for i := range items {
+		items[i] = ScoredItem[int]{
+			Item:  i,
+			Score: float64(i%1000) / 1000.0,
+		}
+	}
+
+	b.Run("k=10", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			TopKByScore(items, 10)
+		}
+	})
+
+	b.Run("k=100", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			TopKByScore(items, 100)
+		}
+	})
+
+	b.Run("k=1000", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			TopKByScore(items, 1000)
+		}
+	})
+}

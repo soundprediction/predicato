@@ -8,7 +8,10 @@ import (
 	"github.com/soundprediction/predicato/pkg/types"
 )
 
-// GraphProvider represents the type of graph database provider
+// GraphProvider represents the type of graph database provider.
+// Note: This type is intentionally duplicated from pkg/types.GraphProvider for package isolation.
+// The canonical definition is in pkg/types/edge.go. Both types should be kept in sync.
+// A conversion function is provided in predicato.go for interoperability.
 type GraphProvider string
 
 const (

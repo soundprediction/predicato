@@ -94,6 +94,11 @@ type Searcher struct {
 	crossEncoder crossencoder.Client
 }
 
+// NewSearcher creates a new Searcher instance.
+// Note: While Searcher primarily uses search methods, it also uses graph traversal
+// for BFS-based search expansion, which requires the full GraphDriver interface.
+// For search-only use cases, consider using the driver's search methods directly
+// via the driver.GraphSearcher interface.
 func NewSearcher(driver driver.GraphDriver, embedder embedder.Client, nlProcessor nlp.Client) *Searcher {
 	return &Searcher{
 		driver:       driver,

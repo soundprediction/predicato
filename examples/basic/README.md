@@ -1,108 +1,61 @@
-# Basic Predicato Example (Internal Services Stack)
+# Basic Example - Internal Services Stack
 
-This example demonstrates using predicato with **only internal services** - no external APIs or servers required!
+This example demonstrates Predicato's fully local setup using only internal services - **no API keys or external services required**.
 
-## Internal Services Stack
+## What This Example Shows
 
-| Component | Service | Model |
-|-----------|---------|-------|
-| **Database** | Ladybug | Embedded graph database |
-| **Embeddings** | go-embedeverything | `qwen/qwen3-embedding-0.6b` |
-| **Reranking** | go-embedeverything | `zhiqing/Qwen3-Reranker-0.6B-ONNX` |
-| **Text Generation** | go-rust-bert | GPT-2 |
-
-## Features
-
-This example shows how to:
-- Create and configure a Predicato client using only internal services
-- Use Ladybug embedded database (no external database server)
-- Use go-rust-bert GPT-2 for text generation (no external LLM API)
-- Use go-embedeverything with qwen3-embedding for embeddings (no external API)
-- Use go-embedeverything with qwen3-reranker for reranking search results
-- Add episodes (data) to the knowledge graph
-- Search and rerank results from the knowledge graph
-
-**No API keys or external services required!**
+- Creating a Predicato client with the internal services stack
+- Using Ladybug embedded database (no server required)
+- Using RustBert GPT-2 for text generation (local, no API)
+- Using EmbedEverything for embeddings (qwen/qwen3-embedding-0.6b)
+- Using EmbedEverything for reranking (zhiqing/Qwen3-Reranker-0.6B-ONNX)
+- Adding episodes to the knowledge graph
+- Searching and reranking results
 
 ## Prerequisites
 
-### Required
-- Go 1.21 or later
-- CGO enabled (required for Rust FFI bindings)
-- ~4GB RAM minimum
+- **Go 1.21+**
+- **GCC** (for CGO compilation)
+- **~4GB RAM** minimum (for loading ML models)
+- **~2GB disk space** (for model downloads)
 
-### CGO Setup
+No API keys needed!
 
-CGO is required for the Rust-based ML libraries. Ensure you have:
+## Model Downloads
 
-**macOS:**
+First run will automatically download models to `~/.cache/huggingface/`:
+
+| Component | Model | Size |
+|-----------|-------|------|
+| Embeddings | qwen/qwen3-embedding-0.6b | ~600MB |
+| Reranking | zhiqing/Qwen3-Reranker-0.6B-ONNX | ~600MB |
+| Text Generation | GPT-2 | ~500MB |
+
+## Build & Run
+
 ```bash
-# Xcode command line tools (includes clang)
-xcode-select --install
+# From the repository root
+cd examples/basic
+
+# Download native library (first time only)
+go generate
+
+# Build
+go build -o basic_example .
+
+# Run
+./basic_example
 ```
 
-**Linux (Ubuntu/Debian):**
+Or use Make from the repository root:
+
 ```bash
-sudo apt-get install build-essential
+make build
+cd examples/basic
+go run .
 ```
 
-**Linux (Fedora/RHEL):**
-```bash
-sudo dnf install gcc gcc-c++
-```
-
-**Windows:**
-Install MinGW-w64 or use WSL2 with Linux instructions.
-
-### Verify CGO is enabled
-```bash
-go env CGO_ENABLED
-# Should output: 1
-```
-
-If CGO is disabled, enable it:
-```bash
-export CGO_ENABLED=1
-```
-
-## First Run - Model Downloads
-
-On first run, the example will automatically download the required models:
-
-| Model | Size | Purpose |
-|-------|------|---------|
-| `qwen/qwen3-embedding-0.6b` | ~600MB | Text embeddings |
-| `zhiqing/Qwen3-Reranker-0.6B-ONNX` | ~600MB | Result reranking |
-| GPT-2 | ~500MB | Text generation |
-
-**Total: ~1.7GB**
-
-Models are cached in `~/.cache/huggingface/` after the first download.
-
-## Usage
-
-1. Navigate to the example directory:
-   ```bash
-   cd examples/basic
-   ```
-
-2. Download the Ladybug native library (first time only):
-   ```bash
-   go generate ./...
-   ```
-
-3. Run the example:
-   ```bash
-   go run .
-   ```
-
-4. Or build and run:
-   ```bash
-   go build -o basic_example .
-   ./basic_example
-   ```
-
-## Example Output
+## Expected Output
 
 ```
 ================================================================================
@@ -122,9 +75,9 @@ No API keys or external services needed!
 [2/5] Setting up RustBert GPT-2 for text generation...
       RustBert GPT-2 text generation model loaded
 [3/5] Setting up EmbedEverything embedder with qwen/qwen3-embedding-0.6b...
-      EmbedEverything embedder created (model: qwen/qwen3-embedding-0.6b)
+      EmbedEverything embedder created
 [4/5] Setting up EmbedEverything reranker with zhiqing/Qwen3-Reranker-0.6B-ONNX...
-      EmbedEverything reranker created (model: zhiqing/Qwen3-Reranker-0.6B-ONNX)
+      EmbedEverything reranker created
 [5/5] Creating Predicato client...
       Predicato client created (group: example-group)
 
@@ -136,84 +89,68 @@ Adding sample episodes to the knowledge graph...
 Added 3 episodes to the knowledge graph
 
 Searching the knowledge graph for: "API design and deadlines"
-Found 5 nodes and 3 edges
+Found 3 nodes and 5 edges
 
 Search results (before reranking):
 ----------------------------------
-  1. Meeting with Alice (episode)
+  1. Meeting with Alice (episodic)
      Had a productive meeting with Alice about the new project...
-  2. Project Research (episode)
+  2. Project Research (episodic)
      Researched various approaches for implementing the API...
 
 Reranking results with zhiqing/Qwen3-Reranker-0.6B-ONNX...
 
 Search results (after reranking):
 ---------------------------------
-  1. (score: 0.892) Had a productive meeting with Alice about the deadline...
+  1. (score: 0.892) Had a productive meeting with Alice about the new project...
   2. (score: 0.756) Researched various approaches for implementing the API...
 
 Demonstrating text generation with RustBert GPT-2...
 Prompt: The advantages of using a knowledge graph are
-Generated: The advantages of using a knowledge graph are numerous and...
+Generated: that it can be used to represent the relationships between...
 
 ================================================================================
 Example completed successfully!
 ================================================================================
-
-Summary:
-  - Used Ladybug embedded database (no Neo4j server)
-  - Used RustBert GPT-2 for text generation (no OpenAI API)
-  - Used qwen/qwen3-embedding-0.6b for embeddings (no API)
-  - Used zhiqing/Qwen3-Reranker-0.6B-ONNX for reranking (no API)
-
-For external API examples, see: examples/external_apis/
 ```
+
+## Files Created
+
+After running, you'll see:
+- `./example_graph.db` - Ladybug database directory
 
 ## Troubleshooting
 
-### CGO not enabled
-```
-# Error: undefined: embedder.NewEmbedEverythingClient
-export CGO_ENABLED=1
-go run .
+### "cannot find -llbug"
+
+The Ladybug native library hasn't been downloaded:
+
+```bash
+go generate
 ```
 
-### Model download fails
-```
-# Check internet connection and retry
-# Models are downloaded from Hugging Face Hub
+### CGO errors
 
-# If behind a proxy:
-export HTTP_PROXY=http://proxy:port
-export HTTPS_PROXY=http://proxy:port
+Ensure GCC is installed:
+
+```bash
+# Ubuntu/Debian
+sudo apt install build-essential
+
+# macOS
+xcode-select --install
 ```
 
 ### Out of memory
-```
-# The example requires ~4GB RAM
-# Close other applications or use a machine with more memory
 
-# Alternatively, use the external_apis example which offloads
-# ML to cloud services
-```
+The example requires ~4GB RAM. Close other applications or try a machine with more memory.
 
-### Slow first run
-First run downloads ~1.7GB of models. Subsequent runs use cached models and start much faster.
+### Model download fails
 
-## What This Example Demonstrates
+Check your internet connection and disk space. Models download to `~/.cache/huggingface/`.
 
-1. **Zero External Dependencies**: No API keys, no database servers, no cloud services
-2. **Embedded Database**: Ladybug stores the knowledge graph locally
-3. **Local ML**: All embeddings, reranking, and text generation run locally
-4. **Privacy**: All data stays on your machine
-5. **Reranking**: Demonstrates how reranking improves search result relevance
+## Next Steps
 
-## Alternative: External APIs
-
-For production deployments or if you prefer cloud services, see:
-- `examples/external_apis/` - Uses Neo4j and OpenAI
-
-## Related Examples
-
-- **[External APIs Example](../external_apis/)**: Neo4j + OpenAI setup
-- **[Chat Example](../chat/)**: Interactive chat with internal services
+- See `examples/chat/` for an interactive chat application
+- See `examples/external_apis/` for using cloud services (OpenAI, Neo4j)
+- Read the [Getting Started Guide](../../docs/GETTING_STARTED.md)

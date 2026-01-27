@@ -1,3 +1,5 @@
+//go:build cgo
+
 package driver
 
 import (
@@ -893,11 +895,36 @@ func (k *LadybugDriver) GetNodes(ctx context.Context, nodeIDs []string, groupID 
 		return []*types.Node{}, nil
 	}
 
-	var nodes []*types.Node
-	for _, nodeID := range nodeIDs {
-		node, err := k.GetNode(ctx, nodeID, groupID)
-		if err == nil {
-			nodes = append(nodes, node)
+	// Pre-allocate result slice for performance
+	nodes := make([]*types.Node, 0, len(nodeIDs))
+
+	// Batch query across all node table types
+	tables := []string{"Entity", "Episodic", "Community", "RelatesToNode_"}
+
+	for _, table := range tables {
+		query := fmt.Sprintf(`
+			MATCH (n:%s)
+			WHERE n.uuid IN $uuids AND n.group_id = $group_id
+			RETURN n.*
+		`, table)
+
+		params := map[string]interface{}{
+			"uuids":    nodeIDs,
+			"group_id": groupID,
+		}
+
+		result, _, _, err := k.ExecuteQuery(query, params)
+		if err != nil {
+			continue
+		}
+
+		if resultList, ok := result.([]map[string]interface{}); ok {
+			for _, record := range resultList {
+				node, err := k.mapToNode(record, table)
+				if err == nil {
+					nodes = append(nodes, node)
+				}
+			}
 		}
 	}
 
@@ -1224,11 +1251,32 @@ func (k *LadybugDriver) GetEdges(ctx context.Context, edgeIDs []string, groupID 
 		return []*types.Edge{}, nil
 	}
 
-	var edges []*types.Edge
-	for _, edgeID := range edgeIDs {
-		edge, err := k.GetEdge(ctx, edgeID, groupID)
-		if err == nil {
-			edges = append(edges, edge)
+	// Batch query using the RelatesToNode_ pattern
+	query := `
+		MATCH (a:Entity)-[:RELATES_TO]->(rel:RelatesToNode_)-[:RELATES_TO]->(b:Entity)
+		WHERE rel.uuid IN $uuids AND rel.group_id = $group_id
+		RETURN rel.uuid as uuid, rel.name as name, rel.fact as fact, rel.group_id as group_id, a.uuid AS source_id, b.uuid AS target_id
+	`
+
+	params := map[string]interface{}{
+		"uuids":    edgeIDs,
+		"group_id": groupID,
+	}
+
+	result, _, _, err := k.ExecuteQuery(query, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query edges: %w", err)
+	}
+
+	// Pre-allocate result slice for performance
+	edges := make([]*types.Edge, 0, len(edgeIDs))
+
+	if resultList, ok := result.([]map[string]interface{}); ok {
+		for _, record := range resultList {
+			edge, err := k.mapToEdge(record)
+			if err == nil {
+				edges = append(edges, edge)
+			}
 		}
 	}
 

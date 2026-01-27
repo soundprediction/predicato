@@ -1,7 +1,10 @@
 // Package utils provides common utility functions for the predicato project.
 package utils
 
-import "math"
+import (
+	"container/heap"
+	"math"
+)
 
 // CosineSimilarity calculates the cosine similarity between two float32 vectors.
 // Returns 0 if vectors have different lengths, are empty, or either has zero magnitude.
@@ -112,4 +115,100 @@ func Normalize(v []float32) []float32 {
 		result[i] = float32(float64(x) / mag)
 	}
 	return result
+}
+
+// ScoredItem represents an item with a score for top-K selection.
+type ScoredItem[T any] struct {
+	Item  T
+	Score float64
+}
+
+// minHeap implements a min-heap for ScoredItem.
+// We use a min-heap to efficiently maintain top-K highest scores:
+// the smallest score in the heap is always at the root, making it
+// easy to decide if a new item should replace it.
+type minHeap[T any] []ScoredItem[T]
+
+func (h minHeap[T]) Len() int           { return len(h) }
+func (h minHeap[T]) Less(i, j int) bool { return h[i].Score < h[j].Score } // min-heap
+func (h minHeap[T]) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+
+func (h *minHeap[T]) Push(x any) {
+	*h = append(*h, x.(ScoredItem[T]))
+}
+
+func (h *minHeap[T]) Pop() any {
+	old := *h
+	n := len(old)
+	x := old[n-1]
+	*h = old[0 : n-1]
+	return x
+}
+
+// TopKByScore returns the top K items with the highest scores using a heap.
+// This is O(n log k) which is more efficient than sorting O(n log n) when k << n.
+// The returned slice is sorted in descending order by score.
+func TopKByScore[T any](items []ScoredItem[T], k int) []ScoredItem[T] {
+	if k <= 0 || len(items) == 0 {
+		return nil
+	}
+
+	if k >= len(items) {
+		// If k >= n, just sort and return all
+		result := make([]ScoredItem[T], len(items))
+		copy(result, items)
+		// Sort descending by score
+		for i := 0; i < len(result)-1; i++ {
+			for j := i + 1; j < len(result); j++ {
+				if result[j].Score > result[i].Score {
+					result[i], result[j] = result[j], result[i]
+				}
+			}
+		}
+		return result
+	}
+
+	// Use a min-heap of size k to track the top k items
+	h := make(minHeap[T], 0, k)
+	heap.Init(&h)
+
+	for _, item := range items {
+		if h.Len() < k {
+			heap.Push(&h, item)
+		} else if item.Score > h[0].Score {
+			// Replace the smallest item in heap if current item has higher score
+			heap.Pop(&h)
+			heap.Push(&h, item)
+		}
+	}
+
+	// Extract items from heap and reverse to get descending order
+	result := make([]ScoredItem[T], h.Len())
+	for i := len(result) - 1; i >= 0; i-- {
+		result[i] = heap.Pop(&h).(ScoredItem[T])
+	}
+
+	return result
+}
+
+// TopKIndicesByScore returns the indices of the top K items with the highest scores.
+// Useful when you need to reference back to the original slice.
+// Returns indices in descending order by score.
+func TopKIndicesByScore(scores []float64, k int) []int {
+	if k <= 0 || len(scores) == 0 {
+		return nil
+	}
+
+	// Create scored items with indices
+	items := make([]ScoredItem[int], len(scores))
+	for i, score := range scores {
+		items[i] = ScoredItem[int]{Item: i, Score: score}
+	}
+
+	topK := TopKByScore(items, k)
+	indices := make([]int, len(topK))
+	for i, item := range topK {
+		indices[i] = item.Item
+	}
+	return indices
 }

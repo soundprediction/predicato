@@ -26,8 +26,15 @@ type Builder struct {
 	embedder    embedder.Client
 }
 
-// NewBuilder creates a new community builder
-func NewBuilder(driver driver.GraphDriver, nlProcessor nlp.Client, summarizerClient nlp.Client, embedderClient embedder.Client) *Builder {
+// NewBuilder creates a new community builder.
+// Returns an error if driver is nil, as it is required for community operations.
+// If nlProcessor is nil, community building will fail when trying to generate summaries.
+// If summarizerClient is nil, nlProcessor will be used for summarization.
+// If embedderClient is nil, community embeddings will not be generated.
+func NewBuilder(driver driver.GraphDriver, nlProcessor nlp.Client, summarizerClient nlp.Client, embedderClient embedder.Client) (*Builder, error) {
+	if driver == nil {
+		return nil, fmt.Errorf("driver cannot be nil")
+	}
 	// Fallback to main LLM if summarizer is nil
 	if summarizerClient == nil {
 		summarizerClient = nlProcessor
@@ -37,7 +44,7 @@ func NewBuilder(driver driver.GraphDriver, nlProcessor nlp.Client, summarizerCli
 		nlProcessor: nlProcessor,
 		summarizer:  summarizerClient,
 		embedder:    embedderClient,
-	}
+	}, nil
 }
 
 // BuildCommunitiesResult represents the result of community building
@@ -114,6 +121,15 @@ func (b *Builder) BuildCommunities(ctx context.Context, groupIDs []string, logge
 		wg.Add(1)
 		go func(cluster []*types.Node) {
 			defer wg.Done()
+
+			// Recover from any panics in the goroutine
+			defer func() {
+				if r := recover(); r != nil {
+					mu.Lock()
+					buildErrors = append(buildErrors, fmt.Errorf("panic in community building: %v", r))
+					mu.Unlock()
+				}
+			}()
 
 			// Acquire semaphore
 			semaphore <- struct{}{}

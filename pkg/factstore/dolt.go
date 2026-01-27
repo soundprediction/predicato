@@ -14,22 +14,62 @@ import (
 )
 
 // DoltDB implements FactsDB using a Dolt SQL database.
-// Deprecated: Use PostgresDB with DoltGres for better search capabilities including pgvector.
+// Deprecated: Use PostgresDB with DoltGres for better search capabilities including VectorChord.
 // DoltDB is maintained for backward compatibility but uses in-memory vector search.
 type DoltDB struct {
 	db *sql.DB
+}
+
+// DoltDBConfig holds configuration options for DoltDB connection pool.
+type DoltDBConfig struct {
+	// MaxOpenConns is the maximum number of open connections to the database.
+	// Default: 25
+	MaxOpenConns int
+
+	// MaxIdleConns is the maximum number of connections in the idle connection pool.
+	// Default: 5
+	MaxIdleConns int
+
+	// ConnMaxLifetime is the maximum amount of time a connection may be reused.
+	// Default: 5 minutes
+	ConnMaxLifetime time.Duration
+}
+
+// DefaultDoltDBConfig returns the default DoltDB configuration.
+func DefaultDoltDBConfig() *DoltDBConfig {
+	return &DoltDBConfig{
+		MaxOpenConns:    25,
+		MaxIdleConns:    5,
+		ConnMaxLifetime: 5 * time.Minute,
+	}
 }
 
 // NewDoltDB creates a new DoltDB instance.
 // Deprecated: Use NewPostgresDB with DoltGres for better search capabilities.
 // connectionString should be a valid Dolt DSN, e.g., "file:///path/to/databases?commitname=User&commitemail=user@example.com&database=mydb"
 func NewDoltDB(connectionString string) (*DoltDB, error) {
-	fmt.Println("Warning: DoltDB is deprecated. Consider using PostgresDB with DoltGres for pgvector support.")
+	return NewDoltDBWithConfig(connectionString, nil)
+}
+
+// NewDoltDBWithConfig creates a new DoltDB instance with custom configuration.
+// Deprecated: Use NewPostgresDB with DoltGres for better search capabilities.
+// If config is nil, default configuration values are used.
+func NewDoltDBWithConfig(connectionString string, config *DoltDBConfig) (*DoltDB, error) {
+	fmt.Println("Warning: DoltDB is deprecated. Consider using PostgresDB with DoltGres for VectorChord support.")
+
+	if config == nil {
+		config = DefaultDoltDBConfig()
+	}
 
 	db, err := sql.Open("dolt", connectionString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database connection: %w", err)
 	}
+
+	// Configure connection pool
+	db.SetMaxOpenConns(config.MaxOpenConns)
+	db.SetMaxIdleConns(config.MaxIdleConns)
+	db.SetConnMaxLifetime(config.ConnMaxLifetime)
 
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
@@ -391,8 +431,8 @@ func (d *DoltDB) Close() error {
 }
 
 // --- Search Methods (In-memory implementation for DoltDB) ---
-// Note: These methods use in-memory search since Dolt doesn't have pgvector.
-// For production use with large datasets, migrate to PostgresDB/DoltGres with pgvector.
+// Note: These methods use in-memory search since Dolt doesn't have VectorChord.
+// For production use with large datasets, migrate to PostgresDB/DoltGres with VectorChord.
 
 func (d *DoltDB) SearchNodes(ctx context.Context, query string, embedding []float32, config *FactSearchConfig) ([]*ExtractedNode, []float64, error) {
 	if config == nil {
