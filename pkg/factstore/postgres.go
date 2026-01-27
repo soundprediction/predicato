@@ -1097,13 +1097,9 @@ func (p *PostgresDB) inMemoryVectorSearchEdges(ctx context.Context, embedding []
 	}
 
 	// Sort by score descending
-	for i := 0; i < len(candidates)-1; i++ {
-		for j := i + 1; j < len(candidates); j++ {
-			if candidates[j].score > candidates[i].score {
-				candidates[i], candidates[j] = candidates[j], candidates[i]
-			}
-		}
-	}
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].score > candidates[j].score
+	})
 
 	var edges []*ExtractedEdge
 	var scores []float64
@@ -1226,13 +1222,9 @@ func (p *PostgresDB) rrfMergeNodes(vectorNodes []*ExtractedNode, vectorScores []
 	}
 
 	// Sort descending
-	for i := 0; i < len(scored)-1; i++ {
-		for j := i + 1; j < len(scored); j++ {
-			if scored[j].score > scored[i].score {
-				scored[i], scored[j] = scored[j], scored[i]
-			}
-		}
-	}
+	sort.Slice(scored, func(i, j int) bool {
+		return scored[i].score > scored[j].score
+	})
 
 	// Extract results
 	var nodes []*ExtractedNode
@@ -1277,13 +1269,9 @@ func (p *PostgresDB) rrfMergeEdges(vectorEdges []*ExtractedEdge, vectorScores []
 		}
 	}
 
-	for i := 0; i < len(scored)-1; i++ {
-		for j := i + 1; j < len(scored); j++ {
-			if scored[j].score > scored[i].score {
-				scored[i], scored[j] = scored[j], scored[i]
-			}
-		}
-	}
+	sort.Slice(scored, func(i, j int) bool {
+		return scored[i].score > scored[j].score
+	})
 
 	var edges []*ExtractedEdge
 	var scores []float64
