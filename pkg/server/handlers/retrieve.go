@@ -2,11 +2,12 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
 
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
 	"github.com/soundprediction/predicato"
 	"github.com/soundprediction/predicato/pkg/server/dto"
 	"github.com/soundprediction/predicato/pkg/types"
@@ -25,22 +26,16 @@ func NewRetrieveHandler(g predicato.Predicato) *RetrieveHandler {
 }
 
 // Search handles POST /search
-func (h *RetrieveHandler) Search(c *gin.Context) {
+func (h *RetrieveHandler) Search(w http.ResponseWriter, r *http.Request) {
 	var req dto.SearchQuery
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "invalid_request",
-			Message: err.Error(),
-		})
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
 
 	// Validate required fields
 	if strings.TrimSpace(req.Query) == "" {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "invalid_request",
-			Message: "query field is required and cannot be empty",
-		})
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_request", "query field is required and cannot be empty")
 		return
 	}
 
@@ -64,10 +59,7 @@ func (h *RetrieveHandler) Search(c *gin.Context) {
 	// For now, we use the global search
 	searchResults, err := h.predicato.Search(ctx, req.Query, searchConfig)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error:   "search_failed",
-			Message: err.Error(),
-		})
+		writeErrorJSON(w, http.StatusInternalServerError, "search_failed", err.Error())
 		return
 	}
 
@@ -118,17 +110,14 @@ func (h *RetrieveHandler) Search(c *gin.Context) {
 		Total: len(facts),
 	}
 
-	c.JSON(http.StatusOK, results)
+	writeJSON(w, http.StatusOK, results)
 }
 
-// GetEntityEdge handles GET /entity-edge/:uuid
-func (h *RetrieveHandler) GetEntityEdge(c *gin.Context) {
-	uuid := c.Param("uuid")
+// GetEntityEdge handles GET /entity-edge/{uuid}
+func (h *RetrieveHandler) GetEntityEdge(w http.ResponseWriter, r *http.Request) {
+	uuid := chi.URLParam(r, "uuid")
 	if uuid == "" {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "invalid_request",
-			Message: "UUID parameter is required",
-		})
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_request", "UUID parameter is required")
 		return
 	}
 
@@ -140,10 +129,7 @@ func (h *RetrieveHandler) GetEntityEdge(c *gin.Context) {
 		// If edge not found, try as a node
 		node, nodeErr := h.predicato.GetNode(ctx, uuid)
 		if nodeErr != nil {
-			c.JSON(http.StatusNotFound, dto.ErrorResponse{
-				Error:   "entity_not_found",
-				Message: "Entity with the specified UUID was not found",
-			})
+			writeErrorJSON(w, http.StatusNotFound, "entity_not_found", "Entity with the specified UUID was not found")
 			return
 		}
 
@@ -162,7 +148,7 @@ func (h *RetrieveHandler) GetEntityEdge(c *gin.Context) {
 			fact.InvalidAt = node.ValidTo
 		}
 
-		c.JSON(http.StatusOK, fact)
+		writeJSON(w, http.StatusOK, fact)
 		return
 	}
 
@@ -181,28 +167,25 @@ func (h *RetrieveHandler) GetEntityEdge(c *gin.Context) {
 		fact.InvalidAt = edge.ValidTo
 	}
 
-	c.JSON(http.StatusOK, fact)
+	writeJSON(w, http.StatusOK, fact)
 }
 
-// GetEpisodes handles GET /episodes/:group_id
-func (h *RetrieveHandler) GetEpisodes(c *gin.Context) {
-	groupID := c.Param("group_id")
+// GetEpisodes handles GET /episodes/{group_id}
+func (h *RetrieveHandler) GetEpisodes(w http.ResponseWriter, r *http.Request) {
+	groupID := chi.URLParam(r, "group_id")
 	if groupID == "" {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "invalid_request",
-			Message: "Group ID parameter is required",
-		})
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_request", "Group ID parameter is required")
 		return
 	}
 
 	// Parse query parameters
-	lastNStr := c.DefaultQuery("last_n", "10")
+	lastNStr := r.URL.Query().Get("last_n")
+	if lastNStr == "" {
+		lastNStr = "10"
+	}
 	lastN, err := strconv.Atoi(lastNStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "invalid_request",
-			Message: "last_n must be a valid integer",
-		})
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_request", "last_n must be a valid integer")
 		return
 	}
 
@@ -219,10 +202,7 @@ func (h *RetrieveHandler) GetEpisodes(c *gin.Context) {
 	// Retrieve episodes from predicato
 	episodeNodes, err := h.predicato.GetEpisodes(ctx, groupID, lastN)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error:   "retrieval_failed",
-			Message: err.Error(),
-		})
+		writeErrorJSON(w, http.StatusInternalServerError, "retrieval_failed", err.Error())
 		return
 	}
 
@@ -251,26 +231,20 @@ func (h *RetrieveHandler) GetEpisodes(c *gin.Context) {
 		Total:    len(episodes),
 	}
 
-	c.JSON(http.StatusOK, response)
+	writeJSON(w, http.StatusOK, response)
 }
 
 // GetMemory handles POST /get-memory
-func (h *RetrieveHandler) GetMemory(c *gin.Context) {
+func (h *RetrieveHandler) GetMemory(w http.ResponseWriter, r *http.Request) {
 	var req dto.GetMemoryRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "invalid_request",
-			Message: err.Error(),
-		})
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
 
 	// Validate required fields
 	if len(req.Messages) == 0 {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "invalid_request",
-			Message: "messages array is required and cannot be empty",
-		})
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_request", "messages array is required and cannot be empty")
 		return
 	}
 
@@ -290,10 +264,7 @@ func (h *RetrieveHandler) GetMemory(c *gin.Context) {
 	}
 
 	if len(queryParts) == 0 {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "invalid_request",
-			Message: "at least one message must have non-empty content",
-		})
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_request", "at least one message must have non-empty content")
 		return
 	}
 
@@ -310,10 +281,7 @@ func (h *RetrieveHandler) GetMemory(c *gin.Context) {
 	// Perform search using the combined query
 	searchResults, err := h.predicato.Search(ctx, combinedQuery, searchConfig)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error:   "memory_retrieval_failed",
-			Message: err.Error(),
-		})
+		writeErrorJSON(w, http.StatusInternalServerError, "memory_retrieval_failed", err.Error())
 		return
 	}
 
@@ -365,7 +333,7 @@ func (h *RetrieveHandler) GetMemory(c *gin.Context) {
 		Total: len(facts),
 	}
 
-	c.JSON(http.StatusOK, results)
+	writeJSON(w, http.StatusOK, results)
 }
 
 // Helper methods for converting graph entities to fact descriptions

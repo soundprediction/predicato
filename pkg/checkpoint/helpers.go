@@ -13,15 +13,15 @@ import (
 func NewCheckpoint(episode types.Episode, options *AddEpisodeOptions, maxCharacters int) *EpisodeCheckpoint {
 	now := time.Now()
 	return &EpisodeCheckpoint{
-		EpisodeID:      episode.ID,
-		GroupID:        episode.GroupID,
-		Step:           StepInitial,
-		CreatedAt:      now,
-		LastUpdatedAt:  now,
-		AttemptCount:   0,
-		Episode:        episode,
-		Options:        options,
-		MaxCharacters:  maxCharacters,
+		EpisodeID:     episode.ID,
+		GroupID:       episode.GroupID,
+		Step:          StepInitial,
+		CreatedAt:     now,
+		LastUpdatedAt: now,
+		AttemptCount:  0,
+		Episode:       episode,
+		Options:       options,
+		MaxCharacters: maxCharacters,
 	}
 }
 

@@ -3,9 +3,12 @@ package server
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
+	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/soundprediction/predicato"
 	"github.com/soundprediction/predicato/pkg/config"
 	"github.com/soundprediction/predicato/pkg/server/handlers"
@@ -14,33 +17,33 @@ import (
 
 // Server represents the HTTP server
 type Server struct {
-	config   *config.Config
-	router   *gin.Engine
+	config    *config.Config
+	router    *chi.Mux
 	predicato predicato.Predicato
-	server   *http.Server
+	server    *http.Server
 }
 
 // New creates a new server instance
 func New(cfg *config.Config, predicatoClient predicato.Predicato) *Server {
 	return &Server{
-		config:   cfg,
+		config:    cfg,
 		predicato: predicatoClient,
 	}
 }
 
 // Setup sets up the server routes and middleware
 func (s *Server) Setup() {
-	// Set gin mode
-	gin.SetMode(s.config.Server.Mode)
-
 	// Create router
-	s.router = gin.New()
+	s.router = chi.NewRouter()
 
 	// Add middleware
-	s.router.Use(gin.Logger())
-	s.router.Use(gin.Recovery())
-	s.router.Use(corsMiddleware())
-	s.router.Use(contextMiddleware())
+	s.router.Use(middleware.RequestID)
+	s.router.Use(middleware.RealIP)
+	s.router.Use(middleware.Logger)
+	s.router.Use(middleware.Recoverer)
+	s.router.Use(middleware.Timeout(60 * time.Second))
+	s.router.Use(corsMiddleware)
+	s.router.Use(contextMiddleware)
 
 	// Setup routes
 	s.setupRoutes()
@@ -61,84 +64,81 @@ func (s *Server) setupRoutes() {
 	retrieveHandler := handlers.NewRetrieveHandler(s.predicato)
 
 	// Health endpoints
-	s.router.GET("/health", healthHandler.HealthCheck)
-	s.router.GET("/healthcheck", healthHandler.HealthCheck) // Legacy endpoint
-	s.router.GET("/ready", healthHandler.ReadinessCheck)
-	s.router.GET("/live", healthHandler.LivenessCheck) // Kubernetes liveness probe
-	s.router.GET("/health/detailed", healthHandler.DetailedHealthCheck)
+	s.router.Get("/health", healthHandler.HealthCheck)
+	s.router.Get("/healthcheck", healthHandler.HealthCheck) // Legacy endpoint
+	s.router.Get("/ready", healthHandler.ReadinessCheck)
+	s.router.Get("/live", healthHandler.LivenessCheck) // Kubernetes liveness probe
+	s.router.Get("/health/detailed", healthHandler.DetailedHealthCheck)
 
 	// API v1 routes
-	v1 := s.router.Group("/api/v1")
-	{
+	s.router.Route("/api/v1", func(r chi.Router) {
 		// Ingest routes
-		ingest := v1.Group("/ingest")
-		{
-			ingest.POST("/messages", ingestHandler.AddMessages)
-			ingest.POST("/entity", ingestHandler.AddEntityNode)
-			ingest.DELETE("/clear", ingestHandler.ClearData)
-		}
+		r.Route("/ingest", func(r chi.Router) {
+			r.Post("/messages", ingestHandler.AddMessages)
+			r.Post("/entity", ingestHandler.AddEntityNode)
+			r.Delete("/clear", ingestHandler.ClearData)
+		})
 
 		// Retrieve routes
-		v1.POST("/search", retrieveHandler.Search)
-		v1.GET("/entity-edge/:uuid", retrieveHandler.GetEntityEdge)
-		v1.GET("/episodes/:group_id", retrieveHandler.GetEpisodes)
-		v1.POST("/get-memory", retrieveHandler.GetMemory)
-	}
+		r.Post("/search", retrieveHandler.Search)
+		r.Get("/entity-edge/{uuid}", retrieveHandler.GetEntityEdge)
+		r.Get("/episodes/{group_id}", retrieveHandler.GetEpisodes)
+		r.Post("/get-memory", retrieveHandler.GetMemory)
+	})
 
 	// Legacy routes for compatibility with Python server
-	s.router.POST("/search", retrieveHandler.Search)
-	s.router.GET("/entity-edge/:uuid", retrieveHandler.GetEntityEdge)
-	s.router.GET("/episodes/:group_id", retrieveHandler.GetEpisodes)
-	s.router.POST("/get-memory", retrieveHandler.GetMemory)
+	s.router.Post("/search", retrieveHandler.Search)
+	s.router.Get("/entity-edge/{uuid}", retrieveHandler.GetEntityEdge)
+	s.router.Get("/episodes/{group_id}", retrieveHandler.GetEpisodes)
+	s.router.Post("/get-memory", retrieveHandler.GetMemory)
 }
 
 // Start starts the server
 func (s *Server) Start() error {
-	fmt.Printf("Starting server on %s\n", s.server.Addr)
+	log.Printf("Starting server on %s\n", s.server.Addr)
 	return s.server.ListenAndServe()
 }
 
 // Stop stops the server gracefully
 func (s *Server) Stop(ctx context.Context) error {
-	fmt.Println("Stopping server...")
+	log.Println("Stopping server...")
 	return s.server.Shutdown(ctx)
 }
 
 // corsMiddleware adds CORS headers
-func corsMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Credentials", "true")
-		c.Header("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-		c.Header("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
 
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 
-		c.Next()
-	}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // contextMiddleware extracts context information from headers
-func contextMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		ctx := c.Request.Context()
+func contextMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 
-		userID := c.GetHeader("X-User-ID")
+		userID := r.Header.Get("X-User-ID")
 		if userID != "" {
 			ctx = context.WithValue(ctx, types.ContextKeyUserID, userID)
 		}
 
-		sessionID := c.GetHeader("X-Session-ID")
+		sessionID := r.Header.Get("X-Session-ID")
 		if sessionID != "" {
 			ctx = context.WithValue(ctx, types.ContextKeySessionID, sessionID)
 		}
 
 		ctx = context.WithValue(ctx, types.ContextKeyRequestSource, "server")
 
-		c.Request = c.Request.WithContext(ctx)
-		c.Next()
-	}
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }

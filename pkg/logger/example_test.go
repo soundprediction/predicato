@@ -13,9 +13,9 @@ func ExampleNewDefaultLogger() {
 	// Log different levels
 	log.Debug("This is a debug message")
 	log.Info("This is an info message")
-	log.Info("Persisting nodes to database")    // Will be green in terminal
-	log.Warn("This is a warning message")        // Will be yellow in terminal
-	log.Error("This is an error message")        // Will be red in terminal
+	log.Info("Persisting nodes to database") // Will be green in terminal
+	log.Warn("This is a warning message")    // Will be yellow in terminal
+	log.Error("This is an error message")    // Will be red in terminal
 }
 
 func ExampleNewLogger() {
@@ -24,7 +24,7 @@ func ExampleNewLogger() {
 
 	// Log with attributes
 	log.Info("Processing request", "user_id", "12345", "action", "create")
-	log.Info("Persisting deduplicated nodes", "count", 42, "batch_size", 100) // Green
-	log.Warn("Rate limit approaching", "current", 95, "limit", 100)           // Yellow
+	log.Info("Persisting deduplicated nodes", "count", 42, "batch_size", 100)     // Green
+	log.Warn("Rate limit approaching", "current", 95, "limit", 100)               // Yellow
 	log.Error("Database connection failed", "error", "timeout", "retry_count", 3) // Red
 }
