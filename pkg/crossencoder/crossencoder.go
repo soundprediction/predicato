@@ -78,13 +78,13 @@ const (
 
 // ClientConfig holds configuration for creating cross-encoder clients
 type ClientConfig struct {
-	Provider              Provider                `json:"provider"`
-	Config                Config                  `json:"config"`
-	LLMClient             nlp.Client              `json:"-"`                                // Not serialized, passed at runtime
-	EmbedderClient        embedder.Client         `json:"-"`                                // Required for embedding provider
-	RerankerConfig        *RerankerConfig         `json:"reranker_config,omitempty"`        // Jina-compatible reranker config
-	EmbeddingConfig       *EmbeddingConfig        `json:"embedding_config,omitempty"`       // Embedding-specific config
-	EmbedEverythingConfig *EmbedEverythingConfig  `json:"embedeverything_config,omitempty"` // EmbedEverything-specific config
+	Provider              Provider               `json:"provider"`
+	Config                Config                 `json:"config"`
+	LLMClient             nlp.Client             `json:"-"`                                // Not serialized, passed at runtime
+	EmbedderClient        embedder.Client        `json:"-"`                                // Required for embedding provider
+	RerankerConfig        *RerankerConfig        `json:"reranker_config,omitempty"`        // Jina-compatible reranker config
+	EmbeddingConfig       *EmbeddingConfig       `json:"embedding_config,omitempty"`       // Embedding-specific config
+	EmbedEverythingConfig *EmbedEverythingConfig `json:"embedeverything_config,omitempty"` // EmbedEverything-specific config
 }
 
 // NewClient creates a new cross-encoder client based on the provider type

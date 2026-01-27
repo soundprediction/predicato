@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sort"
 	"time"
 
 	"github.com/soundprediction/predicato/pkg/driver"
@@ -77,15 +78,10 @@ func (gdo *GraphDataOperations) RetrieveEpisodes(ctx context.Context, referenceT
 		}
 	}
 
-	// Sort by ValidFrom time (most recent first) and limit
-	// This is a simple bubble sort for small arrays
-	for i := 0; i < len(episodic)-1; i++ {
-		for j := 0; j < len(episodic)-i-1; j++ {
-			if episodic[j].ValidFrom.Before(episodic[j+1].ValidFrom) {
-				episodic[j], episodic[j+1] = episodic[j+1], episodic[j]
-			}
-		}
-	}
+	// Sort by ValidFrom time (most recent first) using O(n log n) sort
+	sort.Slice(episodic, func(i, j int) bool {
+		return episodic[i].ValidFrom.After(episodic[j].ValidFrom)
+	})
 
 	// Take the last N episodes
 	if len(episodic) > lastN {

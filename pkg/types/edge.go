@@ -13,7 +13,7 @@ type GraphProvider string
 const (
 	GraphProviderNeo4j    GraphProvider = "neo4j"
 	GraphProviderFalkorDB GraphProvider = "falkordb"
-	GraphProviderLadybug     GraphProvider = "ladybug"
+	GraphProviderLadybug  GraphProvider = "ladybug"
 	GraphProviderNeptune  GraphProvider = "neptune"
 )
 

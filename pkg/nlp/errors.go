@@ -29,6 +29,13 @@ func (e *RateLimitError) Error() string {
 	return e.Message
 }
 
+// Is implements errors.Is support for RateLimitError.
+// This allows errors.Is(err, &RateLimitError{}) to work with wrapped errors.
+func (e *RateLimitError) Is(target error) bool {
+	_, ok := target.(*RateLimitError)
+	return ok
+}
+
 // NewRateLimitError creates a new rate limit error with optional custom message
 func NewRateLimitError(message ...string) *RateLimitError {
 	err := &RateLimitError{}
@@ -47,6 +54,13 @@ func (e *RefusalError) Error() string {
 	return e.Message
 }
 
+// Is implements errors.Is support for RefusalError.
+// This allows errors.Is(err, &RefusalError{}) to work with wrapped errors.
+func (e *RefusalError) Is(target error) bool {
+	_, ok := target.(*RefusalError)
+	return ok
+}
+
 // NewRefusalError creates a new refusal error (message is required)
 func NewRefusalError(message string) *RefusalError {
 	return &RefusalError{Message: message}
@@ -59,6 +73,13 @@ type EmptyResponseError struct {
 
 func (e *EmptyResponseError) Error() string {
 	return e.Message
+}
+
+// Is implements errors.Is support for EmptyResponseError.
+// This allows errors.Is(err, &EmptyResponseError{}) to work with wrapped errors.
+func (e *EmptyResponseError) Is(target error) bool {
+	_, ok := target.(*EmptyResponseError)
+	return ok
 }
 
 // NewEmptyResponseError creates a new empty response error (message is required)

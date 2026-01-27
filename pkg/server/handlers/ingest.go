@@ -4,11 +4,12 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/soundprediction/predicato"
 	"github.com/soundprediction/predicato/pkg/server/dto"
 	"github.com/soundprediction/predicato/pkg/types"
@@ -36,31 +37,32 @@ func generateProcessID() string {
 	return fmt.Sprintf("proc_%s", hex.EncodeToString(bytes))
 }
 
+// writeErrorJSON writes an error response as JSON
+func writeErrorJSON(w http.ResponseWriter, status int, errCode, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(dto.ErrorResponse{
+		Error:   errCode,
+		Message: message,
+	})
+}
+
 // AddMessages handles POST /ingest/messages
-func (h *IngestHandler) AddMessages(c *gin.Context) {
+func (h *IngestHandler) AddMessages(w http.ResponseWriter, r *http.Request) {
 	var req dto.AddMessagesRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "invalid_request",
-			Message: err.Error(),
-		})
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
 
 	// Validate required fields
 	if req.GroupID == "" {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "invalid_request",
-			Message: "group_id is required",
-		})
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_request", "group_id is required")
 		return
 	}
 
 	if len(req.Messages) == 0 {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "invalid_request",
-			Message: "messages array cannot be empty",
-		})
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_request", "messages array cannot be empty")
 		return
 	}
 
@@ -75,7 +77,7 @@ func (h *IngestHandler) AddMessages(c *gin.Context) {
 			referenceTime = *req.Reference
 		}
 
-		fmt.Printf("[%s] Starting processing of %d messages for group %s\n", processID, len(req.Messages), req.GroupID)
+		log.Printf("[%s] Starting processing of %d messages for group %s\n", processID, len(req.Messages), req.GroupID)
 
 		// Convert messages to episodes and add them to predicato
 		var episodes []types.Episode
@@ -116,13 +118,13 @@ func (h *IngestHandler) AddMessages(c *gin.Context) {
 		// Add episodes to predicato
 		if _, err := h.predicato.Add(ctx, episodes, nil); err != nil {
 			// Log error but don't fail the entire request since it's async
-			fmt.Printf("[%s] Error adding episodes to predicato for group %s: %v\n", processID, req.GroupID, err)
+			log.Printf("[%s] Error adding episodes to predicato for group %s: %v\n", processID, req.GroupID, err)
 		} else {
-			fmt.Printf("[%s] Successfully processed %d episodes for group %s\n", processID, len(episodes), req.GroupID)
+			log.Printf("[%s] Successfully processed %d episodes for group %s\n", processID, len(episodes), req.GroupID)
 		}
 	}()
 
-	c.JSON(http.StatusAccepted, dto.IngestResponse{
+	writeJSON(w, http.StatusAccepted, dto.IngestResponse{
 		Success:   true,
 		Message:   fmt.Sprintf("Queued %d messages for processing", len(req.Messages)),
 		ProcessID: processID,
@@ -130,30 +132,21 @@ func (h *IngestHandler) AddMessages(c *gin.Context) {
 }
 
 // AddEntityNode handles POST /ingest/entity
-func (h *IngestHandler) AddEntityNode(c *gin.Context) {
+func (h *IngestHandler) AddEntityNode(w http.ResponseWriter, r *http.Request) {
 	var req dto.AddEntityNodeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "invalid_request",
-			Message: err.Error(),
-		})
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
 
 	// Validate required fields
 	if req.GroupID == "" {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "invalid_request",
-			Message: "group_id is required",
-		})
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_request", "group_id is required")
 		return
 	}
 
 	if req.Name == "" {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "invalid_request",
-			Message: "name is required",
-		})
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_request", "name is required")
 		return
 	}
 
@@ -201,27 +194,21 @@ func (h *IngestHandler) AddEntityNode(c *gin.Context) {
 
 	// Add the episode to predicato which will extract and create the entity
 	if _, err := h.predicato.Add(ctx, []types.Episode{episode}, nil); err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error:   "creation_failed",
-			Message: fmt.Sprintf("Failed to create entity node: %v", err),
-		})
+		writeErrorJSON(w, http.StatusInternalServerError, "creation_failed", fmt.Sprintf("Failed to create entity node: %v", err))
 		return
 	}
 
-	c.JSON(http.StatusCreated, dto.IngestResponse{
+	writeJSON(w, http.StatusCreated, dto.IngestResponse{
 		Success: true,
 		Message: fmt.Sprintf("Entity node '%s' created via episode processing", req.Name),
 	})
 }
 
 // ClearData handles DELETE /ingest/clear
-func (h *IngestHandler) ClearData(c *gin.Context) {
+func (h *IngestHandler) ClearData(w http.ResponseWriter, r *http.Request) {
 	var req dto.ClearDataRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "invalid_request",
-			Message: err.Error(),
-		})
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
 
@@ -229,10 +216,7 @@ func (h *IngestHandler) ClearData(c *gin.Context) {
 
 	// If no specific group IDs provided, this is a dangerous operation
 	if len(req.GroupIDs) == 0 {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "invalid_request",
-			Message: "group_ids must be specified for data clearing. Clearing all data is not supported via API for safety.",
-		})
+		writeErrorJSON(w, http.StatusBadRequest, "invalid_request", "group_ids must be specified for data clearing. Clearing all data is not supported via API for safety.")
 		return
 	}
 
@@ -248,10 +232,10 @@ func (h *IngestHandler) ClearData(c *gin.Context) {
 
 		// Use predicato's ClearGraph method to clear data for this group
 		if err := h.predicato.ClearGraph(ctx, groupID); err != nil {
-			fmt.Printf("Error clearing data for group %s: %v\n", groupID, err)
+			log.Printf("Error clearing data for group %s: %v\n", groupID, err)
 			failedGroups = append(failedGroups, groupID)
 		} else {
-			fmt.Printf("Successfully cleared data for group %s\n", groupID)
+			log.Printf("Successfully cleared data for group %s\n", groupID)
 			successGroups = append(successGroups, groupID)
 		}
 	}
@@ -279,14 +263,11 @@ func (h *IngestHandler) ClearData(c *gin.Context) {
 	}
 
 	if !success {
-		c.JSON(statusCode, dto.ErrorResponse{
-			Error:   "clear_failed",
-			Message: message,
-		})
+		writeErrorJSON(w, statusCode, "clear_failed", message)
 		return
 	}
 
-	c.JSON(statusCode, dto.IngestResponse{
+	writeJSON(w, statusCode, dto.IngestResponse{
 		Success: success,
 		Message: message,
 	})

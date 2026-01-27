@@ -2,12 +2,12 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"runtime"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/soundprediction/predicato"
 )
 
@@ -31,9 +31,18 @@ func NewHealthHandler(g predicato.Predicato) *HealthHandler {
 	}
 }
 
+// writeJSON writes a JSON response with the given status code
+func writeJSON(w http.ResponseWriter, status int, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 // HealthCheck handles GET /health - basic liveness check
-func (h *HealthHandler) HealthCheck(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
+func (h *HealthHandler) HealthCheck(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"status":    "healthy",
 		"service":   "predicato",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
@@ -42,19 +51,19 @@ func (h *HealthHandler) HealthCheck(c *gin.Context) {
 }
 
 // ReadinessCheck handles GET /ready
-func (h *HealthHandler) ReadinessCheck(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+func (h *HealthHandler) ReadinessCheck(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	response := gin.H{
+	response := map[string]interface{}{
 		"status":    "ready",
 		"service":   "predicato",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
-		"checks":    gin.H{},
+		"checks":    map[string]interface{}{},
 	}
 
 	allHealthy := true
-	checks := response["checks"].(gin.H)
+	checks := response["checks"].(map[string]interface{})
 
 	// Check database connectivity by performing a simple operation
 	if h.predicato != nil {
@@ -70,7 +79,7 @@ func (h *HealthHandler) ReadinessCheck(c *gin.Context) {
 			// Check if it's a connection/timeout error vs expected "not found" error
 			if ctx.Err() != nil {
 				// Context timeout or cancellation indicates connection issues
-				checks["database"] = gin.H{
+				checks["database"] = map[string]interface{}{
 					"status":   "unhealthy",
 					"error":    "database connection timeout",
 					"duration": dbDuration.String(),
@@ -78,14 +87,14 @@ func (h *HealthHandler) ReadinessCheck(c *gin.Context) {
 				allHealthy = false
 			} else {
 				// Any other error is expected (like "node not found") - database is healthy
-				checks["database"] = gin.H{
+				checks["database"] = map[string]interface{}{
 					"status":   "healthy",
 					"duration": dbDuration.String(),
 				}
 			}
 		} else {
 			// Unexpected success, but still indicates database is responsive
-			checks["database"] = gin.H{
+			checks["database"] = map[string]interface{}{
 				"status":   "healthy",
 				"duration": dbDuration.String(),
 			}
@@ -97,20 +106,20 @@ func (h *HealthHandler) ReadinessCheck(c *gin.Context) {
 		indicesDuration := time.Since(indicesStartTime)
 
 		if indicesErr != nil && ctx.Err() != nil {
-			checks["database_indices"] = gin.H{
+			checks["database_indices"] = map[string]interface{}{
 				"status":   "unhealthy",
 				"error":    "indices operation timeout",
 				"duration": indicesDuration.String(),
 			}
 			allHealthy = false
 		} else {
-			checks["database_indices"] = gin.H{
+			checks["database_indices"] = map[string]interface{}{
 				"status":   "healthy",
 				"duration": indicesDuration.String(),
 			}
 		}
 	} else {
-		checks["database"] = gin.H{
+		checks["database"] = map[string]interface{}{
 			"status": "unhealthy",
 			"error":  "predicato client not initialized",
 		}
@@ -118,7 +127,7 @@ func (h *HealthHandler) ReadinessCheck(c *gin.Context) {
 	}
 
 	// Add overall system readiness check
-	checks["system"] = gin.H{
+	checks["system"] = map[string]interface{}{
 		"status": "healthy",
 		"uptime": time.Since(time.Now().Add(-time.Minute)).String(), // Placeholder uptime
 	}
@@ -126,17 +135,17 @@ func (h *HealthHandler) ReadinessCheck(c *gin.Context) {
 	// Set overall status based on all checks
 	if !allHealthy {
 		response["status"] = "not_ready"
-		c.JSON(http.StatusServiceUnavailable, response)
+		writeJSON(w, http.StatusServiceUnavailable, response)
 		return
 	}
 
-	c.JSON(http.StatusOK, response)
+	writeJSON(w, http.StatusOK, response)
 }
 
 // LivenessCheck handles GET /live - Kubernetes liveness probe endpoint
-func (h *HealthHandler) LivenessCheck(c *gin.Context) {
+func (h *HealthHandler) LivenessCheck(w http.ResponseWriter, r *http.Request) {
 	// Simple liveness check - just confirm the service is running
-	c.JSON(http.StatusOK, gin.H{
+	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"status":    "alive",
 		"service":   "predicato",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
@@ -144,31 +153,31 @@ func (h *HealthHandler) LivenessCheck(c *gin.Context) {
 }
 
 // DetailedHealthCheck handles GET /health/detailed - comprehensive health information
-func (h *HealthHandler) DetailedHealthCheck(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+func (h *HealthHandler) DetailedHealthCheck(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
 	startTime := time.Now()
-	response := gin.H{
+	response := map[string]interface{}{
 		"status":  "healthy",
 		"service": "predicato",
 		"version": Version,
-		"build_info": gin.H{
+		"build_info": map[string]interface{}{
 			"git_commit": GitCommit,
 			"build_time": BuildTime,
 		},
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
-		"environment": gin.H{
+		"environment": map[string]interface{}{
 			"go_version": GoVersion,
 		},
-		"checks": gin.H{},
-		"metrics": gin.H{
+		"checks": map[string]interface{}{},
+		"metrics": map[string]interface{}{
 			"response_time_ms": 0, // Will be set at the end
 		},
 	}
 
 	allHealthy := true
-	checks := response["checks"].(gin.H)
+	checks := response["checks"].(map[string]interface{})
 
 	// Test all critical dependencies
 	if h.predicato != nil {
@@ -177,7 +186,7 @@ func (h *HealthHandler) DetailedHealthCheck(c *gin.Context) {
 		_, err := h.predicato.GetNode(ctx, "health-check-detailed")
 		dbDuration := time.Since(dbStartTime)
 
-		dbStatus := gin.H{
+		dbStatus := map[string]interface{}{
 			"status":      "healthy",
 			"duration_ms": dbDuration.Milliseconds(),
 			"operation":   "GetNode",
@@ -199,7 +208,7 @@ func (h *HealthHandler) DetailedHealthCheck(c *gin.Context) {
 		indicesErr := h.predicato.CreateIndices(ctx)
 		opsDuration := time.Since(opsStartTime)
 
-		opsStatus := gin.H{
+		opsStatus := map[string]interface{}{
 			"status":      "healthy",
 			"duration_ms": opsDuration.Milliseconds(),
 			"operation":   "CreateIndices",
@@ -220,7 +229,7 @@ func (h *HealthHandler) DetailedHealthCheck(c *gin.Context) {
 		_, searchErr := h.predicato.Search(ctx, "health-check", nil)
 		searchDuration := time.Since(searchStartTime)
 
-		searchStatus := gin.H{
+		searchStatus := map[string]interface{}{
 			"status":      "healthy",
 			"duration_ms": searchDuration.Milliseconds(),
 			"operation":   "Search",
@@ -236,7 +245,7 @@ func (h *HealthHandler) DetailedHealthCheck(c *gin.Context) {
 
 		checks["search_functionality"] = searchStatus
 	} else {
-		checks["predicato_client"] = gin.H{
+		checks["predicato_client"] = map[string]interface{}{
 			"status": "unhealthy",
 			"error":  "client not initialized",
 		}
@@ -245,7 +254,7 @@ func (h *HealthHandler) DetailedHealthCheck(c *gin.Context) {
 
 	// Add system health metrics
 	systemMetrics := h.getSystemMetrics()
-	checks["system"] = gin.H{
+	checks["system"] = map[string]interface{}{
 		"status":       "healthy",
 		"memory_usage": systemMetrics.MemoryUsage,
 		"goroutines":   systemMetrics.Goroutines,
@@ -256,15 +265,15 @@ func (h *HealthHandler) DetailedHealthCheck(c *gin.Context) {
 
 	// Set final response
 	totalDuration := time.Since(startTime)
-	response["metrics"].(gin.H)["response_time_ms"] = totalDuration.Milliseconds()
+	response["metrics"].(map[string]interface{})["response_time_ms"] = totalDuration.Milliseconds()
 
 	if !allHealthy {
 		response["status"] = "unhealthy"
-		c.JSON(http.StatusServiceUnavailable, response)
+		writeJSON(w, http.StatusServiceUnavailable, response)
 		return
 	}
 
-	c.JSON(http.StatusOK, response)
+	writeJSON(w, http.StatusOK, response)
 }
 
 // SystemMetrics holds system runtime metrics

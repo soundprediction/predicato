@@ -623,12 +623,12 @@ func GenerateYAMLResponse[T any](
 
 		// Clean up the response (remove code blocks)
 		cleanedResponse := response.Content
-		
+
 		// Remove markdown code blocks if present
 		if strings.Contains(cleanedResponse, "```") {
 			cleanedResponse = ExtractJSONFromResponse(cleanedResponse) // Reusing this helper as it strips backticks well enough or we can make a specific one
 		}
-		
+
 		// Also strip HTML tags just in case
 		cleanedResponse = StripHtmlTags(cleanedResponse)
 

@@ -14,8 +14,8 @@ import (
 	"github.com/soundprediction/predicato"
 	"github.com/soundprediction/predicato/pkg/driver"
 	"github.com/soundprediction/predicato/pkg/embedder"
-	"github.com/soundprediction/predicato/pkg/nlp"
 	predicatoLogger "github.com/soundprediction/predicato/pkg/logger"
+	"github.com/soundprediction/predicato/pkg/nlp"
 )
 
 // Default configuration values
