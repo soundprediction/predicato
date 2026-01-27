@@ -171,3 +171,12 @@ func (a *AnthropicClient) ChatWithStructuredOutput(ctx context.Context, messages
 	// AnthropicClient.Chat now returns *types.Response
 	return resp, nil
 }
+
+// Close releases any resources held by the client.
+// For AnthropicClient, this closes the underlying HTTP client's idle connections.
+func (a *AnthropicClient) Close() error {
+	if a.httpClient != nil {
+		a.httpClient.CloseIdleConnections()
+	}
+	return nil
+}
