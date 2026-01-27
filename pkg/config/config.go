@@ -36,13 +36,13 @@ type Config struct {
 
 // AlertConfig holds configuration for alerting
 type AlertConfig struct {
-	Enabled  bool     `mapstructure:"enabled"`
-	SMTPHost string   `mapstructure:"smtp_host"`
-	SMTPPort int      `mapstructure:"smtp_port"`
-	Username string   `mapstructure:"username"`
-	Password string   `mapstructure:"password"`
-	From     string   `mapstructure:"from"`
-	To       []string `mapstructure:"to"`
+	Enabled  bool     `mapstructure:"enabled" json:"enabled"`
+	SMTPHost string   `mapstructure:"smtp_host" json:"smtp_host"`
+	SMTPPort int      `mapstructure:"smtp_port" json:"smtp_port"`
+	Username string   `mapstructure:"username" json:"-"` // Excluded from JSON to prevent credential exposure
+	Password string   `mapstructure:"password" json:"-"` // Excluded from JSON to prevent credential exposure
+	From     string   `mapstructure:"from" json:"from"`
+	To       []string `mapstructure:"to" json:"to"`
 }
 
 // CircuitBreakerConfig holds configuration for circuit breaking
@@ -56,8 +56,8 @@ type CircuitBreakerConfig struct {
 
 // TelemetryConfig holds telemetry configuration
 type TelemetryConfig struct {
-	ParquetPath string `mapstructure:"parquet_path"`
-	DbURL       string `mapstructure:"db_url"`
+	ParquetPath string `mapstructure:"parquet_path" json:"parquet_path"`
+	DbURL       string `mapstructure:"db_url" json:"-"` // May contain credentials, excluded from JSON
 }
 
 // LogConfig holds logging configuration
@@ -75,11 +75,11 @@ type ServerConfig struct {
 
 // DatabaseConfig holds database configuration
 type DatabaseConfig struct {
-	Driver   string `mapstructure:"driver"` // neo4j, falkordb
-	URI      string `mapstructure:"uri"`
-	Username string `mapstructure:"username"`
-	Password string `mapstructure:"password"`
-	Database string `mapstructure:"database"`
+	Driver   string `mapstructure:"driver" json:"driver"` // neo4j, falkordb
+	URI      string `mapstructure:"uri" json:"uri"`
+	Username string `mapstructure:"username" json:"-"` // Excluded from JSON to prevent credential exposure
+	Password string `mapstructure:"password" json:"-"` // Excluded from JSON to prevent credential exposure
+	Database string `mapstructure:"database" json:"database"`
 }
 
 // NLPConfig holds NLP configuration
@@ -93,12 +93,12 @@ type NLPConfig struct {
 
 // NLPModelConfig holds configuration for a specific model
 type NLPModelConfig struct {
-	Provider    string  `mapstructure:"provider"` // type: openai, anthropic
-	Model       string  `mapstructure:"model"`
-	APIKey      string  `mapstructure:"api_key"`
-	BaseURL     string  `mapstructure:"base_url"`
-	Temperature float32 `mapstructure:"temperature"`
-	MaxTokens   int     `mapstructure:"max_tokens"`
+	Provider    string  `mapstructure:"provider" json:"provider"` // type: openai, anthropic
+	Model       string  `mapstructure:"model" json:"model"`
+	APIKey      string  `mapstructure:"api_key" json:"-"` // Excluded from JSON to prevent credential exposure
+	BaseURL     string  `mapstructure:"base_url" json:"base_url"`
+	Temperature float32 `mapstructure:"temperature" json:"temperature"`
+	MaxTokens   int     `mapstructure:"max_tokens" json:"max_tokens"`
 }
 
 // RouterRule defines a rule for routing requests
@@ -110,10 +110,10 @@ type RouterRule struct {
 
 // EmbeddingConfig holds embedding configuration
 type EmbeddingConfig struct {
-	Provider string `mapstructure:"provider"` // openai, etc.
-	Model    string `mapstructure:"model"`
-	APIKey   string `mapstructure:"api_key"`
-	BaseURL  string `mapstructure:"base_url"`
+	Provider string `mapstructure:"provider" json:"provider"` // openai, etc.
+	Model    string `mapstructure:"model" json:"model"`
+	APIKey   string `mapstructure:"api_key" json:"-"` // Excluded from JSON to prevent credential exposure
+	BaseURL  string `mapstructure:"base_url" json:"base_url"`
 }
 
 // Load loads configuration from file and environment variables

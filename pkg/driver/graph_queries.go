@@ -104,23 +104,29 @@ FOR ()-[e:RELATES_TO]-() ON EACH [e.name, e.fact, e.group_id]`,
 	}
 }
 
-// GetNodesQuery returns database-specific fulltext search query for nodes
+// GetNodesQuery returns database-specific fulltext search query for nodes.
+// The query parameter is escaped to prevent query injection attacks.
 func GetNodesQuery(indexName, query string, limit int, provider GraphProvider) string {
+	// Escape the query to prevent injection - wrap in quotes for safe string literal
+	escapedQuery := fmt.Sprintf(`"%s"`, EscapeQueryString(query))
+
 	switch provider {
 	case GraphProviderFalkorDB:
 		label := neo4jToFalkorDBMapping[indexName]
-		return fmt.Sprintf("CALL db.idx.fulltext.queryNodes('%s', %s)", label, query)
+		return fmt.Sprintf("CALL db.idx.fulltext.queryNodes('%s', %s)", label, escapedQuery)
 
 	case GraphProviderLadybug:
 		label := indexToLabelladybugMapping[indexName]
-		return fmt.Sprintf("CALL QUERY_FTS_INDEX('%s', '%s', %s, TOP := $limit)", label, indexName, query)
+		return fmt.Sprintf("CALL QUERY_FTS_INDEX('%s', '%s', %s, TOP := $limit)", label, indexName, escapedQuery)
 
 	default: // Neo4j
-		return fmt.Sprintf(`CALL db.index.fulltext.queryNodes("%s", %s, {limit: $limit})`, indexName, query)
+		return fmt.Sprintf(`CALL db.index.fulltext.queryNodes("%s", %s, {limit: $limit})`, indexName, escapedQuery)
 	}
 }
 
-// GetRelationshipsQuery returns database-specific fulltext search query for relationships
+// GetRelationshipsQuery returns database-specific fulltext search query for relationships.
+// Note: This function uses parameterized query ($query) - the caller is responsible for
+// escaping the query value using EscapeQueryString before passing it as a parameter.
 func GetRelationshipsQuery(indexName string, limit int, provider GraphProvider) string {
 	switch provider {
 	case GraphProviderFalkorDB:

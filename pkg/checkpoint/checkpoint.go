@@ -3,14 +3,19 @@ package checkpoint
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/soundprediction/predicato/pkg/types"
 	"github.com/soundprediction/predicato/pkg/utils"
 )
+
+// ErrInvalidEpisodeID is returned when an episode ID contains invalid characters
+var ErrInvalidEpisodeID = errors.New("invalid episode ID: contains path traversal or invalid characters")
 
 // ProcessingStep represents a step in the addEpisodeChunked pipeline
 type ProcessingStep string
@@ -119,10 +124,63 @@ func NewCheckpointManager(checkpointDir string) (*CheckpointManager, error) {
 	}, nil
 }
 
-// GetCheckpointPath returns the file path for an episode's checkpoint
-func (m *CheckpointManager) GetCheckpointPath(episodeID string) string {
+// validateEpisodeID checks that the episode ID is safe for use in file paths.
+// It rejects IDs containing path separators, path traversal sequences, or null bytes.
+func validateEpisodeID(episodeID string) error {
+	if episodeID == "" {
+		return ErrInvalidEpisodeID
+	}
+
+	// Check for path traversal sequences
+	if strings.Contains(episodeID, "..") {
+		return ErrInvalidEpisodeID
+	}
+
+	// Check for path separators
+	if strings.ContainsAny(episodeID, `/\`) {
+		return ErrInvalidEpisodeID
+	}
+
+	// Check for null bytes (can truncate paths in some systems)
+	if strings.ContainsRune(episodeID, '\x00') {
+		return ErrInvalidEpisodeID
+	}
+
+	return nil
+}
+
+// isPathWithinDirectory checks that the resolved path is within the expected directory.
+// This provides defense-in-depth against path traversal attacks.
+func isPathWithinDirectory(path, directory string) bool {
+	// Clean both paths to resolve any . or .. components
+	cleanPath := filepath.Clean(path)
+	cleanDir := filepath.Clean(directory)
+
+	// Ensure the directory path ends with separator for proper prefix matching
+	if !strings.HasSuffix(cleanDir, string(filepath.Separator)) {
+		cleanDir += string(filepath.Separator)
+	}
+
+	// Check if the path starts with the directory
+	return strings.HasPrefix(cleanPath, cleanDir) || cleanPath == filepath.Clean(directory)
+}
+
+// GetCheckpointPath returns the file path for an episode's checkpoint.
+// Returns an error if the episode ID contains invalid characters or path traversal sequences.
+func (m *CheckpointManager) GetCheckpointPath(episodeID string) (string, error) {
+	if err := validateEpisodeID(episodeID); err != nil {
+		return "", err
+	}
+
 	filename := fmt.Sprintf("checkpoint_%s.json", episodeID)
-	return filepath.Join(m.checkpointDir, filename)
+	fullPath := filepath.Join(m.checkpointDir, filename)
+
+	// Defense-in-depth: verify the resolved path is within the checkpoint directory
+	if !isPathWithinDirectory(fullPath, m.checkpointDir) {
+		return "", ErrInvalidEpisodeID
+	}
+
+	return fullPath, nil
 }
 
 // Save persists the checkpoint to disk
@@ -134,7 +192,10 @@ func (m *CheckpointManager) Save(ctx context.Context, checkpoint *EpisodeCheckpo
 		return fmt.Errorf("failed to marshal checkpoint: %w", err)
 	}
 
-	checkpointPath := m.GetCheckpointPath(checkpoint.EpisodeID)
+	checkpointPath, err := m.GetCheckpointPath(checkpoint.EpisodeID)
+	if err != nil {
+		return fmt.Errorf("invalid episode ID: %w", err)
+	}
 
 	// Write to a temporary file first, then rename for atomic write
 	tmpPath := checkpointPath + ".tmp"
@@ -151,7 +212,10 @@ func (m *CheckpointManager) Save(ctx context.Context, checkpoint *EpisodeCheckpo
 
 // Load retrieves a checkpoint from disk
 func (m *CheckpointManager) Load(ctx context.Context, episodeID string) (*EpisodeCheckpoint, error) {
-	checkpointPath := m.GetCheckpointPath(episodeID)
+	checkpointPath, err := m.GetCheckpointPath(episodeID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid episode ID: %w", err)
+	}
 
 	data, err := os.ReadFile(checkpointPath)
 	if err != nil {
@@ -171,7 +235,10 @@ func (m *CheckpointManager) Load(ctx context.Context, episodeID string) (*Episod
 
 // Delete removes a checkpoint from disk
 func (m *CheckpointManager) Delete(ctx context.Context, episodeID string) error {
-	checkpointPath := m.GetCheckpointPath(episodeID)
+	checkpointPath, err := m.GetCheckpointPath(episodeID)
+	if err != nil {
+		return fmt.Errorf("invalid episode ID: %w", err)
+	}
 
 	if err := os.Remove(checkpointPath); err != nil {
 		if os.IsNotExist(err) {
@@ -185,9 +252,12 @@ func (m *CheckpointManager) Delete(ctx context.Context, episodeID string) error 
 
 // Exists checks if a checkpoint exists for an episode
 func (m *CheckpointManager) Exists(ctx context.Context, episodeID string) (bool, error) {
-	checkpointPath := m.GetCheckpointPath(episodeID)
+	checkpointPath, err := m.GetCheckpointPath(episodeID)
+	if err != nil {
+		return false, fmt.Errorf("invalid episode ID: %w", err)
+	}
 
-	_, err := os.Stat(checkpointPath)
+	_, err = os.Stat(checkpointPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil

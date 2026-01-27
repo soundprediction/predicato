@@ -197,7 +197,8 @@ func TestCheckpointManager(t *testing.T) {
 		// Manually write to preserve old timestamp
 		data, err := json.MarshalIndent(oldCheckpoint, "", "  ")
 		require.NoError(t, err)
-		oldPath := manager.GetCheckpointPath("episode-old")
+		oldPath, err := manager.GetCheckpointPath("episode-old")
+		require.NoError(t, err)
 		err = os.WriteFile(oldPath, data, 0644)
 		require.NoError(t, err)
 
@@ -226,6 +227,90 @@ func TestCheckpointManager(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, exists)
 	})
+}
+
+func TestPathTraversalPrevention(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "predicato-checkpoint-security-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	ctx := context.Background()
+	manager, err := NewCheckpointManager(tmpDir)
+	require.NoError(t, err)
+
+	// Create a sensitive file outside the checkpoint directory to verify it can't be accessed
+	sensitiveFile := filepath.Join(tmpDir, "..", "sensitive.txt")
+	err = os.WriteFile(sensitiveFile, []byte("sensitive data"), 0644)
+	require.NoError(t, err)
+	defer os.Remove(sensitiveFile)
+
+	pathTraversalAttempts := []struct {
+		name      string
+		episodeID string
+	}{
+		{"simple path traversal", "../../../etc/passwd"},
+		{"path traversal with dots", ".."},
+		{"double traversal", "foo/../.."},
+		{"forward slash", "foo/bar"},
+		{"backslash", `foo\bar`},
+		{"null byte", "episode\x00.json"},
+		{"hidden file traversal", "../.hidden"},
+		{"absolute path attempt", "/etc/passwd"},
+		{"windows path", `C:\Windows\System32`},
+		{"empty ID", ""},
+	}
+
+	for _, tc := range pathTraversalAttempts {
+		t.Run("GetCheckpointPath_"+tc.name, func(t *testing.T) {
+			_, err := manager.GetCheckpointPath(tc.episodeID)
+			assert.ErrorIs(t, err, ErrInvalidEpisodeID, "Episode ID %q should be rejected", tc.episodeID)
+		})
+
+		t.Run("Load_"+tc.name, func(t *testing.T) {
+			_, err := manager.Load(ctx, tc.episodeID)
+			assert.Error(t, err, "Load should reject episode ID %q", tc.episodeID)
+		})
+
+		t.Run("Delete_"+tc.name, func(t *testing.T) {
+			err := manager.Delete(ctx, tc.episodeID)
+			assert.Error(t, err, "Delete should reject episode ID %q", tc.episodeID)
+		})
+
+		t.Run("Exists_"+tc.name, func(t *testing.T) {
+			_, err := manager.Exists(ctx, tc.episodeID)
+			assert.Error(t, err, "Exists should reject episode ID %q", tc.episodeID)
+		})
+
+		t.Run("Save_"+tc.name, func(t *testing.T) {
+			checkpoint := &EpisodeCheckpoint{
+				EpisodeID: tc.episodeID,
+				GroupID:   "test-group",
+				Step:      StepInitial,
+			}
+			err := manager.Save(ctx, checkpoint)
+			assert.Error(t, err, "Save should reject episode ID %q", tc.episodeID)
+		})
+	}
+
+	// Test that valid episode IDs still work
+	validIDs := []string{
+		"episode-123",
+		"my_episode",
+		"Episode.With.Dots",
+		"episode-2024-01-15T10:30:00Z",
+		"abc123def456",
+		"a",
+	}
+
+	for _, id := range validIDs {
+		t.Run("valid_ID_"+id, func(t *testing.T) {
+			path, err := manager.GetCheckpointPath(id)
+			require.NoError(t, err, "Valid episode ID %q should be accepted", id)
+			assert.Contains(t, path, id, "Path should contain the episode ID")
+			assert.True(t, filepath.IsAbs(path) || filepath.HasPrefix(path, tmpDir),
+				"Path should be within checkpoint directory")
+		})
+	}
 }
 
 func TestProcessingSteps(t *testing.T) {

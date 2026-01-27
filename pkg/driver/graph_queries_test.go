@@ -34,7 +34,7 @@ func TestGetRangeIndices(t *testing.T) {
 	}{
 		{GraphProviderNeo4j, 20},   // Neo4j has 20 range indices
 		{GraphProviderFalkorDB, 6}, // FalkorDB has 6 range indices
-		{GraphProviderLadybug, 0},     // ladybug has 0 range indices
+		{GraphProviderLadybug, 0},  // ladybug has 0 range indices
 	}
 
 	for _, tt := range tests {
@@ -64,7 +64,7 @@ func TestGetFulltextIndices(t *testing.T) {
 	}{
 		{GraphProviderNeo4j, 4},    // Neo4j has 4 fulltext indices
 		{GraphProviderFalkorDB, 4}, // FalkorDB has 4 fulltext indices
-		{GraphProviderLadybug, 4},     // ladybug has 4 fulltext indices
+		{GraphProviderLadybug, 4},  // ladybug has 4 fulltext indices
 	}
 
 	for _, tt := range tests {
@@ -202,6 +202,41 @@ func TestEscapeQueryString(t *testing.T) {
 			result := EscapeQueryString(tt.input)
 			if result != tt.expected {
 				t.Errorf("EscapeQueryString(%s) = %s, expected %s", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetNodesQueryEscaping(t *testing.T) {
+	// Test that special characters in search queries are properly escaped
+	// to prevent query injection attacks
+	specialCharQueries := []struct {
+		name     string
+		query    string
+		provider GraphProvider
+	}{
+		{"quotes in query - Neo4j", `test "injection"`, GraphProviderNeo4j},
+		{"quotes in query - FalkorDB", `test "injection"`, GraphProviderFalkorDB},
+		{"quotes in query - Ladybug", `test "injection"`, GraphProviderLadybug},
+		{"special chars - Neo4j", `test + - ! ( ) { } [ ] ^ ~ * ? : | &`, GraphProviderNeo4j},
+		{"backslash - Neo4j", `test\path`, GraphProviderNeo4j},
+		{"injection attempt - Neo4j", `test") MATCH (n) DELETE n //`, GraphProviderNeo4j},
+		{"injection attempt - Ladybug", `test') CALL db.drop() //`, GraphProviderLadybug},
+	}
+
+	for _, tc := range specialCharQueries {
+		t.Run(tc.name, func(t *testing.T) {
+			result := GetNodesQuery("node_name_and_summary", tc.query, 10, tc.provider)
+
+			// The result should NOT contain the raw query with potential injection
+			// Instead, special chars should be escaped
+			if strings.Contains(result, tc.query) && strings.ContainsAny(tc.query, `"+-!(){}[]^~*?:|&\`) {
+				t.Errorf("Query should have escaped special characters, got: %s", result)
+			}
+
+			// Verify the query contains escaped versions of special chars
+			if strings.Contains(tc.query, `"`) && !strings.Contains(result, `\"`) {
+				t.Errorf("Double quotes should be escaped in query: %s", result)
 			}
 		})
 	}
