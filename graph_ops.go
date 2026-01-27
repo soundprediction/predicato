@@ -84,7 +84,7 @@ func (c *Client) RemoveEpisode(ctx context.Context, episodeUUID string) error {
 	for _, node := range mentionedNodes {
 		// Equivalent to: query: LiteralString = 'MATCH (e:Episodic)-[:MENTIONS]->(n:Entity {uuid: $uuid}) RETURN count(*) AS episode_count'
 		query := `MATCH (e:Episodic)-[:MENTIONS]->(n:Entity {uuid: $uuid}) RETURN count(*) AS episode_count`
-		records, _, _, err := c.driver.ExecuteQuery(query, map[string]interface{}{
+		records, _, _, err := c.driver.ExecuteQuery(ctx, query, map[string]interface{}{
 			"uuid": node.Uuid,
 		})
 		if err != nil {
@@ -145,5 +145,5 @@ func (c *Client) Close(ctx context.Context) error {
 // ExecuteQuery executes a raw Cypher query against the graph database.
 // This exposes the underlying driver's query execution capability.
 func (c *Client) ExecuteQuery(ctx context.Context, query string, params map[string]interface{}) (interface{}, interface{}, interface{}, error) {
-	return c.driver.ExecuteQuery(query, params)
+	return c.driver.ExecuteQuery(ctx, query, params)
 }

@@ -121,7 +121,7 @@ func (m *MockGraphDriver) Close() error {
 	return nil
 }
 
-func (m *MockGraphDriver) ExecuteQuery(cypherQuery string, kwargs map[string]interface{}) (interface{}, interface{}, interface{}, error) {
+func (m *MockGraphDriver) ExecuteQuery(ctx context.Context, cypherQuery string, kwargs map[string]interface{}) (interface{}, interface{}, interface{}, error) {
 	return nil, nil, nil, nil
 }
 

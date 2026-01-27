@@ -39,7 +39,7 @@ type GraphDriverSession interface {
 // GraphDriver defines the interface for graph database operations (matching Python GraphDriver)
 type GraphDriver interface {
 	// Core methods matching Python interface
-	ExecuteQuery(cypherQuery string, kwargs map[string]interface{}) (interface{}, interface{}, interface{}, error)
+	ExecuteQuery(ctx context.Context, cypherQuery string, kwargs map[string]interface{}) (interface{}, interface{}, interface{}, error)
 	Session(database *string) GraphDriverSession
 	Close() error
 	DeleteAllIndexes(database string)

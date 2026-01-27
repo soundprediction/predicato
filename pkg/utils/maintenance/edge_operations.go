@@ -352,7 +352,7 @@ func (eo *EdgeOperations) GetBetweenNodes(ctx context.Context, sourceNodeID, tar
 		"target_uuid": targetNodeID,
 	}
 
-	result, _, _, err := eo.driver.ExecuteQuery(query, params)
+	result, _, _, err := eo.driver.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute GetBetweenNodes query: %w", err)
 	}
@@ -825,7 +825,7 @@ func (eo *EdgeOperations) FilterExistingDuplicateOfEdges(ctx context.Context, du
 		"duplicate_node_uuids": duplicateNodeUUIDs,
 	}
 
-	result, _, _, err := eo.driver.ExecuteQuery(query, params)
+	result, _, _, err := eo.driver.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute FilterExistingDuplicateOfEdges query: %w", err)
 	}

@@ -143,7 +143,7 @@ func (su *SearchUtilities) NodeBFSSearch(ctx context.Context, originNodeUUIDs []
 			params[k] = v
 		}
 
-		records, _, _, err := su.driver.ExecuteQuery(query, params)
+		records, _, _, err := su.driver.ExecuteQuery(ctx, query, params)
 		if err != nil {
 			return nil, fmt.Errorf("BFS node search query failed: %w", err)
 		}
@@ -248,7 +248,7 @@ func (su *SearchUtilities) EdgeBFSSearch(ctx context.Context, originNodeUUIDs []
 				params[k] = v
 			}
 
-			records, _, _, err := su.driver.ExecuteQuery(query, params)
+			records, _, _, err := su.driver.ExecuteQuery(ctx, query, params)
 			if err != nil {
 				return nil, fmt.Errorf("BFS edge search query failed: %w", err)
 			}
@@ -315,7 +315,7 @@ func (su *SearchUtilities) EdgeBFSSearch(ctx context.Context, originNodeUUIDs []
 			params[k] = v
 		}
 
-		records, _, _, err := su.driver.ExecuteQuery(query, params)
+		records, _, _, err := su.driver.ExecuteQuery(ctx, query, params)
 		if err != nil {
 			return nil, fmt.Errorf("BFS edge search query failed: %w", err)
 		}
@@ -488,7 +488,7 @@ func (su *SearchUtilities) getRelatedNodes(ctx context.Context, node *types.Node
 		"limit":     options.Limit,
 	}
 
-	records, _, _, err := su.driver.ExecuteQuery(query, params)
+	records, _, _, err := su.driver.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get related nodes: %w", err)
 	}
@@ -577,7 +577,7 @@ func (su *SearchUtilities) getEdgesForNode(ctx context.Context, nodeUUID string,
 		"limit":     options.Limit,
 	}
 
-	records, _, _, err := su.driver.ExecuteQuery(query, params)
+	records, _, _, err := su.driver.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get edges for node: %w", err)
 	}
@@ -623,7 +623,7 @@ func (pf *PathFinder) FindShortestPath(ctx context.Context, sourceUUID, targetUU
 		"target_uuid": targetUUID,
 	}
 
-	_, _, _, err := pf.driver.ExecuteQuery(query, params)
+	_, _, _, err := pf.driver.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, nil, fmt.Errorf("shortest path query failed: %w", err)
 	}
@@ -655,7 +655,7 @@ func (pf *PathFinder) FindAllPaths(ctx context.Context, sourceUUID, targetUUID s
 		"target_uuid": targetUUID,
 	}
 
-	_, _, _, err := pf.driver.ExecuteQuery(query, params)
+	_, _, _, err := pf.driver.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, nil, fmt.Errorf("all paths query failed: %w", err)
 	}
@@ -712,7 +712,7 @@ func (pf *PathFinder) GetNeighbors(ctx context.Context, nodeUUID string, directi
 		"node_uuid": nodeUUID,
 	}
 
-	records, _, _, err := pf.driver.ExecuteQuery(query, params)
+	records, _, _, err := pf.driver.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("get neighbors query failed: %w", err)
 	}
@@ -753,7 +753,7 @@ func (ct *CommunityTraversal) GetCommunityMembers(ctx context.Context, community
 		"community_uuid": communityUUID,
 	}
 
-	records, _, _, err := ct.driver.ExecuteQuery(query, params)
+	records, _, _, err := ct.driver.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get community members: %w", err)
 	}
@@ -780,7 +780,7 @@ func (ct *CommunityTraversal) GetNodeCommunities(ctx context.Context, nodeUUID s
 		"node_uuid": nodeUUID,
 	}
 
-	records, _, _, err := ct.driver.ExecuteQuery(query, params)
+	records, _, _, err := ct.driver.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get node communities: %w", err)
 	}
@@ -828,7 +828,7 @@ func (ct *CommunityTraversal) GetInterCommunityEdges(ctx context.Context, commun
 		"community_uuid2": communityUUID2,
 	}
 
-	records, _, _, err := ct.driver.ExecuteQuery(query, params)
+	records, _, _, err := ct.driver.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get inter-community edges: %w", err)
 	}
@@ -879,7 +879,7 @@ func (tt *TemporalTraversal) GetNodesInTimeRange(ctx context.Context, timeRange 
 		"end_time":   timeRange.End,
 	}
 
-	records, _, _, err := tt.driver.ExecuteQuery(query, params)
+	records, _, _, err := tt.driver.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get nodes in time range: %w", err)
 	}
@@ -936,7 +936,7 @@ func (tt *TemporalTraversal) GetEdgesInTimeRange(ctx context.Context, timeRange 
 		"end_time":   timeRange.End,
 	}
 
-	records, _, _, err := tt.driver.ExecuteQuery(query, params)
+	records, _, _, err := tt.driver.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get edges in time range: %w", err)
 	}
@@ -1010,7 +1010,7 @@ func (tt *TemporalTraversal) GetTemporalNeighbors(ctx context.Context, nodeUUID 
 		"target_time": targetTime,
 	}
 
-	records, _, _, err := tt.driver.ExecuteQuery(query, params)
+	records, _, _, err := tt.driver.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get temporal neighbors: %w", err)
 	}

@@ -1206,7 +1206,7 @@ func (n *Neo4jDriver) GetExistingCommunity(ctx context.Context, entityUUID strin
 		"entity_uuid": entityUUID,
 	}
 
-	result, _, _, err := n.ExecuteQuery(query, params)
+	result, _, _, err := n.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query existing community: %w", err)
 	}
@@ -1237,7 +1237,7 @@ func (n *Neo4jDriver) FindModalCommunity(ctx context.Context, entityUUID string)
 		"entity_uuid": entityUUID,
 	}
 
-	result, _, _, err := n.ExecuteQuery(query, params)
+	result, _, _, err := n.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query modal community: %w", err)
 	}
@@ -1716,21 +1716,21 @@ func (n *Neo4jDriver) SearchEdgesByVector(ctx context.Context, vector []float32,
 }
 
 // ExecuteQuery executes a Cypher query and returns records, summary, and keys (matching Python interface).
-func (n *Neo4jDriver) ExecuteQuery(cypherQuery string, kwargs map[string]interface{}) (interface{}, interface{}, interface{}, error) {
-	session := n.client.NewSession(context.Background(), neo4j.SessionConfig{DatabaseName: n.database})
-	defer session.Close(context.Background())
+func (n *Neo4jDriver) ExecuteQuery(ctx context.Context, cypherQuery string, kwargs map[string]interface{}) (interface{}, interface{}, interface{}, error) {
+	session := n.client.NewSession(ctx, neo4j.SessionConfig{DatabaseName: n.database})
+	defer session.Close(ctx)
 
-	result, err := session.Run(context.Background(), cypherQuery, kwargs)
+	result, err := session.Run(ctx, cypherQuery, kwargs)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	records, err := result.Collect(context.Background())
+	records, err := result.Collect(ctx)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	summary, err := result.Consume(context.Background())
+	summary, err := result.Consume(ctx)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -2273,7 +2273,7 @@ func (k *Neo4jDriver) GetBetweenNodes(ctx context.Context, sourceNodeID, targetN
 		"target_uuid": targetNodeID,
 	}
 
-	result, _, _, err := k.ExecuteQuery(query, params)
+	result, _, _, err := k.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute GetBetweenNodes query: %w", err)
 	}
@@ -2309,7 +2309,7 @@ func (n *Neo4jDriver) GetNodeNeighbors(ctx context.Context, nodeUUID, groupID st
 		"group_id": groupID,
 	}
 
-	result, _, _, err := n.ExecuteQuery(query, params)
+	result, _, _, err := n.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute neighbor query: %w", err)
 	}
@@ -2485,7 +2485,7 @@ func (n *Neo4jDriver) GetAllGroupIDs(ctx context.Context) ([]string, error) {
 		RETURN collect(DISTINCT n.group_id) AS group_ids
 	`
 
-	result, _, _, err := n.ExecuteQuery(query, nil)
+	result, _, _, err := n.ExecuteQuery(ctx, query, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute group IDs query: %w", err)
 	}

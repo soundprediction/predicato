@@ -424,7 +424,7 @@ func TestEntityEdgeIntegration(t *testing.T) {
 			MATCH (n {group_id: $group_id})
 			DETACH DELETE n
 		`
-		_, _, _, _ = memgraphDriver.ExecuteQuery(cleanupQuery, map[string]interface{}{"group_id": groupID})
+		_, _, _, _ = memgraphDriver.ExecuteQuery(ctx, cleanupQuery, map[string]interface{}{"group_id": groupID})
 
 		// Create indices
 		err = memgraphDriver.CreateIndices(ctx)
@@ -489,7 +489,7 @@ func TestEntityEdgeIntegration(t *testing.T) {
 		}
 
 		// Clean up after test
-		_, _, _, _ = memgraphDriver.ExecuteQuery(cleanupQuery, map[string]interface{}{"group_id": groupID})
+		_, _, _, _ = memgraphDriver.ExecuteQuery(ctx, cleanupQuery, map[string]interface{}{"group_id": groupID})
 
 		t.Logf("✓ Memgraph: Successfully created, upserted, and retrieved 2 nodes and 1 edge")
 	})

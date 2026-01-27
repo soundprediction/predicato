@@ -1233,7 +1233,7 @@ func (m *MemgraphDriver) GetExistingCommunity(ctx context.Context, entityUUID st
 		"entity_uuid": entityUUID,
 	}
 
-	result, _, _, err := m.ExecuteQuery(query, params)
+	result, _, _, err := m.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query existing community: %w", err)
 	}
@@ -1264,7 +1264,7 @@ func (m *MemgraphDriver) FindModalCommunity(ctx context.Context, entityUUID stri
 		"entity_uuid": entityUUID,
 	}
 
-	result, _, _, err := m.ExecuteQuery(query, params)
+	result, _, _, err := m.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query modal community: %w", err)
 	}
@@ -1750,21 +1750,21 @@ func (m *MemgraphDriver) SearchEdgesByVector(ctx context.Context, vector []float
 }
 
 // ExecuteQuery executes a Cypher query and returns records, summary, and keys (matching Python interface).
-func (m *MemgraphDriver) ExecuteQuery(cypherQuery string, kwargs map[string]interface{}) (interface{}, interface{}, interface{}, error) {
-	session := m.client.NewSession(context.Background(), neo4j.SessionConfig{DatabaseName: m.database})
-	defer session.Close(context.Background())
+func (m *MemgraphDriver) ExecuteQuery(ctx context.Context, cypherQuery string, kwargs map[string]interface{}) (interface{}, interface{}, interface{}, error) {
+	session := m.client.NewSession(ctx, neo4j.SessionConfig{DatabaseName: m.database})
+	defer session.Close(ctx)
 
-	result, err := session.Run(context.Background(), cypherQuery, kwargs)
+	result, err := session.Run(ctx, cypherQuery, kwargs)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	records, err := result.Collect(context.Background())
+	records, err := result.Collect(ctx)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	summary, err := result.Consume(context.Background())
+	summary, err := result.Consume(ctx)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -2307,7 +2307,7 @@ func (k *MemgraphDriver) GetBetweenNodes(ctx context.Context, sourceNodeID, targ
 		"target_uuid": targetNodeID,
 	}
 
-	result, _, _, err := k.ExecuteQuery(query, params)
+	result, _, _, err := k.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute GetBetweenNodes query: %w", err)
 	}
@@ -2343,7 +2343,7 @@ func (m *MemgraphDriver) GetNodeNeighbors(ctx context.Context, nodeUUID, groupID
 		"group_id": groupID,
 	}
 
-	result, _, _, err := m.ExecuteQuery(query, params)
+	result, _, _, err := m.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute neighbor query: %w", err)
 	}
@@ -2522,7 +2522,7 @@ func (m *MemgraphDriver) GetAllGroupIDs(ctx context.Context) ([]string, error) {
 		RETURN collect(DISTINCT n.group_id) AS group_ids
 	`
 
-	result, _, _, err := m.ExecuteQuery(query, nil)
+	result, _, _, err := m.ExecuteQuery(ctx, query, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute group IDs query: %w", err)
 	}

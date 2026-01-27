@@ -176,11 +176,11 @@ make test-nocgo
 | Package | CGO Required | Reason |
 |---------|--------------|--------|
 | `pkg/types` | No | Pure Go types and validation |
-| `pkg/factstore` | No | Database clients only |
-| `pkg/embedder` | No | HTTP client wrappers |
 | `pkg/nlp` | No | LLM API clients |
 | `pkg/prompts` | No | Template parsing |
 | `pkg/logger` | No | Logging utilities |
+| `pkg/embedder` | No* | HTTP clients (*embed_everything.go requires CGO) |
+| `pkg/factstore` | Yes | Dolt driver requires gozstd (CGO) |
 | `pkg/driver` | Yes | Ladybug embedded graph |
 | `pkg/checkpoint` | Yes | Depends on driver |
 | `pkg/modeler` | Yes | Depends on driver |
@@ -191,8 +191,11 @@ make test-nocgo
 
 **Quick test commands:**
 ```bash
-# Pure Go packages (no setup required)
-go test ./pkg/types/... ./pkg/factstore/... ./pkg/embedder/... ./pkg/nlp/...
+# Pure Go packages (no CGO setup required)
+CGO_ENABLED=0 go test ./pkg/types/... ./pkg/nlp/... ./pkg/prompts/... ./pkg/logger/...
+
+# Or use make target
+make test-nocgo
 
 # CGO packages (requires make generate first)
 make test-cgo
