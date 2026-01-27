@@ -766,7 +766,7 @@ func (p *PostgresDB) vectorSearchNodes(ctx context.Context, embedding []float32,
 const MaxInMemorySearchResults = 10000
 
 // inMemoryVectorSearchNodes performs vector search by loading embeddings and computing
-// cosine similarity in Go. Used for DoltGres which doesn't support pgvector.
+// cosine similarity in Go. Used for DoltGres which doesn't support VectorChord.
 func (p *PostgresDB) inMemoryVectorSearchNodes(ctx context.Context, embedding []float32, config *FactSearchConfig) ([]*ExtractedNode, []float64, error) {
 	// Build query to fetch all nodes with embeddings
 	// Limit to MaxInMemorySearchResults to prevent excessive memory usage
@@ -849,7 +849,7 @@ func (p *PostgresDB) inMemoryVectorSearchNodes(ctx context.Context, embedding []
 
 	// Log warning if we hit the limit
 	if len(candidates) >= MaxInMemorySearchResults {
-		log.Printf("WARNING: In-memory vector search hit limit of %d results. Consider using pgvector for better performance.", MaxInMemorySearchResults)
+		log.Printf("WARNING: In-memory vector search hit limit of %d results. Consider using VectorChord for better performance.", MaxInMemorySearchResults)
 	}
 
 	// Sort by score descending using O(n log n) sort
@@ -1290,7 +1290,7 @@ func (p *PostgresDB) embeddingToString(embedding []float32) string {
 	if len(embedding) == 0 {
 		return ""
 	}
-	// Format as pgvector string: [1.0,2.0,3.0]
+	// Format as vector string: [1.0,2.0,3.0]
 	parts := make([]string, len(embedding))
 	for i, v := range embedding {
 		parts[i] = fmt.Sprintf("%f", v)
@@ -1335,7 +1335,7 @@ func (p *PostgresDB) parseEmbeddingJSON(s string) []float32 {
 		return embedding
 	}
 
-	// Fall back to pgvector format parsing
+	// Fall back to vector format parsing
 	return p.parseEmbedding(s)
 }
 
