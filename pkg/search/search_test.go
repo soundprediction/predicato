@@ -60,7 +60,7 @@ func (m *MockGraphDriver) AddEdge(edge *types.Edge) {
 
 // GraphDriver interface implementations
 
-func (m *MockGraphDriver) ExecuteQuery(cypherQuery string, kwargs map[string]interface{}) (interface{}, interface{}, interface{}, error) {
+func (m *MockGraphDriver) ExecuteQuery(ctx context.Context, cypherQuery string, kwargs map[string]interface{}) (interface{}, interface{}, interface{}, error) {
 	return nil, nil, nil, m.err
 }
 

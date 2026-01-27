@@ -425,7 +425,7 @@ func GetEntityEdgesByUUIDs(ctx context.Context, driver EdgeOperations, uuids []s
 		`
 	}
 
-	records, _, _, err := driver.ExecuteQuery(query, map[string]interface{}{
+	records, _, _, err := driver.ExecuteQuery(ctx, query, map[string]interface{}{
 		"uuids": uuids,
 	})
 	if err != nil {
@@ -466,7 +466,7 @@ func GetEntityEdgesBetweenNodes(ctx context.Context, driver EdgeOperations, sour
 		`
 	}
 
-	records, _, _, err := driver.ExecuteQuery(query, map[string]interface{}{
+	records, _, _, err := driver.ExecuteQuery(ctx, query, map[string]interface{}{
 		"source_node_uuid": sourceNodeUUID,
 		"target_node_uuid": targetNodeUUID,
 	})
@@ -492,7 +492,7 @@ type CommunityEdge struct {
 
 // Save implements the Python CommunityEdge.save() method
 func (e *CommunityEdge) Save(ctx context.Context, driver EdgeOperations) error {
-	_, _, _, err := driver.ExecuteQuery("COMMUNITY_EDGE_SAVE_QUERY", map[string]interface{}{
+	_, _, _, err := driver.ExecuteQuery(ctx, "COMMUNITY_EDGE_SAVE_QUERY", map[string]interface{}{
 		"community_uuid": e.SourceNodeID,
 		"entity_uuid":    e.TargetNodeID,
 		"uuid":           e.Uuid,
@@ -504,7 +504,7 @@ func (e *CommunityEdge) Save(ctx context.Context, driver EdgeOperations) error {
 
 // GetByUUID implements the Python CommunityEdge.get_by_uuid() class method
 func GetCommunityEdgeByUUID(ctx context.Context, driver EdgeOperations, uuid string) (*CommunityEdge, error) {
-	records, _, _, err := driver.ExecuteQuery(`
+	records, _, _, err := driver.ExecuteQuery(ctx, `
 		MATCH (n:Community)-[e:HAS_MEMBER {uuid: $uuid}]->(m)
 		RETURN e.uuid AS uuid, e.group_id AS group_id,
 		       n.uuid AS source_node_uuid, m.uuid AS target_node_uuid,
@@ -539,7 +539,7 @@ func GetCommunityEdgesByUUIDs(ctx context.Context, driver EdgeOperations, uuids 
 		return []*CommunityEdge{}, nil
 	}
 
-	records, _, _, err := driver.ExecuteQuery(`
+	records, _, _, err := driver.ExecuteQuery(ctx, `
 		MATCH (n:Community)-[e:HAS_MEMBER]->(m)
 		WHERE e.uuid IN $uuids
 		RETURN e.uuid AS uuid, e.group_id AS group_id,

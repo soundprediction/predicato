@@ -456,7 +456,7 @@ func NewLadybugDriverWithConfig(config *LadybugDriverConfig) (*LadybugDriver, er
 // Returns (results, summary, keys) tuple like Python, though summary and keys are unused in Ladybug.
 // Write operations are automatically queued and executed sequentially for thread safety.
 // Read operations execute directly with mutex protection for better performance.
-func (k *LadybugDriver) ExecuteQuery(cypherQuery string, kwargs map[string]interface{}) (interface{}, interface{}, interface{}, error) {
+func (k *LadybugDriver) ExecuteQuery(ctx context.Context, cypherQuery string, kwargs map[string]interface{}) (interface{}, interface{}, interface{}, error) {
 	// Check if driver is closed
 	k.closeMu.RLock()
 	if k.closed {
@@ -765,7 +765,7 @@ func (k *LadybugDriver) GetNode(ctx context.Context, nodeID, groupID string) (*t
 			"group_id": groupID,
 		}
 
-		result, _, _, err := k.ExecuteQuery(query, params)
+		result, _, _, err := k.ExecuteQuery(ctx, query, params)
 		if err != nil {
 			continue
 		}
@@ -798,7 +798,7 @@ func (k *LadybugDriver) NodeExists(ctx context.Context, node *types.Node) bool {
 		"group_id": node.GroupID,
 	}
 
-	result, _, _, err := k.ExecuteQuery(query, params)
+	result, _, _, err := k.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return false
 	}
@@ -833,7 +833,7 @@ func (k *LadybugDriver) UpsertNode(ctx context.Context, node *types.Node) error 
 
 	// Try to create first
 	if !k.NodeExists(ctx, node) {
-		err := k.executeNodeCreateQuery(node, tableName)
+		err := k.executeNodeCreateQuery(ctx, node, tableName)
 		if err != nil {
 			return fmt.Errorf("failed to create node %w", err)
 		}
@@ -841,7 +841,7 @@ func (k *LadybugDriver) UpsertNode(ctx context.Context, node *types.Node) error 
 
 	}
 
-	updateErr := k.executeNodeUpdateQuery(node, tableName)
+	updateErr := k.executeNodeUpdateQuery(ctx, node, tableName)
 	if updateErr != nil {
 		return fmt.Errorf("failed to update node %w", updateErr)
 	}
@@ -874,7 +874,7 @@ func (k *LadybugDriver) DeleteNode(ctx context.Context, nodeID, groupID string) 
 			DELETE r
 		`, table)
 
-		k.ExecuteQuery(deleteRelsQuery, params) // Ignore errors for missing relationships
+		k.ExecuteQuery(ctx, deleteRelsQuery, params) // Ignore errors for missing relationships
 
 		// Delete the node using parameterized query
 		deleteNodeQuery := fmt.Sprintf(`
@@ -883,7 +883,7 @@ func (k *LadybugDriver) DeleteNode(ctx context.Context, nodeID, groupID string) 
 			DELETE n
 		`, table)
 
-		k.ExecuteQuery(deleteNodeQuery, params) // Ignore errors for nodes not in this table
+		k.ExecuteQuery(ctx, deleteNodeQuery, params) // Ignore errors for nodes not in this table
 	}
 
 	return nil
@@ -913,7 +913,7 @@ func (k *LadybugDriver) GetNodes(ctx context.Context, nodeIDs []string, groupID 
 			"group_id": groupID,
 		}
 
-		result, _, _, err := k.ExecuteQuery(query, params)
+		result, _, _, err := k.ExecuteQuery(ctx, query, params)
 		if err != nil {
 			continue
 		}
@@ -945,7 +945,7 @@ func (k *LadybugDriver) GetEdge(ctx context.Context, edgeID, groupID string) (*t
 		"group_id": groupID,
 	}
 
-	result, _, _, err := k.ExecuteQuery(query, params)
+	result, _, _, err := k.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query edge: %w", err)
 	}
@@ -968,14 +968,14 @@ func (k *LadybugDriver) UpsertEdge(ctx context.Context, edge *types.Edge) error 
 	}
 
 	if !k.EdgeExists(ctx, edge) {
-		err := k.executeEdgeCreateQuery(edge)
+		err := k.executeEdgeCreateQuery(ctx, edge)
 		if err != nil {
 			return fmt.Errorf("failed to create edge %w", err)
 		}
 		return err
 	}
 
-	updateErr := k.executeEdgeUpdateQuery(edge)
+	updateErr := k.executeEdgeUpdateQuery(ctx, edge)
 	if updateErr != nil {
 		return fmt.Errorf("failed to update edge %w", updateErr)
 	}
@@ -996,7 +996,7 @@ func (k *LadybugDriver) EdgeExists(ctx context.Context, edge *types.Edge) bool {
 		"group_id": edge.GroupID,
 	}
 
-	result, _, _, err := k.ExecuteQuery(query, params)
+	result, _, _, err := k.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return false
 	}
@@ -1008,7 +1008,7 @@ func (k *LadybugDriver) EdgeExists(ctx context.Context, edge *types.Edge) bool {
 	return false
 }
 
-func (k *LadybugDriver) executeEdgeCreateQuery(edge *types.Edge) error {
+func (k *LadybugDriver) executeEdgeCreateQuery(ctx context.Context, edge *types.Edge) error {
 	var metadataJSON string
 	if edge.Metadata != nil {
 		if data, err := json.Marshal(edge.Metadata); err == nil {
@@ -1081,11 +1081,11 @@ func (k *LadybugDriver) executeEdgeCreateQuery(edge *types.Edge) error {
 		params["invalid_at"] = nil
 	}
 
-	_, _, _, err := k.ExecuteQuery(query, params)
+	_, _, _, err := k.ExecuteQuery(ctx, query, params)
 	return err
 }
 
-func (k *LadybugDriver) executeEdgeUpdateQuery(edge *types.Edge) error {
+func (k *LadybugDriver) executeEdgeUpdateQuery(ctx context.Context, edge *types.Edge) error {
 	var metadataJSON string
 	if edge.Metadata != nil {
 		if data, err := json.Marshal(edge.Metadata); err == nil {
@@ -1148,7 +1148,7 @@ func (k *LadybugDriver) executeEdgeUpdateQuery(edge *types.Edge) error {
 		params["invalid_at"] = nil
 	}
 
-	_, _, _, err := k.ExecuteQuery(query, params)
+	_, _, _, err := k.ExecuteQuery(ctx, query, params)
 	return err
 }
 
@@ -1174,7 +1174,7 @@ func (k *LadybugDriver) UpsertEpisodicEdge(ctx context.Context, episodeUUID, ent
 		"uuid":         fmt.Sprintf("%s-%s", episodeUUID, entityUUID), // Generate consistent uuid
 	}
 
-	_, _, _, err := k.ExecuteQuery(query, params)
+	_, _, _, err := k.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return fmt.Errorf("failed to upsert episodic edge: %w", err)
 	}
@@ -1202,7 +1202,7 @@ func (k *LadybugDriver) UpsertCommunityEdge(ctx context.Context, communityUUID, 
 		"created_at":     time.Now(),
 	}
 
-	_, _, _, err := k.ExecuteQuery(query, params)
+	_, _, _, err := k.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		// Try Community target if Entity didn't work
 		query = `
@@ -1213,7 +1213,7 @@ func (k *LadybugDriver) UpsertCommunityEdge(ctx context.Context, communityUUID, 
 			RETURN e
 		`
 
-		_, _, _, err = k.ExecuteQuery(query, params)
+		_, _, _, err = k.ExecuteQuery(ctx, query, params)
 		if err != nil {
 			return fmt.Errorf("failed to upsert community edge: %w", err)
 		}
@@ -1237,7 +1237,7 @@ func (k *LadybugDriver) DeleteEdge(ctx context.Context, edgeID, groupID string) 
 		"group_id": groupID,
 	}
 
-	_, _, _, err := k.ExecuteQuery(deleteQuery, params)
+	_, _, _, err := k.ExecuteQuery(ctx, deleteQuery, params)
 	if err != nil {
 		return fmt.Errorf("failed to delete edge: %w", err)
 	}
@@ -1263,7 +1263,7 @@ func (k *LadybugDriver) GetEdges(ctx context.Context, edgeIDs []string, groupID 
 		"group_id": groupID,
 	}
 
-	result, _, _, err := k.ExecuteQuery(query, params)
+	result, _, _, err := k.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query edges: %w", err)
 	}
@@ -1308,7 +1308,7 @@ func (k *LadybugDriver) GetNeighbors(ctx context.Context, nodeID, groupID string
 		"group_id": groupID,
 	}
 
-	result, _, _, err := k.ExecuteQuery(query, params)
+	result, _, _, err := k.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query neighbors: %w", err)
 	}
@@ -1374,7 +1374,7 @@ func (k *LadybugDriver) SearchNodesByEmbedding(ctx context.Context, embedding []
 		"limit":         int64(limit),
 	}
 
-	result, _, _, err := k.ExecuteQuery(query, params)
+	result, _, _, err := k.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute node embedding search: %w", err)
 	}
@@ -1483,7 +1483,7 @@ func (k *LadybugDriver) SearchEdgesByEmbedding(ctx context.Context, embedding []
 		"limit":         int64(limit),
 	}
 
-	result, _, _, err := k.ExecuteQuery(query, params)
+	result, _, _, err := k.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute edge embedding search: %w", err)
 	}
@@ -1607,7 +1607,7 @@ func (k *LadybugDriver) SearchNodes(ctx context.Context, query, groupID string, 
 		`
 	}
 
-	result, _, _, err := k.ExecuteQuery(searchQuery, params)
+	result, _, _, err := k.ExecuteQuery(ctx, searchQuery, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search nodes: %w", err)
 	}
@@ -1667,7 +1667,7 @@ func (k *LadybugDriver) SearchEdges(ctx context.Context, query, groupID string, 
 		"limit":    int64(limit),
 	}
 
-	result, _, _, err := k.ExecuteQuery(searchQuery, params)
+	result, _, _, err := k.ExecuteQuery(ctx, searchQuery, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search edges: %w", err)
 	}
@@ -1784,7 +1784,7 @@ func (k *LadybugDriver) GetNodesInTimeRange(ctx context.Context, start, end time
 		"end":      end.Format(time.RFC3339),
 	}
 
-	result, _, _, err := k.ExecuteQuery(query, params)
+	result, _, _, err := k.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute GetNodesInTimeRange query: %w", err)
 	}
@@ -1855,7 +1855,7 @@ func (k *LadybugDriver) GetEdgesInTimeRange(ctx context.Context, start, end time
 		"end":      end.Format(time.RFC3339),
 	}
 
-	result, _, _, err := k.ExecuteQuery(query, params)
+	result, _, _, err := k.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute GetEdgesInTimeRange query: %w", err)
 	}
@@ -1977,7 +1977,7 @@ func (k *LadybugDriver) RetrieveEpisodes(
 	`, queryFilter)
 
 	// Execute query
-	result, _, _, err := k.ExecuteQuery(query, queryParams)
+	result, _, _, err := k.ExecuteQuery(ctx, query, queryParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve episodes: %w", err)
 	}
@@ -2080,7 +2080,7 @@ func (k *LadybugDriver) GetExistingCommunity(ctx context.Context, entityUUID str
 		"entity_uuid": entityUUID,
 	}
 
-	result, _, _, err := k.ExecuteQuery(query, params)
+	result, _, _, err := k.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query existing community: %w", err)
 	}
@@ -2112,7 +2112,7 @@ func (k *LadybugDriver) FindModalCommunity(ctx context.Context, entityUUID strin
 		"entity_uuid": entityUUID,
 	}
 
-	result, _, _, err := k.ExecuteQuery(query, params)
+	result, _, _, err := k.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query modal community: %w", err)
 	}
@@ -2174,7 +2174,7 @@ func (k *LadybugDriver) RemoveCommunities(ctx context.Context) error {
 
 	query := "MATCH (c:Community) DETACH DELETE c"
 
-	_, _, _, err := k.ExecuteQuery(query, nil)
+	_, _, _, err := k.ExecuteQuery(ctx, query, nil)
 	if err != nil {
 		return fmt.Errorf("failed to remove communities: %w", err)
 	}
@@ -2217,7 +2217,7 @@ func (k *LadybugDriver) GetStats(ctx context.Context, groupID string) (*GraphSta
 	// Get node counts by table (using validated labels only)
 	for label := range allowedNodeLabels {
 		query := fmt.Sprintf("MATCH (n:%s) RETURN count(n) as count", label)
-		result, _, _, err := k.ExecuteQuery(query, nil)
+		result, _, _, err := k.ExecuteQuery(ctx, query, nil)
 		if err != nil {
 			continue
 		}
@@ -2233,7 +2233,7 @@ func (k *LadybugDriver) GetStats(ctx context.Context, groupID string) (*GraphSta
 	// Get edge counts by relationship type (using validated labels only)
 	for label := range allowedEdgeLabels {
 		query := fmt.Sprintf("MATCH ()-[r:%s]->() RETURN count(r) as count", label)
-		result, _, _, err := k.ExecuteQuery(query, nil)
+		result, _, _, err := k.ExecuteQuery(ctx, query, nil)
 		if err != nil {
 			continue
 		}
@@ -2415,7 +2415,7 @@ func (k *LadybugDriver) mapToEdge(data map[string]interface{}) (*types.Edge, err
 	return edge, nil
 }
 
-func (k *LadybugDriver) executeNodeCreateQuery(node *types.Node, tableName string) error {
+func (k *LadybugDriver) executeNodeCreateQuery(ctx context.Context, node *types.Node, tableName string) error {
 	// Defensive nil check for node
 	if node == nil {
 		return fmt.Errorf("cannot create nil node")
@@ -2554,7 +2554,7 @@ func (k *LadybugDriver) executeNodeCreateQuery(node *types.Node, tableName strin
 	return err
 }
 
-func (k *LadybugDriver) executeNodeUpdateQuery(node *types.Node, tableName string) error {
+func (k *LadybugDriver) executeNodeUpdateQuery(ctx context.Context, node *types.Node, tableName string) error {
 	// Defensive nil check for node
 	if node == nil {
 		return fmt.Errorf("cannot update nil node")

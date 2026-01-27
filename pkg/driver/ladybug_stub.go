@@ -23,7 +23,7 @@ func NewLadybugDriver(dbPath string) (*LadybugDriver, error) {
 }
 
 // ExecuteQuery returns ErrCGORequired
-func (k *LadybugDriver) ExecuteQuery(cypherQuery string, kwargs map[string]interface{}) (interface{}, interface{}, interface{}, error) {
+func (k *LadybugDriver) ExecuteQuery(ctx context.Context, cypherQuery string, kwargs map[string]interface{}) (interface{}, interface{}, interface{}, error) {
 	return nil, nil, nil, ErrCGORequired
 }
 

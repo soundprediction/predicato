@@ -1716,21 +1716,21 @@ func (n *Neo4jDriver) SearchEdgesByVector(ctx context.Context, vector []float32,
 }
 
 // ExecuteQuery executes a Cypher query and returns records, summary, and keys (matching Python interface).
-func (n *Neo4jDriver) ExecuteQuery(cypherQuery string, kwargs map[string]interface{}) (interface{}, interface{}, interface{}, error) {
-	session := n.client.NewSession(context.Background(), neo4j.SessionConfig{DatabaseName: n.database})
-	defer session.Close(context.Background())
+func (n *Neo4jDriver) ExecuteQuery(ctx context.Context, cypherQuery string, kwargs map[string]interface{}) (interface{}, interface{}, interface{}, error) {
+	session := n.client.NewSession(ctx, neo4j.SessionConfig{DatabaseName: n.database})
+	defer session.Close(ctx)
 
-	result, err := session.Run(context.Background(), cypherQuery, kwargs)
+	result, err := session.Run(ctx, cypherQuery, kwargs)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	records, err := result.Collect(context.Background())
+	records, err := result.Collect(ctx)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	summary, err := result.Consume(context.Background())
+	summary, err := result.Consume(ctx)
 	if err != nil {
 		return nil, nil, nil, err
 	}

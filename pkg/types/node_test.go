@@ -15,7 +15,7 @@ type mockNodeOperations struct {
 	params    []map[string]interface{}
 }
 
-func (m *mockNodeOperations) ExecuteQuery(query string, params map[string]interface{}) (interface{}, interface{}, interface{}, error) {
+func (m *mockNodeOperations) ExecuteQuery(ctx context.Context, query string, params map[string]interface{}) (interface{}, interface{}, interface{}, error) {
 	m.queries = append(m.queries, query)
 	m.params = append(m.params, params)
 	return m.results, nil, nil, m.execError

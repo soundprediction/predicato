@@ -8,7 +8,7 @@ import (
 
 // NodeOperations provides methods for node-related database operations
 type NodeOperations interface {
-	ExecuteQuery(query string, params map[string]interface{}) (interface{}, interface{}, interface{}, error)
+	ExecuteQuery(ctx context.Context, query string, params map[string]interface{}) (interface{}, interface{}, interface{}, error)
 }
 
 // GetEpisodicNodeByUUID replicates EpisodicNode.get_by_uuid functionality from Python
@@ -22,7 +22,7 @@ func GetEpisodicNodeByUUID(ctx context.Context, driver NodeOperations, uuid stri
 		       e.group_id AS group_id, e.created_at AS created_at
 	`
 
-	records, _, _, err := driver.ExecuteQuery(query, map[string]interface{}{
+	records, _, _, err := driver.ExecuteQuery(ctx, query, map[string]interface{}{
 		"uuid": uuid,
 	})
 	if err != nil {
@@ -81,7 +81,7 @@ func DeleteNode(ctx context.Context, driver NodeOperations, node *Node) error {
 		RETURN edge_uuids
 	`
 
-	_, _, _, err := driver.ExecuteQuery(query, map[string]interface{}{
+	_, _, _, err := driver.ExecuteQuery(ctx, query, map[string]interface{}{
 		"uuid": node.Uuid,
 	})
 
@@ -105,7 +105,7 @@ func DeleteNodesByUUIDs(ctx context.Context, driver NodeOperations, uuids []stri
 			DETACH DELETE n
 		`, label)
 
-		_, _, _, err := driver.ExecuteQuery(query, map[string]interface{}{
+		_, _, _, err := driver.ExecuteQuery(ctx, query, map[string]interface{}{
 			"uuids": uuids,
 		})
 		if err != nil {
@@ -135,7 +135,7 @@ func GetMentionedNodes(ctx context.Context, driver NodeOperations, episodes []*N
 		       n.summary AS summary, n.group_id AS group_id
 	`
 
-	records, _, _, err := driver.ExecuteQuery(query, map[string]interface{}{
+	records, _, _, err := driver.ExecuteQuery(ctx, query, map[string]interface{}{
 		"uuids": episodeUUIDs,
 	})
 	if err != nil {

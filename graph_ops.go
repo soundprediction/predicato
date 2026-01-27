@@ -145,5 +145,5 @@ func (c *Client) Close(ctx context.Context) error {
 // ExecuteQuery executes a raw Cypher query against the graph database.
 // This exposes the underlying driver's query execution capability.
 func (c *Client) ExecuteQuery(ctx context.Context, query string, params map[string]interface{}) (interface{}, interface{}, interface{}, error) {
-	return c.driver.ExecuteQuery(query, params)
+	return c.driver.ExecuteQuery(ctx, query, params)
 }
