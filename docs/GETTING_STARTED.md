@@ -13,7 +13,7 @@ Most agentic memory libraries require external services (OpenAI, Pinecone, Neo4j
 | **Reranking** | go-embedeverything | Jina, Cohere |
 | **Text Generation** | go-rust-bert (GPT-2) | OpenAI, Anthropic, Ollama |
 | **Entity Extraction** | GLiNER (ONNX) | NLP model-based extraction |
-| **Fact Storage** | DoltGres (embedded) | PostgreSQL + pgvector |
+| **Fact Storage** | DoltGres (embedded) | PostgreSQL + VectorChord |
 
 ## Prerequisites
 

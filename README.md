@@ -40,7 +40,7 @@ Predicato implements a **two-layer architecture** that separates raw fact extrac
 │                         │     │  ┌───────────────────────────┐   │
 │  ┌───────────────────┐  │     │  │    Knowledge Graph        │   │
 │  │   RAG Search      │  │     │  │  (Ladybug/Neo4j/Memgraph) │   │
-│  │  (pgvector/JSONB) │  │     │  │  • Resolved entities      │   │
+│  │ (VectorChord/JSONB)│  │     │  │  • Resolved entities      │   │
 │  └───────────────────┘  │     │  │  • Temporal relationships │   │
 │                         │     │  │  • Communities            │   │
 └─────────────────────────┘     │  └───────────────────────────┘   │
@@ -53,7 +53,7 @@ Predicato implements a **two-layer architecture** that separates raw fact extrac
 - Preserves source provenance (which document, which chunk)
 - Enables re-processing with different models or parameters
 - Supports simple RAG without graph complexity
-- Uses PostgreSQL/pgvector for production-grade vector search
+- Uses PostgreSQL/VectorChord for production-grade vector search
 
 **Knowledge Graph (Layer 2)** - Stores resolved, interconnected knowledge:
 - Entity resolution merges duplicates ("Bob Smith" = "Robert Smith")
@@ -153,7 +153,7 @@ if !result.Valid {
 | **Reranking** | go-embedeverything | Jina, Cohere |
 | **Text Generation** | go-rust-bert (BERT models) | OpenAI compatible APIs |
 | **Entity Extraction** | GLiNER (ONNX) | LLM-based extraction |
-| **Fact Storage** | DoltGres (embedded) | PostgreSQL + pgvector |
+| **Fact Storage** | DoltGres (embedded) | PostgreSQL + VectorChord |
 
 **Why choose Predicato:**
 - **Security** - Don't expose your data to external services
@@ -376,7 +376,7 @@ predicato/
 ├── pkg/rustbert/      # Local text generation (GPT-2, NER, summarization)
 ├── pkg/nlp/           # LLM clients (OpenAI-compatible APIs)
 ├── pkg/search/        # Hybrid search (semantic + BM25 + graph traversal)
-├── pkg/factstore/     # Versioned fact storage (PostgreSQL/DoltGres + pgvector)
+├── pkg/factstore/     # Versioned fact storage (PostgreSQL/DoltGres + VectorChord)
 └── pkg/types/         # Core types (nodes, edges, episodes)
 ```
 
@@ -418,12 +418,12 @@ Predicato includes a **fact storage system** for extracted entities and relation
 
 ### PostgreSQL Backend
 
-The fact storage uses PostgreSQL-compatible databases with **pgvector** for native vector similarity search:
+The fact storage uses PostgreSQL-compatible databases with **VectorChord** for native vector similarity search:
 
 | Mode | Database | Use Case |
 |------|----------|----------|
 | **Embedded** | DoltGres | Development, single-node deployment |
-| **External** | PostgreSQL + pgvector | Production, managed databases (RDS, Cloud SQL) |
+| **External** | PostgreSQL + VectorChord | Production, managed databases (RDS, Cloud SQL) |
 
 If no external PostgreSQL is configured, Predicato automatically uses **DoltGres** (embedded PostgreSQL-compatible database with git-like versioning).
 
@@ -435,7 +435,7 @@ client, _ := predicato.NewClient(db, llm, embedder, &predicato.Config{
     GroupID: "my-app",
 }, nil)
 
-// Option 2: External PostgreSQL with pgvector
+// Option 2: External PostgreSQL with VectorChord
 client, _ := predicato.NewClient(db, llm, embedder, &predicato.Config{
     GroupID: "my-app",
     FactStoreConfig: &factstore.FactStoreConfig{
@@ -461,7 +461,7 @@ for _, node := range results.Nodes {
 }
 ```
 
-This performs hybrid search (vector similarity + keyword matching) using pgvector and PostgreSQL full-text search.
+This performs hybrid search (vector similarity + keyword matching) using VectorChord and PostgreSQL full-text search.
 
 ## CLI & Server
 
