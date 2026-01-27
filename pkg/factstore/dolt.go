@@ -598,13 +598,9 @@ func (d *DoltDB) SearchSources(ctx context.Context, query string, config *FactSe
 	}
 
 	// Sort
-	for i := 0; i < len(scored)-1; i++ {
-		for j := i + 1; j < len(scored); j++ {
-			if scored[j].score > scored[i].score {
-				scored[i], scored[j] = scored[j], scored[i]
-			}
-		}
-	}
+	sort.Slice(scored, func(i, j int) bool {
+		return scored[i].score > scored[j].score
+	})
 
 	var sources []*Source
 	var scores []float64
