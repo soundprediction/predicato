@@ -391,7 +391,10 @@ func NewMCPServer(config *MCPConfig) (*MCPServer, error) {
 			return nil, fmt.Errorf("failed to create LLM client: %w", err)
 		}
 		// Wrap with retry client for automatic retry on errors
-		retryClient := nlp.NewRetryClient(baseLLMClient, nlp.DefaultRetryConfig())
+		retryClient, err := nlp.NewRetryClient(baseLLMClient, nlp.DefaultRetryConfig())
+		if err != nil {
+			return nil, fmt.Errorf("failed to create retry client: %w", err)
+		}
 
 		// Telemetry using Parquet
 		trackingPath := config.TelemetryParquetPath

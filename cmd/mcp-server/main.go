@@ -169,7 +169,10 @@ func NewMCPServer(config *Config) (*MCPServer, error) {
 			return nil, fmt.Errorf("failed to create NLP client: %w", err)
 		}
 		// Wrap with retry client for automatic retry on errors
-		nlProcessor = nlp.NewRetryClient(baseNLPClient, nlp.DefaultRetryConfig())
+		nlProcessor, err = nlp.NewRetryClient(baseNLPClient, nlp.DefaultRetryConfig())
+		if err != nil {
+			return nil, fmt.Errorf("failed to create retry client: %w", err)
+		}
 	}
 
 	// Create embedder client

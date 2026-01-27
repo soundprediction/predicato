@@ -277,7 +277,10 @@ func runPredicatoIntegrationExample() error {
 		return fmt.Errorf("failed to create Ollama client: %w", err)
 	}
 	// Wrap with retry client for automatic retry on errors
-	nlProcessor := nlp.NewRetryClient(baseLLMClient, nlp.DefaultRetryConfig())
+	nlProcessor, err := nlp.NewRetryClient(baseLLMClient, nlp.DefaultRetryConfig())
+	if err != nil {
+		return fmt.Errorf("failed to create retry client: %w", err)
+	}
 	defer nlProcessor.Close()
 
 	// For embeddings, we'll still use OpenAI since most local solutions
