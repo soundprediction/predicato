@@ -34,4 +34,17 @@
 //   - GroupIDs: Limit to specific groups
 //   - NodeTypes: Filter by node type (entity, episode, community)
 //   - TimeRange: Filter by temporal validity
+//
+// # Internal Type Design
+//
+// This package defines its own SearchConfig, NodeSearchConfig, EdgeSearchConfig,
+// and SearchFilters types that are separate from pkg/types. This is intentional:
+//
+//   - pkg/types provides a simplified public API with string-based configuration
+//   - pkg/search provides a richer internal implementation with typed enums
+//   - Conversion happens in retrieval.go when calling the Searcher
+//
+// This separation allows the public API to remain stable while the internal
+// implementation can evolve. New search methods and rerankers can be added
+// internally without changing the public interface.
 package search

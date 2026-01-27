@@ -303,7 +303,8 @@ func UnmarshalCSV[T any](csvString string, delimiter rune) ([]*T, error) {
 		reader.LazyQuotes = true
 		_, _ = reader.Read() // skip header again
 	} else {
-		// Process pre-read records
+		// Process pre-read records with pre-allocated capacity
+		results = make([]*T, 0, len(records))
 		for _, record := range records {
 			if len(record) != len(header) {
 				continue

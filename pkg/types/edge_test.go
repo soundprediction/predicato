@@ -7,6 +7,7 @@ import (
 )
 
 func TestEntityEdgeSyncFields(t *testing.T) {
+	t.Parallel()
 	now := time.Now()
 	validAt := now.Add(-time.Hour)
 	invalidAt := now.Add(time.Hour)
@@ -48,6 +49,7 @@ func TestEntityEdgeSyncFields(t *testing.T) {
 }
 
 func TestEntityEdgeUpdateFromCompat(t *testing.T) {
+	t.Parallel()
 	now := time.Now()
 	validFrom := now.Add(-time.Hour)
 	validTo := now.Add(time.Hour)
@@ -80,6 +82,7 @@ func TestEntityEdgeUpdateFromCompat(t *testing.T) {
 }
 
 func TestEntityEdgeJSONRoundtrip(t *testing.T) {
+	t.Parallel()
 	now := time.Now().Truncate(time.Second)
 	validAt := now.Add(-time.Hour)
 
@@ -136,6 +139,7 @@ func TestEntityEdgeJSONRoundtrip(t *testing.T) {
 }
 
 func TestBaseEdgeGetters(t *testing.T) {
+	t.Parallel()
 	now := time.Now()
 	edge := &BaseEdge{
 		Uuid:         "test-uuid",
@@ -163,6 +167,7 @@ func TestBaseEdgeGetters(t *testing.T) {
 }
 
 func TestEdgeTypes(t *testing.T) {
+	t.Parallel()
 	// Verify constant values haven't changed
 	if EntityEdgeType != "entity" {
 		t.Errorf("EntityEdgeType = %s, want entity", EntityEdgeType)
@@ -179,6 +184,7 @@ func TestEdgeTypes(t *testing.T) {
 }
 
 func TestGraphProviders(t *testing.T) {
+	t.Parallel()
 	// Verify constant values haven't changed
 	if GraphProviderNeo4j != "neo4j" {
 		t.Errorf("GraphProviderNeo4j = %s, want neo4j", GraphProviderNeo4j)
@@ -195,6 +201,7 @@ func TestGraphProviders(t *testing.T) {
 }
 
 func TestCommunityEdge(t *testing.T) {
+	t.Parallel()
 	now := time.Now()
 	edge := &CommunityEdge{
 		BaseEdge: BaseEdge{

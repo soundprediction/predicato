@@ -147,7 +147,9 @@ func LSHBands(signature []uint64) [][]uint64 {
 		return [][]uint64{}
 	}
 
-	bands := make([][]uint64, 0)
+	// Pre-allocate bands slice with expected capacity
+	numBands := len(signature) / MinHashBandSize
+	bands := make([][]uint64, 0, numBands)
 	for start := 0; start < len(signature); start += MinHashBandSize {
 		end := start + MinHashBandSize
 		if end > len(signature) {

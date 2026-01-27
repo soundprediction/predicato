@@ -609,8 +609,9 @@ func DedupeNodesBulk(
 	// Group nodes by episode with canonical UUIDs
 	nodesByEpisode := make(map[string][]*types.Node)
 	for _, resolution := range episodeResolutions {
-		dedupedNodes := make([]*types.Node, 0)
-		seen := make(map[string]bool)
+		// Pre-allocate with capacity hint from resolved nodes
+		dedupedNodes := make([]*types.Node, 0, len(resolution.resolvedNodes))
+		seen := make(map[string]bool, len(resolution.resolvedNodes))
 
 		for _, node := range resolution.resolvedNodes {
 			canonicalUUID := compressedMap[node.Uuid]

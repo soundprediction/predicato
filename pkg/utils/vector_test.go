@@ -6,6 +6,7 @@ import (
 )
 
 func TestCosineSimilarity(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		a        []float32
@@ -79,6 +80,7 @@ func TestCosineSimilarity(t *testing.T) {
 }
 
 func TestCosineSimilarity32(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		a        []float32
@@ -122,6 +124,7 @@ func TestCosineSimilarity32(t *testing.T) {
 }
 
 func TestCosineSimilarity64(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		a        []float64
@@ -153,6 +156,7 @@ func TestCosineSimilarity64(t *testing.T) {
 }
 
 func TestDotProduct(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		a        []float32
@@ -190,6 +194,7 @@ func TestDotProduct(t *testing.T) {
 }
 
 func TestMagnitude(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		v        []float32
@@ -228,6 +233,7 @@ func TestMagnitude(t *testing.T) {
 }
 
 func TestNormalize(t *testing.T) {
+	t.Parallel()
 	t.Run("normalize unit vector", func(t *testing.T) {
 		v := []float32{1, 0, 0}
 		result := Normalize(v)
@@ -306,6 +312,7 @@ func BenchmarkCosineSimilarity32(b *testing.B) {
 }
 
 func TestTopKByScore(t *testing.T) {
+	t.Parallel()
 	t.Run("basic top k", func(t *testing.T) {
 		items := []ScoredItem[string]{
 			{Item: "a", Score: 0.5},
@@ -418,6 +425,7 @@ func TestTopKByScore(t *testing.T) {
 }
 
 func TestTopKIndicesByScore(t *testing.T) {
+	t.Parallel()
 	t.Run("basic indices", func(t *testing.T) {
 		scores := []float64{0.3, 0.9, 0.5, 0.1, 0.7}
 

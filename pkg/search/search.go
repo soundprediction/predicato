@@ -206,7 +206,8 @@ func (s *Searcher) needsEmbedding(config *SearchConfig) bool {
 }
 
 func (s *Searcher) searchNodes(ctx context.Context, query string, queryVector []float32, config *NodeSearchConfig, filters *SearchFilters, groupID string, limit int) ([]*types.Node, []float64, error) {
-	searchResults := make([][]*types.Node, 0)
+	// Pre-allocate with capacity for search methods (may add BFS results too)
+	searchResults := make([][]*types.Node, 0, len(config.SearchMethods)+1)
 	var bfsOriginNodes []string
 
 	// Execute different search methods
@@ -281,7 +282,8 @@ func (s *Searcher) searchNodes(ctx context.Context, query string, queryVector []
 }
 
 func (s *Searcher) searchEdges(ctx context.Context, query string, queryVector []float32, config *EdgeSearchConfig, filters *SearchFilters, groupID string, limit int) ([]*types.Edge, []float64, error) {
-	searchResults := make([][]*types.Edge, 0)
+	// Pre-allocate with capacity for search methods (may add BFS results too)
+	searchResults := make([][]*types.Edge, 0, len(config.SearchMethods)+1)
 	var bfsOriginNodes []string
 
 	// Execute different search methods

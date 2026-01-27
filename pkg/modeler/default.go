@@ -18,6 +18,10 @@ import (
 
 // NlpModels holds specialized NLP clients for different pipeline steps.
 // This mirrors the structure in predicato.go for consistency.
+//
+// NOTE: This type is intentionally duplicated from predicato.NlpModels to avoid
+// an import cycle (modeler cannot import root package). Both types should be
+// kept in sync. If adding fields here, also add them to predicato.NlpModels.
 type NlpModels struct {
 	NodeExtraction nlp.Client
 	NodeReflexion  nlp.Client
@@ -26,6 +30,7 @@ type NlpModels struct {
 	EdgeExtraction nlp.Client
 	EdgeResolution nlp.Client
 	Summarization  nlp.Client
+	TextGeneration nlp.Client // Added for parity with predicato.NlpModels
 }
 
 // DefaultModelerOptions configures the DefaultModeler.

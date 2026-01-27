@@ -148,7 +148,11 @@ type Client struct {
 	nlpModels NlpModels
 }
 
-// NlpModels holds specialized NLP clients for different steps.
+// NlpModels holds specialized NLP clients for different pipeline steps.
+//
+// NOTE: This type is intentionally duplicated in pkg/modeler/default.go to avoid
+// an import cycle (modeler cannot import root package). Both types should be
+// kept in sync. If adding fields here, also add them to modeler.NlpModels.
 type NlpModels struct {
 	NodeExtraction nlp.Client
 	NodeReflexion  nlp.Client

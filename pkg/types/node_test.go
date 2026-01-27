@@ -22,6 +22,7 @@ func (m *mockNodeOperations) ExecuteQuery(query string, params map[string]interf
 }
 
 func TestGetEpisodicNodeByUUID(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
 		mock := &mockNodeOperations{
 			results: []map[string]interface{}{
@@ -105,6 +106,7 @@ func TestGetEpisodicNodeByUUID(t *testing.T) {
 }
 
 func TestDeleteNode(t *testing.T) {
+	t.Parallel()
 	t.Run("success", func(t *testing.T) {
 		mock := &mockNodeOperations{}
 		node := &Node{Uuid: "test-uuid-123"}
@@ -139,6 +141,7 @@ func TestDeleteNode(t *testing.T) {
 }
 
 func TestDeleteNodesByUUIDs(t *testing.T) {
+	t.Parallel()
 	t.Run("empty list", func(t *testing.T) {
 		mock := &mockNodeOperations{}
 
@@ -191,6 +194,7 @@ func TestDeleteNodesByUUIDs(t *testing.T) {
 }
 
 func TestGetMentionedNodes(t *testing.T) {
+	t.Parallel()
 	t.Run("empty episodes", func(t *testing.T) {
 		mock := &mockNodeOperations{}
 
@@ -263,6 +267,7 @@ func TestGetMentionedNodes(t *testing.T) {
 }
 
 func TestParseNodeFromMap(t *testing.T) {
+	t.Parallel()
 	t.Run("parse with uuid", func(t *testing.T) {
 		data := map[string]interface{}{
 			"uuid":     "test-uuid",
@@ -378,6 +383,7 @@ func TestParseNodeFromMap(t *testing.T) {
 }
 
 func TestReverseNodes(t *testing.T) {
+	t.Parallel()
 	t.Run("empty slice", func(t *testing.T) {
 		nodes := []*Node{}
 		ReverseNodes(nodes)
@@ -429,6 +435,7 @@ func TestReverseNodes(t *testing.T) {
 }
 
 func TestConvertToFloat32Array(t *testing.T) {
+	t.Parallel()
 	t.Run("nil input", func(t *testing.T) {
 		result := convertToFloat32Array(nil)
 		if result != nil {
