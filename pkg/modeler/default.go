@@ -94,7 +94,10 @@ func NewDefaultModeler(opts *DefaultModelerOptions) (*DefaultModeler, error) {
 	} else {
 		summarizer = opts.NlpClient
 	}
-	communityBuilder := community.NewBuilder(opts.Driver, opts.NlpClient, summarizer, opts.Embedder)
+	communityBuilder, err := community.NewBuilder(opts.Driver, opts.NlpClient, summarizer, opts.Embedder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create community builder: %w", err)
+	}
 
 	return &DefaultModeler{
 		driver:    opts.Driver,

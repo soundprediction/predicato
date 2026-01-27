@@ -109,7 +109,24 @@ func SemaphoreGatherWithResults[T any](ctx context.Context, maxConcurrency int, 
 // Worker represents a worker function that processes items from a channel
 type Worker[T any, R any] func(ctx context.Context, item T) (R, error)
 
-// WorkerPool manages a pool of workers processing items concurrently
+// WorkerPool manages a pool of workers processing items concurrently.
+//
+// Goroutine Lifecycle:
+// - Worker goroutines are created when ProcessItems is called
+// - Workers read from an internal items channel until it's closed
+// - All workers terminate when:
+//   - The items channel is exhausted and closed
+//   - The context is cancelled
+//
+// - ProcessItems blocks until all workers complete via WaitGroup
+// - Panics in workers are recovered and converted to PanicError
+//
+// Example:
+//
+//	pool := NewWorkerPool(4, func(ctx context.Context, item string) (int, error) {
+//	    return len(item), nil
+//	})
+//	results, errors := pool.ProcessItems(ctx, []string{"a", "bb", "ccc"})
 type WorkerPool[T any, R any] struct {
 	numWorkers int
 	worker     Worker[T, R]

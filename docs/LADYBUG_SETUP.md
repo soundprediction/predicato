@@ -18,7 +18,7 @@ Ladybug is the **default and recommended** database driver for predicato because
 
 ## Prerequisites
 
-- Go 1.24+
+- Go 1.21+
 - **That's it!** No external database installation required
 
 ## Installation

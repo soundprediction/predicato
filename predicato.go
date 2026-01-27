@@ -247,10 +247,12 @@ func NewClient(driver driver.GraphDriver, nlProcessor nlp.Client, embedderClient
 	}
 
 	searcher := search.NewSearcher(driver, embedderClient, nlProcessor)
-	communityBuilder := community.NewBuilder(driver, nlProcessor, config.NlpModels.Summarization, embedderClient)
+	communityBuilder, err := community.NewBuilder(driver, nlProcessor, config.NlpModels.Summarization, embedderClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create community builder: %w", err)
+	}
 
 	var factStore factstore.FactsDB
-	var err error
 
 	// Prefer FactStoreConfig over deprecated FactsDBURL
 	if config.FactStoreConfig != nil {
