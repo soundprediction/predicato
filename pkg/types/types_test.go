@@ -7,6 +7,7 @@ import (
 )
 
 func TestNodeValidation(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		node    Node
@@ -49,6 +50,7 @@ func TestNodeValidation(t *testing.T) {
 }
 
 func TestNodeValidateForCreate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		node    Node
@@ -94,6 +96,7 @@ func TestNodeValidateForCreate(t *testing.T) {
 }
 
 func TestEpisodeValidation(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		episode Episode
@@ -136,6 +139,7 @@ func TestEpisodeValidation(t *testing.T) {
 }
 
 func TestEpisodeValidateForCreate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		episode Episode
@@ -172,6 +176,7 @@ func TestEpisodeValidateForCreate(t *testing.T) {
 }
 
 func TestSearchConfigValidation(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		config  SearchConfig
@@ -211,6 +216,7 @@ func TestSearchConfigValidation(t *testing.T) {
 }
 
 func TestSearchConfigWithDefaults(t *testing.T) {
+	t.Parallel()
 	t.Run("nil config", func(t *testing.T) {
 		var config *SearchConfig
 		result := config.WithDefaults()
@@ -262,6 +268,7 @@ func TestSearchConfigWithDefaults(t *testing.T) {
 }
 
 func TestNodeJSONRoundtrip(t *testing.T) {
+	t.Parallel()
 	now := time.Now().Truncate(time.Second)
 	original := &Node{
 		Uuid:       "test-uuid",
@@ -310,6 +317,7 @@ func TestNodeJSONRoundtrip(t *testing.T) {
 }
 
 func TestEpisodeJSONRoundtrip(t *testing.T) {
+	t.Parallel()
 	now := time.Now().Truncate(time.Second)
 	original := &Episode{
 		ID:        "test-episode",
@@ -350,6 +358,7 @@ func TestEpisodeJSONRoundtrip(t *testing.T) {
 }
 
 func TestNodeTypes(t *testing.T) {
+	t.Parallel()
 	// Verify constant values haven't changed
 	if EntityNodeType != "entity" {
 		t.Errorf("EntityNodeType = %s, want entity", EntityNodeType)
@@ -366,6 +375,7 @@ func TestNodeTypes(t *testing.T) {
 }
 
 func TestEpisodeTypes(t *testing.T) {
+	t.Parallel()
 	// Verify constant values haven't changed
 	if ConversationEpisodeType != "conversation" {
 		t.Errorf("ConversationEpisodeType = %s, want conversation", ConversationEpisodeType)

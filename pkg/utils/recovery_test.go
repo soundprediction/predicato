@@ -7,6 +7,7 @@ import (
 )
 
 func TestRecoverAsError(t *testing.T) {
+	t.Parallel()
 	t.Run("recovers from panic", func(t *testing.T) {
 		fn := func() (err error) {
 			defer RecoverAsError(&err)
@@ -59,6 +60,7 @@ func TestRecoverAsError(t *testing.T) {
 }
 
 func TestRecoverWithCallback(t *testing.T) {
+	t.Parallel()
 	t.Run("calls callback on panic", func(t *testing.T) {
 		var capturedErr error
 		fn := func() {
@@ -92,6 +94,7 @@ func TestRecoverWithCallback(t *testing.T) {
 }
 
 func TestSafeGo(t *testing.T) {
+	t.Parallel()
 	t.Run("executes function without panic", func(t *testing.T) {
 		done := make(chan struct{})
 		SafeGo(func() {
@@ -130,6 +133,7 @@ func TestSafeGo(t *testing.T) {
 }
 
 func TestSafeGoWithResult(t *testing.T) {
+	t.Parallel()
 	t.Run("returns nil error on success", func(t *testing.T) {
 		errCh := SafeGoWithResult(func() error {
 			return nil
@@ -182,6 +186,7 @@ func TestSafeGoWithResult(t *testing.T) {
 }
 
 func TestMustRecover(t *testing.T) {
+	t.Parallel()
 	t.Run("captures panic value", func(t *testing.T) {
 		recovered := MustRecover(func() {
 			panic("must recover test")
@@ -204,6 +209,7 @@ func TestMustRecover(t *testing.T) {
 }
 
 func TestPanicErrorString(t *testing.T) {
+	t.Parallel()
 	err := &PanicError{Value: "test value"}
 	expected := "panic: test value"
 	if err.Error() != expected {
@@ -212,6 +218,7 @@ func TestPanicErrorString(t *testing.T) {
 }
 
 func TestConcurrentPanicRecovery(t *testing.T) {
+	t.Parallel()
 	// Test that multiple concurrent goroutines with panics are all recovered
 	// using SafeGoWithResult which properly handles the panic/error flow
 	const numGoroutines = 10

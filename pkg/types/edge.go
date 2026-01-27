@@ -8,8 +8,8 @@ import (
 )
 
 // GraphProvider represents the type of graph database provider.
-// This is the canonical definition. pkg/driver also defines this type for package isolation.
-// Both definitions should be kept in sync. A conversion function is provided in predicato.go.
+// This is the canonical definition. pkg/driver exports this type via type alias
+// (driver.GraphProvider = types.GraphProvider) for backward compatibility.
 type GraphProvider string
 
 const (

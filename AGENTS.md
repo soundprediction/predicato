@@ -171,6 +171,33 @@ Use the `test-nocgo` target:
 make test-nocgo
 ```
 
+### Test Package CGO Requirements
+
+| Package | CGO Required | Reason |
+|---------|--------------|--------|
+| `pkg/types` | No | Pure Go types and validation |
+| `pkg/factstore` | No | Database clients only |
+| `pkg/embedder` | No | HTTP client wrappers |
+| `pkg/nlp` | No | LLM API clients |
+| `pkg/prompts` | No | Template parsing |
+| `pkg/logger` | No | Logging utilities |
+| `pkg/driver` | Yes | Ladybug embedded graph |
+| `pkg/checkpoint` | Yes | Depends on driver |
+| `pkg/modeler` | Yes | Depends on driver |
+| `pkg/utils` | Yes | Some helpers depend on driver types |
+| `pkg/search` | Yes | Depends on driver |
+| `pkg/server` | Yes | Transitive driver dependency |
+| `pkg/community` | Yes | Graph operations |
+
+**Quick test commands:**
+```bash
+# Pure Go packages (no setup required)
+go test ./pkg/types/... ./pkg/factstore/... ./pkg/embedder/... ./pkg/nlp/...
+
+# CGO packages (requires make generate first)
+make test-cgo
+```
+
 ### Cross-Compilation
 
 ```bash

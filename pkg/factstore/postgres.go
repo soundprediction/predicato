@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1346,8 +1347,7 @@ func (p *PostgresDB) parseEmbedding(s string) []float32 {
 	embedding := make([]float32, len(parts))
 
 	for i, part := range parts {
-		var v float64
-		fmt.Sscanf(strings.TrimSpace(part), "%f", &v)
+		v, _ := strconv.ParseFloat(strings.TrimSpace(part), 64)
 		embedding[i] = float32(v)
 	}
 
