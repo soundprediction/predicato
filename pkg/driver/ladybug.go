@@ -2550,7 +2550,7 @@ func (k *LadybugDriver) executeNodeCreateQuery(ctx context.Context, node *types.
 		return fmt.Errorf("unknown table: %s", tableName)
 	}
 
-	_, _, _, err := k.ExecuteQuery(query, params)
+	_, _, _, err := k.ExecuteQuery(ctx, query, params)
 	return err
 }
 
@@ -2684,7 +2684,7 @@ func (k *LadybugDriver) executeNodeUpdateQuery(ctx context.Context, node *types.
 		SET %s
 	`, tableName, strings.Join(setClauses, ", "))
 
-	_, _, _, err = k.ExecuteQuery(query, params)
+	_, _, _, err = k.ExecuteQuery(ctx, query, params)
 	return err
 }
 
@@ -2768,7 +2768,7 @@ func (s *LadybugDriverSession) Run(ctx context.Context, query interface{}, kwarg
 				if !ok {
 					params = make(map[string]interface{})
 				}
-				_, _, _, err := s.driver.ExecuteQuery(cypher, params)
+				_, _, _, err := s.driver.ExecuteQuery(ctx, cypher, params)
 				if err != nil {
 					return err
 				}
@@ -2780,7 +2780,7 @@ func (s *LadybugDriverSession) Run(ctx context.Context, query interface{}, kwarg
 		if kwargs == nil {
 			kwargs = make(map[string]interface{})
 		}
-		_, _, _, err := s.driver.ExecuteQuery(cypherQuery, kwargs)
+		_, _, _, err := s.driver.ExecuteQuery(ctx, cypherQuery, kwargs)
 		if err != nil {
 			return err
 		}
@@ -2819,7 +2819,7 @@ func (k *LadybugDriver) GetBetweenNodes(ctx context.Context, sourceNodeID, targe
 		"target_uuid": targetNodeID,
 	}
 
-	result, _, _, err := k.ExecuteQuery(query, params)
+	result, _, _, err := k.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute GetBetweenNodes query: %w", err)
 	}
@@ -2855,7 +2855,7 @@ func (k *LadybugDriver) GetNodeNeighbors(ctx context.Context, nodeUUID, groupID 
 		"group_id": groupID,
 	}
 
-	records, _, _, err := k.ExecuteQuery(query, params)
+	records, _, _, err := k.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute neighbor query: %w", err)
 	}
@@ -2921,7 +2921,7 @@ func (k *LadybugDriver) GetEntityNodesByGroup(ctx context.Context, groupID strin
 		"group_id": groupID,
 	}
 
-	records, _, _, err := k.ExecuteQuery(query, params)
+	records, _, _, err := k.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute entity nodes query: %w", err)
 	}
@@ -2962,7 +2962,7 @@ func (k *LadybugDriver) GetAllGroupIDs(ctx context.Context) ([]string, error) {
 		RETURN collect(DISTINCT n.group_id) AS group_ids
 	`
 
-	records, _, _, err := k.ExecuteQuery(query, nil)
+	records, _, _, err := k.ExecuteQuery(ctx, query, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute group IDs query: %w", err)
 	}

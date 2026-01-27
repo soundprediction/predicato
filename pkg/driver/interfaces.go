@@ -39,7 +39,7 @@ import (
 type GraphCore interface {
 	// ExecuteQuery executes a Cypher query with parameters.
 	// Returns (results, summary, keys, error) matching the Python interface.
-	ExecuteQuery(cypherQuery string, kwargs map[string]interface{}) (interface{}, interface{}, interface{}, error)
+	ExecuteQuery(ctx context.Context, cypherQuery string, kwargs map[string]interface{}) (interface{}, interface{}, interface{}, error)
 
 	// Session returns a database session for transaction management.
 	Session(database *string) GraphDriverSession

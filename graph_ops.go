@@ -84,7 +84,7 @@ func (c *Client) RemoveEpisode(ctx context.Context, episodeUUID string) error {
 	for _, node := range mentionedNodes {
 		// Equivalent to: query: LiteralString = 'MATCH (e:Episodic)-[:MENTIONS]->(n:Entity {uuid: $uuid}) RETURN count(*) AS episode_count'
 		query := `MATCH (e:Episodic)-[:MENTIONS]->(n:Entity {uuid: $uuid}) RETURN count(*) AS episode_count`
-		records, _, _, err := c.driver.ExecuteQuery(query, map[string]interface{}{
+		records, _, _, err := c.driver.ExecuteQuery(ctx, query, map[string]interface{}{
 			"uuid": node.Uuid,
 		})
 		if err != nil {

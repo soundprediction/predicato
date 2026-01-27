@@ -1233,7 +1233,7 @@ func (m *MemgraphDriver) GetExistingCommunity(ctx context.Context, entityUUID st
 		"entity_uuid": entityUUID,
 	}
 
-	result, _, _, err := m.ExecuteQuery(query, params)
+	result, _, _, err := m.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query existing community: %w", err)
 	}
@@ -1264,7 +1264,7 @@ func (m *MemgraphDriver) FindModalCommunity(ctx context.Context, entityUUID stri
 		"entity_uuid": entityUUID,
 	}
 
-	result, _, _, err := m.ExecuteQuery(query, params)
+	result, _, _, err := m.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query modal community: %w", err)
 	}
@@ -2307,7 +2307,7 @@ func (k *MemgraphDriver) GetBetweenNodes(ctx context.Context, sourceNodeID, targ
 		"target_uuid": targetNodeID,
 	}
 
-	result, _, _, err := k.ExecuteQuery(query, params)
+	result, _, _, err := k.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute GetBetweenNodes query: %w", err)
 	}
@@ -2343,7 +2343,7 @@ func (m *MemgraphDriver) GetNodeNeighbors(ctx context.Context, nodeUUID, groupID
 		"group_id": groupID,
 	}
 
-	result, _, _, err := m.ExecuteQuery(query, params)
+	result, _, _, err := m.ExecuteQuery(ctx, query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute neighbor query: %w", err)
 	}
@@ -2522,7 +2522,7 @@ func (m *MemgraphDriver) GetAllGroupIDs(ctx context.Context) ([]string, error) {
 		RETURN collect(DISTINCT n.group_id) AS group_ids
 	`
 
-	result, _, _, err := m.ExecuteQuery(query, nil)
+	result, _, _, err := m.ExecuteQuery(ctx, query, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute group IDs query: %w", err)
 	}
