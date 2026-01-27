@@ -20,7 +20,8 @@ func NewConcurrentExecutor(maxConcurrency int) *ConcurrentExecutor {
 	}
 }
 
-// Execute runs functions concurrently with semaphore control
+// Execute runs functions concurrently with semaphore control.
+// Panics in goroutines are recovered and converted to PanicError.
 func (e *ConcurrentExecutor) Execute(ctx context.Context, functions ...func() error) []error {
 	if len(functions) == 0 {
 		return nil
@@ -33,6 +34,9 @@ func (e *ConcurrentExecutor) Execute(ctx context.Context, functions ...func() er
 		wg.Add(1)
 		go func(index int, function func() error) {
 			defer wg.Done()
+			defer RecoverWithCallback(func(err error) {
+				results[index] = err
+			})
 
 			// Acquire semaphore
 			select {
@@ -52,7 +56,8 @@ func (e *ConcurrentExecutor) Execute(ctx context.Context, functions ...func() er
 	return results
 }
 
-// ExecuteWithResults runs functions concurrently and returns results
+// ExecuteWithResults runs functions concurrently and returns results.
+// Panics in goroutines are recovered and converted to PanicError.
 func ExecuteWithResults[T any](ctx context.Context, maxConcurrency int, functions ...func() (T, error)) ([]T, []error) {
 	if len(functions) == 0 {
 		return nil, nil
@@ -67,6 +72,9 @@ func ExecuteWithResults[T any](ctx context.Context, maxConcurrency int, function
 		wg.Add(1)
 		go func(index int, function func() (T, error)) {
 			defer wg.Done()
+			defer RecoverWithCallback(func(err error) {
+				errors[index] = err
+			})
 
 			// Acquire semaphore
 			select {
@@ -118,7 +126,8 @@ func NewWorkerPool[T any, R any](numWorkers int, worker Worker[T, R]) *WorkerPoo
 	}
 }
 
-// ProcessItems processes items using the worker pool
+// ProcessItems processes items using the worker pool.
+// Panics in worker goroutines are recovered and converted to PanicError.
 func (wp *WorkerPool[T, R]) ProcessItems(ctx context.Context, items []T) ([]R, []error) {
 	if len(items) == 0 {
 		return nil, nil
@@ -142,6 +151,7 @@ func (wp *WorkerPool[T, R]) ProcessItems(ctx context.Context, items []T) ([]R, [
 	results := make([]R, len(items))
 	errors := make([]error, len(items))
 	var wg sync.WaitGroup
+	var mu sync.Mutex // Protect errors slice during panic recovery
 
 	// Start workers
 	for i := 0; i < wp.numWorkers; i++ {
@@ -154,7 +164,15 @@ func (wp *WorkerPool[T, R]) ProcessItems(ctx context.Context, items []T) ([]R, [
 					if !ok {
 						return
 					}
-					results[item.index], errors[item.index] = wp.worker(ctx, item.item)
+					// Use a wrapper function to recover from panics
+					func() {
+						defer RecoverWithCallback(func(err error) {
+							mu.Lock()
+							errors[item.index] = err
+							mu.Unlock()
+						})
+						results[item.index], errors[item.index] = wp.worker(ctx, item.item)
+					}()
 				case <-ctx.Done():
 					return
 				}

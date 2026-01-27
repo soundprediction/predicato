@@ -1,37 +1,49 @@
 # Go Predicato Makefile
 
-.PHONY: build build-cli test clean fmt vet lint run-example run-server deps tidy
+.PHONY: build build-cli test test-cgo test-nocgo clean fmt vet lint run-example run-server deps tidy generate
 
-# Build the project
-build:
+# Library path for CGO tests
+LIB_PATH := $(shell pwd)/cmd/lib-ladybug
+CGO_LDFLAGS := -L$(LIB_PATH) -Wl,-rpath,$(LIB_PATH)
+
+# Download Ladybug native library
+generate:
 	go generate ./cmd/main.go
-	go build -tags system_ladybug ./...
+
+# Build the project (requires generate first)
+build: generate
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" go build -tags system_ladybug ./...
 
 # Build CLI binary
-build-cli:
-	go generate ./cmd/main.go
-	go build -tags system_ladybug -o bin/predicato ./cmd/main.go
+build-cli: generate
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" go build -tags system_ladybug -o bin/predicato ./cmd/main.go
 
 # Build CLI for multiple platforms
-build-cli-all:
-	go generate ./cmd/main.go
-	GOOS=linux GOARCH=amd64 go build -tags system_ladybug -o bin/predicato-linux-amd64 ./cmd/main.go
-	GOOS=darwin GOARCH=amd64 go build -tags system_ladybug -o bin/predicato-darwin-amd64 ./cmd/main.go
-	GOOS=darwin GOARCH=arm64 go build -tags system_ladybug -o bin/predicato-darwin-arm64 ./cmd/main.go
-	GOOS=windows GOARCH=amd64 go build -tags system_ladybug -o bin/predicato-windows-amd64.exe ./cmd/main.go
+build-cli-all: generate
+	GOOS=linux GOARCH=amd64 CGO_LDFLAGS="$(CGO_LDFLAGS)" go build -tags system_ladybug -o bin/predicato-linux-amd64 ./cmd/main.go
+	GOOS=darwin GOARCH=amd64 CGO_LDFLAGS="$(CGO_LDFLAGS)" go build -tags system_ladybug -o bin/predicato-darwin-amd64 ./cmd/main.go
+	GOOS=darwin GOARCH=arm64 CGO_LDFLAGS="$(CGO_LDFLAGS)" go build -tags system_ladybug -o bin/predicato-darwin-arm64 ./cmd/main.go
+	GOOS=windows GOARCH=amd64 CGO_LDFLAGS="$(CGO_LDFLAGS)" go build -tags system_ladybug -o bin/predicato-windows-amd64.exe ./cmd/main.go
 
-# Run tests
-test:
-	go test ./...
+# Run all tests (CGO packages require generate first)
+test: generate test-cgo test-nocgo
+
+# Run tests for packages that require CGO/Ladybug
+test-cgo:
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" go test -tags system_ladybug ./pkg/driver/... ./pkg/checkpoint/... ./pkg/modeler/... ./pkg/utils/...
+
+# Run tests for pure Go packages (no CGO required)
+test-nocgo:
+	go test ./pkg/factstore/... ./pkg/embedder/... ./pkg/nlp/... ./pkg/prompts/... ./pkg/logger/...
 
 # Run tests with coverage
-test-coverage:
-	go test -coverprofile=coverage.out ./...
+test-coverage: generate
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" go test -tags system_ladybug -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out -o coverage.html
 
 # Run tests with race detection
-test-race:
-	go test -race ./...
+test-race: generate
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" go test -tags system_ladybug -race ./...
 
 # Clean build artifacts
 clean:
@@ -59,14 +71,12 @@ run-example:
 	cd examples/basic && go run main.go
 
 # Run server (requires environment variables)
-run-server:
-	go generate ./cmd/main.go
-	go run -tags system_ladybug ./cmd/main.go server
+run-server: generate
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" go run -tags system_ladybug ./cmd/main.go server
 
 # Run server with debug mode
-run-server-debug:
-	go generate ./cmd/main.go
-	go run -tags system_ladybug ./cmd/main.go server --mode debug --log-level debug
+run-server-debug: generate
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" go run -tags system_ladybug ./cmd/main.go server --mode debug --log-level debug
 
 # Development workflow
 dev: fmt vet test
@@ -89,10 +99,13 @@ check: fmt vet lint test-race
 # Help
 help:
 	@echo "Available targets:"
-	@echo "  build        - Build the project"
+	@echo "  generate     - Download Ladybug native library (required first)"
+	@echo "  build        - Build the project (includes generate)"
 	@echo "  build-cli    - Build CLI binary"
 	@echo "  build-cli-all- Build CLI for multiple platforms"
-	@echo "  test         - Run tests"
+	@echo "  test         - Run all tests (includes generate)"
+	@echo "  test-cgo     - Run tests requiring CGO/Ladybug"
+	@echo "  test-nocgo   - Run pure Go tests (no CGO required)"
 	@echo "  test-coverage- Run tests with coverage report"
 	@echo "  test-race    - Run tests with race detection"
 	@echo "  clean        - Clean build artifacts"

@@ -848,28 +848,40 @@ func (k *LadybugDriver) UpsertNode(ctx context.Context, node *types.Node) error 
 }
 
 // DeleteNode removes a node and its relationships from all tables.
+// Uses parameterized queries to prevent Cypher injection attacks.
 func (k *LadybugDriver) DeleteNode(ctx context.Context, nodeID, groupID string) error {
-	// Delete from all possible tables
+	// Delete from all possible tables (validated against allowedNodeLabels)
 	tables := []string{"Entity", "Episodic", "Community", "RelatesToNode_"}
 
+	params := map[string]interface{}{
+		"uuid":     nodeID,
+		"group_id": groupID,
+	}
+
 	for _, table := range tables {
-		// Delete relationships first
+		// Validate table name against allowlist to prevent label injection
+		if !allowedNodeLabels[table] {
+			continue
+		}
+
+		// Delete relationships first using parameterized query
+		// Note: Table name is validated above, safe to interpolate
 		deleteRelsQuery := fmt.Sprintf(`
 			MATCH (n:%s)-[r]-()
-			WHERE n.uuid = '%s' AND n.group_id = '%s'
+			WHERE n.uuid = $uuid AND n.group_id = $group_id
 			DELETE r
-		`, table, strings.ReplaceAll(nodeID, "'", "\\'"), strings.ReplaceAll(groupID, "'", "\\'"))
+		`, table)
 
-		k.ExecuteQuery(deleteRelsQuery, nil) // Ignore errors for missing relationships
+		k.ExecuteQuery(deleteRelsQuery, params) // Ignore errors for missing relationships
 
-		// Delete the node
+		// Delete the node using parameterized query
 		deleteNodeQuery := fmt.Sprintf(`
 			MATCH (n:%s)
-			WHERE n.uuid = '%s' AND n.group_id = '%s'
+			WHERE n.uuid = $uuid AND n.group_id = $group_id
 			DELETE n
-		`, table, strings.ReplaceAll(nodeID, "'", "\\'"), strings.ReplaceAll(groupID, "'", "\\'"))
+		`, table)
 
-		k.ExecuteQuery(deleteNodeQuery, nil) // Ignore errors for nodes not in this table
+		k.ExecuteQuery(deleteNodeQuery, params) // Ignore errors for nodes not in this table
 	}
 
 	return nil
@@ -1184,15 +1196,21 @@ func (k *LadybugDriver) UpsertCommunityEdge(ctx context.Context, communityUUID, 
 }
 
 // DeleteEdge removes an edge.
+// Uses parameterized queries to prevent Cypher injection attacks.
 func (k *LadybugDriver) DeleteEdge(ctx context.Context, edgeID, groupID string) error {
-	// Delete using RelatesToNode_ pattern
-	deleteQuery := fmt.Sprintf(`
+	// Delete using RelatesToNode_ pattern with parameterized query
+	deleteQuery := `
 		MATCH (a:Entity)-[:RELATES_TO]->(rel:RelatesToNode_)-[:RELATES_TO]->(b:Entity)
-		WHERE rel.uuid = '%s' AND rel.group_id = '%s'
+		WHERE rel.uuid = $uuid AND rel.group_id = $group_id
 		DELETE rel
-	`, strings.ReplaceAll(edgeID, "'", "\\'"), strings.ReplaceAll(groupID, "'", "\\'"))
+	`
 
-	_, _, _, err := k.ExecuteQuery(deleteQuery, nil)
+	params := map[string]interface{}{
+		"uuid":     edgeID,
+		"group_id": groupID,
+	}
+
+	_, _, _, err := k.ExecuteQuery(deleteQuery, params)
 	if err != nil {
 		return fmt.Errorf("failed to delete edge: %w", err)
 	}
@@ -1218,6 +1236,7 @@ func (k *LadybugDriver) GetEdges(ctx context.Context, edgeIDs []string, groupID 
 }
 
 // GetNeighbors retrieves neighboring nodes within a specified distance.
+// Uses parameterized queries to prevent Cypher injection attacks.
 func (k *LadybugDriver) GetNeighbors(ctx context.Context, nodeID, groupID string, maxDistance int) ([]*types.Node, error) {
 	if maxDistance <= 0 {
 		maxDistance = 1
@@ -1226,17 +1245,22 @@ func (k *LadybugDriver) GetNeighbors(ctx context.Context, nodeID, groupID string
 		maxDistance = 10 // Prevent very expensive queries
 	}
 
-	// Build variable-length path query
+	// Build variable-length path query with parameterized values
+	// Note: maxDistance is an int (validated above), safe to interpolate for path length
 	query := fmt.Sprintf(`
 		MATCH (start:Entity)-[:RELATES_TO*1..%d]-(neighbor:Entity)
-		WHERE start.uuid = '%s' AND start.group_id = '%s'
-		  AND neighbor.group_id = '%s'
+		WHERE start.uuid = $uuid AND start.group_id = $group_id
+		  AND neighbor.group_id = $group_id
 		  AND neighbor.uuid <> start.uuid
 		RETURN DISTINCT neighbor.*
-	`, maxDistance, strings.ReplaceAll(nodeID, "'", "\\'"),
-		strings.ReplaceAll(groupID, "'", "\\'"), strings.ReplaceAll(groupID, "'", "\\'"))
+	`, maxDistance)
 
-	result, _, _, err := k.ExecuteQuery(query, nil)
+	params := map[string]interface{}{
+		"uuid":     nodeID,
+		"group_id": groupID,
+	}
+
+	result, _, _, err := k.ExecuteQuery(query, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query neighbors: %w", err)
 	}

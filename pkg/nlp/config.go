@@ -18,8 +18,9 @@ const (
 
 // LLMConfig holds configuration for LLM clients, matching Python LLMConfig structure
 type LLMConfig struct {
-	// APIKey is the authentication key for accessing the LLM API
-	APIKey string `json:"api_key,omitempty"`
+	// APIKey is the authentication key for accessing the LLM API.
+	// Excluded from JSON serialization to prevent accidental exposure in logs/responses.
+	APIKey string `json:"-"`
 
 	// Model is the specific LLM model to use for generating responses
 	Model string `json:"model,omitempty"`
@@ -45,7 +46,7 @@ type LLMConfig struct {
 	// MinP controls minimum probability threshold (provider-specific, e.g., LM Studio)
 	// Recommended: 0.0 for non-thinking mode
 	MinP       float32 `json:"min_p,omitempty"`
-	MaxRetries int
+	MaxRetries int     `json:"max_retries,omitempty"`
 
 	// SmallModel is the model to use for simpler prompts
 	SmallModel string `json:"small_model,omitempty"`
