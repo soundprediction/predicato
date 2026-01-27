@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 	"time"
 
@@ -462,14 +463,10 @@ func (d *DoltDB) SearchNodes(ctx context.Context, query string, embedding []floa
 		}
 	}
 
-	// Sort by score descending
-	for i := 0; i < len(scored)-1; i++ {
-		for j := i + 1; j < len(scored); j++ {
-			if scored[j].score > scored[i].score {
-				scored[i], scored[j] = scored[j], scored[i]
-			}
-		}
-	}
+	// Sort by score descending using O(n log n) sort
+	sort.Slice(scored, func(i, j int) bool {
+		return scored[i].score > scored[j].score
+	})
 
 	// Extract results
 	var nodes []*ExtractedNode
@@ -537,14 +534,10 @@ func (d *DoltDB) SearchEdges(ctx context.Context, query string, embedding []floa
 		}
 	}
 
-	// Sort
-	for i := 0; i < len(scored)-1; i++ {
-		for j := i + 1; j < len(scored); j++ {
-			if scored[j].score > scored[i].score {
-				scored[i], scored[j] = scored[j], scored[i]
-			}
-		}
-	}
+	// Sort using O(n log n) sort
+	sort.Slice(scored, func(i, j int) bool {
+		return scored[i].score > scored[j].score
+	})
 
 	var edges []*ExtractedEdge
 	var scores []float64
@@ -605,13 +598,9 @@ func (d *DoltDB) SearchSources(ctx context.Context, query string, config *FactSe
 	}
 
 	// Sort
-	for i := 0; i < len(scored)-1; i++ {
-		for j := i + 1; j < len(scored); j++ {
-			if scored[j].score > scored[i].score {
-				scored[i], scored[j] = scored[j], scored[i]
-			}
-		}
-	}
+	sort.Slice(scored, func(i, j int) bool {
+		return scored[i].score > scored[j].score
+	})
 
 	var sources []*Source
 	var scores []float64

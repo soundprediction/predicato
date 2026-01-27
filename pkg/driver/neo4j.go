@@ -72,13 +72,16 @@ func (n *Neo4jDriver) GetNode(ctx context.Context, nodeID, groupID string) (*typ
 		return nil, err
 	}
 
-	record := result.(*db.Record)
+	record, ok := AsRecord(result)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: got %T, expected *db.Record", result)
+	}
 	nodeValue, found := record.Get("n")
 	if !found {
 		return nil, fmt.Errorf("node not found")
 	}
 
-	node, ok := nodeValue.(dbtype.Node)
+	node, ok := AsDBNode(nodeValue)
 	if !ok {
 		return nil, fmt.Errorf("unexpected type for node: got %T, expected dbtype.Node", nodeValue)
 	}
@@ -238,7 +241,10 @@ func (n *Neo4jDriver) GetNodes(ctx context.Context, nodeIDs []string, groupID st
 		return nil, err
 	}
 
-	records := result.([]*db.Record)
+	records, ok := AsRecordSlice(result)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: got %T, expected []*db.Record", result)
+	}
 	nodes := make([]*types.Node, 0, len(records))
 
 	for _, record := range records {
@@ -246,7 +252,7 @@ func (n *Neo4jDriver) GetNodes(ctx context.Context, nodeIDs []string, groupID st
 		if !found {
 			continue
 		}
-		node, ok := nodeValue.(dbtype.Node)
+		node, ok := AsDBNode(nodeValue)
 		if !ok {
 			continue // Skip invalid type
 		}
@@ -288,24 +294,27 @@ func (n *Neo4jDriver) GetEdge(ctx context.Context, edgeID, groupID string) (*typ
 		return nil, err
 	}
 
-	record := result.(*db.Record)
+	record, ok := AsRecord(result)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: got %T, expected *db.Record", result)
+	}
 	relationValue, found := record.Get("r")
 	if !found {
 		return nil, fmt.Errorf("edge not found")
 	}
 
-	relation, ok := relationValue.(dbtype.Relationship)
+	relation, ok := AsDBRelationship(relationValue)
 	if !ok {
 		return nil, fmt.Errorf("unexpected type for relationship: got %T, expected dbtype.Relationship", relationValue)
 	}
 	sourceIDValue, _ := record.Get("source_id")
 	targetIDValue, _ := record.Get("target_id")
 
-	sourceID, ok := sourceIDValue.(string)
+	sourceID, ok := AsString(sourceIDValue)
 	if !ok {
 		return nil, fmt.Errorf("unexpected type for source_id: got %T, expected string", sourceIDValue)
 	}
-	targetID, ok := targetIDValue.(string)
+	targetID, ok := AsString(targetIDValue)
 	if !ok {
 		return nil, fmt.Errorf("unexpected type for target_id: got %T, expected string", targetIDValue)
 	}
@@ -1422,10 +1431,22 @@ func (n *Neo4jDriver) GetStats(ctx context.Context, groupID string) (*GraphStats
 		return nil, err
 	}
 
-	data := result.(map[string]interface{})
-	nodeRecords := data["nodes"].([]*db.Record)
-	edgeRecords := data["edges"].([]*db.Record)
-	totalNodeRecord := data["total_nodes"].(*db.Record)
+	data, ok := AsMap(result)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: got %T, expected map[string]interface{}", result)
+	}
+	nodeRecords, ok := AsRecordSlice(data["nodes"])
+	if !ok {
+		return nil, fmt.Errorf("unexpected nodes type: got %T, expected []*db.Record", data["nodes"])
+	}
+	edgeRecords, ok := AsRecordSlice(data["edges"])
+	if !ok {
+		return nil, fmt.Errorf("unexpected edges type: got %T, expected []*db.Record", data["edges"])
+	}
+	totalNodeRecord, ok := AsRecord(data["total_nodes"])
+	if !ok {
+		return nil, fmt.Errorf("unexpected total_nodes type: got %T, expected *db.Record", data["total_nodes"])
+	}
 
 	stats := &GraphStats{
 		NodesByType: make(map[string]int64),
@@ -1435,19 +1456,22 @@ func (n *Neo4jDriver) GetStats(ctx context.Context, groupID string) (*GraphStats
 
 	// Get total node count
 	if totalNodes, found := totalNodeRecord.Get("total_nodes"); found {
-		stats.NodeCount = totalNodes.(int64)
+		if count, ok := AsInt64(totalNodes); ok {
+			stats.NodeCount = count
+		}
 	}
 
 	// Process node stats by type
 	for _, record := range nodeRecords {
 		if nodeType, found := record.Get("node_type"); found && nodeType != nil {
 			if nodeCount, found := record.Get("node_count"); found {
-				nodeTypeStr := nodeType.(string)
-				stats.NodesByType[nodeTypeStr] = nodeCount.(int64)
+				nodeTypeStr, _ := AsString(nodeType)
+				count, _ := AsInt64(nodeCount)
+				stats.NodesByType[nodeTypeStr] = count
 
 				// Track community count
 				if nodeTypeStr == "Community" {
-					stats.CommunityCount = nodeCount.(int64)
+					stats.CommunityCount = count
 				}
 			}
 		}
@@ -1456,11 +1480,15 @@ func (n *Neo4jDriver) GetStats(ctx context.Context, groupID string) (*GraphStats
 	// Process edge stats
 	for _, record := range edgeRecords {
 		if edgeCount, found := record.Get("edge_count"); found {
-			stats.EdgeCount += edgeCount.(int64)
+			if count, ok := AsInt64(edgeCount); ok {
+				stats.EdgeCount += count
+			}
 		}
 		if edgeType, found := record.Get("edge_type"); found && edgeType != nil {
 			if edgeCount, found := record.Get("edge_count"); found {
-				stats.EdgesByType[edgeType.(string)] = edgeCount.(int64)
+				edgeTypeStr, _ := AsString(edgeType)
+				count, _ := AsInt64(edgeCount)
+				stats.EdgesByType[edgeTypeStr] = count
 			}
 		}
 	}

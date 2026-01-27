@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j/db"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j/dbtype"
 	"github.com/soundprediction/predicato/pkg/types"
 )
@@ -73,13 +72,16 @@ func (m *MemgraphDriver) GetNode(ctx context.Context, nodeID, groupID string) (*
 		return nil, err
 	}
 
-	record := result.(*db.Record)
+	record, ok := AsRecord(result)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: got %T, expected *db.Record", result)
+	}
 	nodeValue, found := record.Get("n")
 	if !found {
 		return nil, fmt.Errorf("node not found")
 	}
 
-	node, ok := nodeValue.(dbtype.Node)
+	node, ok := AsDBNode(nodeValue)
 	if !ok {
 		return nil, fmt.Errorf("unexpected type for node: got %T, expected dbtype.Node", nodeValue)
 	}
@@ -239,7 +241,10 @@ func (m *MemgraphDriver) GetNodes(ctx context.Context, nodeIDs []string, groupID
 		return nil, err
 	}
 
-	records := result.([]*db.Record)
+	records, ok := AsRecordSlice(result)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: got %T, expected []*db.Record", result)
+	}
 	nodes := make([]*types.Node, 0, len(records))
 
 	for _, record := range records {
@@ -247,7 +252,7 @@ func (m *MemgraphDriver) GetNodes(ctx context.Context, nodeIDs []string, groupID
 		if !found {
 			continue
 		}
-		node, ok := nodeValue.(dbtype.Node)
+		node, ok := AsDBNode(nodeValue)
 		if !ok {
 			continue // Skip invalid type
 		}
@@ -289,24 +294,27 @@ func (m *MemgraphDriver) GetEdge(ctx context.Context, edgeID, groupID string) (*
 		return nil, err
 	}
 
-	record := result.(*db.Record)
+	record, ok := AsRecord(result)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: got %T, expected *db.Record", result)
+	}
 	relationValue, found := record.Get("r")
 	if !found {
 		return nil, fmt.Errorf("edge not found")
 	}
 
-	relation, ok := relationValue.(dbtype.Relationship)
+	relation, ok := AsDBRelationship(relationValue)
 	if !ok {
 		return nil, fmt.Errorf("unexpected type for relationship: got %T, expected dbtype.Relationship", relationValue)
 	}
 	sourceIDValue, _ := record.Get("source_id")
 	targetIDValue, _ := record.Get("target_id")
 
-	sourceID, ok := sourceIDValue.(string)
+	sourceID, ok := AsString(sourceIDValue)
 	if !ok {
 		return nil, fmt.Errorf("unexpected type for source_id: got %T, expected string", sourceIDValue)
 	}
-	targetID, ok := targetIDValue.(string)
+	targetID, ok := AsString(targetIDValue)
 	if !ok {
 		return nil, fmt.Errorf("unexpected type for target_id: got %T, expected string", targetIDValue)
 	}
@@ -505,7 +513,10 @@ func (m *MemgraphDriver) GetEdges(ctx context.Context, edgeIDs []string, groupID
 		return nil, err
 	}
 
-	records := result.([]*db.Record)
+	records, ok := AsRecordSlice(result)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: got %T, expected []*db.Record", result)
+	}
 	edges := make([]*types.Edge, 0, len(records))
 
 	for _, record := range records {
@@ -513,17 +524,17 @@ func (m *MemgraphDriver) GetEdges(ctx context.Context, edgeIDs []string, groupID
 		if !found {
 			continue
 		}
-		relation, ok := relationValue.(dbtype.Relationship)
+		relation, ok := AsDBRelationship(relationValue)
 		if !ok {
 			continue // Skip invalid type
 		}
 		sourceIDValue, _ := record.Get("source_id")
 		targetIDValue, _ := record.Get("target_id")
-		sourceID, ok := sourceIDValue.(string)
+		sourceID, ok := AsString(sourceIDValue)
 		if !ok {
 			continue
 		}
-		targetID, ok := targetIDValue.(string)
+		targetID, ok := AsString(targetIDValue)
 		if !ok {
 			continue
 		}
@@ -562,7 +573,10 @@ func (m *MemgraphDriver) GetNeighbors(ctx context.Context, nodeID, groupID strin
 		return nil, err
 	}
 
-	records := result.([]*db.Record)
+	records, ok := AsRecordSlice(result)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: got %T, expected []*db.Record", result)
+	}
 	nodes := make([]*types.Node, 0, len(records))
 
 	for _, record := range records {
@@ -570,7 +584,7 @@ func (m *MemgraphDriver) GetNeighbors(ctx context.Context, nodeID, groupID strin
 		if !found {
 			continue
 		}
-		node, ok := nodeValue.(dbtype.Node)
+		node, ok := AsDBNode(nodeValue)
 		if !ok {
 			continue // Skip invalid type
 		}
@@ -629,7 +643,10 @@ func (m *MemgraphDriver) GetRelatedNodes(ctx context.Context, nodeID, groupID st
 		return nil, err
 	}
 
-	records := result.([]*db.Record)
+	records, ok := AsRecordSlice(result)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: got %T, expected []*db.Record", result)
+	}
 	nodes := make([]*types.Node, 0, len(records))
 
 	for _, record := range records {
@@ -637,7 +654,7 @@ func (m *MemgraphDriver) GetRelatedNodes(ctx context.Context, nodeID, groupID st
 		if !found {
 			continue
 		}
-		node, ok := nodeValue.(dbtype.Node)
+		node, ok := AsDBNode(nodeValue)
 		if !ok {
 			continue // Skip invalid type
 		}
@@ -676,7 +693,10 @@ func (m *MemgraphDriver) SearchNodesByEmbedding(ctx context.Context, embedding [
 		return nil, err
 	}
 
-	records := result.([]*db.Record)
+	records, ok := AsRecordSlice(result)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: got %T, expected []*db.Record", result)
+	}
 	type nodeWithSimilarity struct {
 		node       *types.Node
 		similarity float32
@@ -689,7 +709,7 @@ func (m *MemgraphDriver) SearchNodesByEmbedding(ctx context.Context, embedding [
 		if !found {
 			continue
 		}
-		dbNode, ok := nodeValue.(dbtype.Node)
+		dbNode, ok := AsDBNode(nodeValue)
 		if !ok {
 			continue // Skip invalid type
 		}
@@ -756,7 +776,10 @@ func (m *MemgraphDriver) SearchEdgesByEmbedding(ctx context.Context, embedding [
 		return nil, err
 	}
 
-	records := result.([]*db.Record)
+	records, ok := AsRecordSlice(result)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: got %T, expected []*db.Record", result)
+	}
 	type edgeWithSimilarity struct {
 		edge       *types.Edge
 		similarity float32
@@ -769,17 +792,17 @@ func (m *MemgraphDriver) SearchEdgesByEmbedding(ctx context.Context, embedding [
 		if !found {
 			continue
 		}
-		dbRelation, ok := relationValue.(dbtype.Relationship)
+		dbRelation, ok := AsDBRelationship(relationValue)
 		if !ok {
 			continue // Skip invalid type
 		}
 		sourceIDValue, _ := record.Get("source_id")
 		targetIDValue, _ := record.Get("target_id")
-		sourceID, ok := sourceIDValue.(string)
+		sourceID, ok := AsString(sourceIDValue)
 		if !ok {
 			continue
 		}
-		targetID, ok := targetIDValue.(string)
+		targetID, ok := AsString(targetIDValue)
 		if !ok {
 			continue
 		}
@@ -956,7 +979,10 @@ func (m *MemgraphDriver) GetNodesInTimeRange(ctx context.Context, start, end tim
 		return nil, err
 	}
 
-	records := result.([]*db.Record)
+	records, ok := AsRecordSlice(result)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: got %T, expected []*db.Record", result)
+	}
 	nodes := make([]*types.Node, 0, len(records))
 
 	for _, record := range records {
@@ -964,7 +990,7 @@ func (m *MemgraphDriver) GetNodesInTimeRange(ctx context.Context, start, end tim
 		if !found {
 			continue
 		}
-		node, ok := nodeValue.(dbtype.Node)
+		node, ok := AsDBNode(nodeValue)
 		if !ok {
 			continue // Skip invalid type
 		}
@@ -1000,7 +1026,10 @@ func (m *MemgraphDriver) GetEdgesInTimeRange(ctx context.Context, start, end tim
 		return nil, err
 	}
 
-	records := result.([]*db.Record)
+	records, ok := AsRecordSlice(result)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: got %T, expected []*db.Record", result)
+	}
 	edges := make([]*types.Edge, 0, len(records))
 
 	for _, record := range records {
@@ -1008,17 +1037,17 @@ func (m *MemgraphDriver) GetEdgesInTimeRange(ctx context.Context, start, end tim
 		if !found {
 			continue
 		}
-		relation, ok := relationValue.(dbtype.Relationship)
+		relation, ok := AsDBRelationship(relationValue)
 		if !ok {
 			continue // Skip invalid type
 		}
 		sourceIDValue, _ := record.Get("source_id")
 		targetIDValue, _ := record.Get("target_id")
-		sourceID, ok := sourceIDValue.(string)
+		sourceID, ok := AsString(sourceIDValue)
 		if !ok {
 			continue
 		}
-		targetID, ok := targetIDValue.(string)
+		targetID, ok := AsString(targetIDValue)
 		if !ok {
 			continue
 		}
@@ -1091,7 +1120,10 @@ func (m *MemgraphDriver) RetrieveEpisodes(
 		return nil, fmt.Errorf("failed to retrieve episodes: %w", err)
 	}
 
-	records := result.([]*db.Record)
+	records, ok := AsRecordSlice(result)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: got %T, expected []*db.Record", result)
+	}
 	episodes := make([]*types.Node, 0, len(records))
 
 	for _, record := range records {
@@ -1099,7 +1131,7 @@ func (m *MemgraphDriver) RetrieveEpisodes(
 		if !found {
 			continue
 		}
-		node, ok := nodeValue.(dbtype.Node)
+		node, ok := AsDBNode(nodeValue)
 		if !ok {
 			continue // Skip invalid type
 		}
@@ -1138,7 +1170,10 @@ func (m *MemgraphDriver) GetCommunities(ctx context.Context, groupID string, lev
 		return nil, err
 	}
 
-	records := result.([]*db.Record)
+	records, ok := AsRecordSlice(result)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: got %T, expected []*db.Record", result)
+	}
 	nodes := make([]*types.Node, 0, len(records))
 
 	for _, record := range records {
@@ -1146,7 +1181,7 @@ func (m *MemgraphDriver) GetCommunities(ctx context.Context, groupID string, lev
 		if !found {
 			continue
 		}
-		node, ok := nodeValue.(dbtype.Node)
+		node, ok := AsDBNode(nodeValue)
 		if !ok {
 			continue // Skip invalid type
 		}
@@ -1424,10 +1459,22 @@ func (m *MemgraphDriver) GetStats(ctx context.Context, groupID string) (*GraphSt
 		return nil, err
 	}
 
-	data := result.(map[string]interface{})
-	nodeRecords := data["nodes"].([]*db.Record)
-	edgeRecords := data["edges"].([]*db.Record)
-	totalNodeRecord := data["total_nodes"].(*db.Record)
+	data, ok := AsMap(result)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: got %T, expected map[string]interface{}", result)
+	}
+	nodeRecords, ok := AsRecordSlice(data["nodes"])
+	if !ok {
+		return nil, fmt.Errorf("unexpected nodes type: got %T, expected []*db.Record", data["nodes"])
+	}
+	edgeRecords, ok := AsRecordSlice(data["edges"])
+	if !ok {
+		return nil, fmt.Errorf("unexpected edges type: got %T, expected []*db.Record", data["edges"])
+	}
+	totalNodeRecord, ok := AsRecord(data["total_nodes"])
+	if !ok {
+		return nil, fmt.Errorf("unexpected total_nodes type: got %T, expected *db.Record", data["total_nodes"])
+	}
 
 	stats := &GraphStats{
 		NodesByType: make(map[string]int64),
@@ -1437,19 +1484,22 @@ func (m *MemgraphDriver) GetStats(ctx context.Context, groupID string) (*GraphSt
 
 	// Get total node count
 	if totalNodes, found := totalNodeRecord.Get("total_nodes"); found {
-		stats.NodeCount = totalNodes.(int64)
+		if count, ok := AsInt64(totalNodes); ok {
+			stats.NodeCount = count
+		}
 	}
 
 	// Process node stats by type
 	for _, record := range nodeRecords {
 		if nodeType, found := record.Get("node_type"); found && nodeType != nil {
 			if nodeCount, found := record.Get("node_count"); found {
-				nodeTypeStr := nodeType.(string)
-				stats.NodesByType[nodeTypeStr] = nodeCount.(int64)
+				nodeTypeStr, _ := AsString(nodeType)
+				count, _ := AsInt64(nodeCount)
+				stats.NodesByType[nodeTypeStr] = count
 
 				// Track community count
 				if nodeTypeStr == "Community" {
-					stats.CommunityCount = nodeCount.(int64)
+					stats.CommunityCount = count
 				}
 			}
 		}
@@ -1458,11 +1508,15 @@ func (m *MemgraphDriver) GetStats(ctx context.Context, groupID string) (*GraphSt
 	// Process edge stats
 	for _, record := range edgeRecords {
 		if edgeCount, found := record.Get("edge_count"); found {
-			stats.EdgeCount += edgeCount.(int64)
+			if count, ok := AsInt64(edgeCount); ok {
+				stats.EdgeCount += count
+			}
 		}
 		if edgeType, found := record.Get("edge_type"); found && edgeType != nil {
 			if edgeCount, found := record.Get("edge_count"); found {
-				stats.EdgesByType[edgeType.(string)] = edgeCount.(int64)
+				edgeTypeStr, _ := AsString(edgeType)
+				count, _ := AsInt64(edgeCount)
+				stats.EdgesByType[edgeTypeStr] = count
 			}
 		}
 	}
@@ -1522,7 +1576,10 @@ func (m *MemgraphDriver) SearchNodes(ctx context.Context, query, groupID string,
 		return nil, err
 	}
 
-	records := result.([]*db.Record)
+	records, ok := AsRecordSlice(result)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: got %T, expected []*db.Record", result)
+	}
 	nodes := make([]*types.Node, 0, len(records))
 
 	for _, record := range records {
@@ -1530,7 +1587,7 @@ func (m *MemgraphDriver) SearchNodes(ctx context.Context, query, groupID string,
 		if !found {
 			continue
 		}
-		node, ok := nodeValue.(dbtype.Node)
+		node, ok := AsDBNode(nodeValue)
 		if !ok {
 			continue // Skip invalid type
 		}
@@ -1578,7 +1635,10 @@ func (m *MemgraphDriver) SearchEdges(ctx context.Context, query, groupID string,
 		return nil, err
 	}
 
-	records := result.([]*db.Record)
+	records, ok := AsRecordSlice(result)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: got %T, expected []*db.Record", result)
+	}
 	edges := make([]*types.Edge, 0, len(records))
 
 	for _, record := range records {
@@ -1586,17 +1646,17 @@ func (m *MemgraphDriver) SearchEdges(ctx context.Context, query, groupID string,
 		if !found {
 			continue
 		}
-		relation, ok := relationValue.(dbtype.Relationship)
+		relation, ok := AsDBRelationship(relationValue)
 		if !ok {
 			continue // Skip invalid type
 		}
 		sourceIDValue, _ := record.Get("source_id")
 		targetIDValue, _ := record.Get("target_id")
-		sourceID, ok := sourceIDValue.(string)
+		sourceID, ok := AsString(sourceIDValue)
 		if !ok {
 			continue
 		}
-		targetID, ok := targetIDValue.(string)
+		targetID, ok := AsString(targetIDValue)
 		if !ok {
 			continue
 		}
@@ -2426,7 +2486,10 @@ func (m *MemgraphDriver) GetEntityNodesByGroup(ctx context.Context, groupID stri
 		return nil, fmt.Errorf("failed to execute entity nodes query: %w", err)
 	}
 
-	records := result.([]*db.Record)
+	records, ok := AsRecordSlice(result)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type: got %T, expected []*db.Record", result)
+	}
 	nodes := make([]*types.Node, 0, len(records))
 
 	for _, record := range records {
@@ -2440,7 +2503,7 @@ func (m *MemgraphDriver) GetEntityNodesByGroup(ctx context.Context, groupID stri
 			continue
 		}
 
-		node, ok := nodeValue.(dbtype.Node)
+		node, ok := AsDBNode(nodeValue)
 		if !ok {
 			continue // Skip invalid type
 		}

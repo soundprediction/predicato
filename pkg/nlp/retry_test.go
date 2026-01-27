@@ -57,7 +57,7 @@ func TestRetryClient_SuccessOnFirstAttempt(t *testing.T) {
 		BackoffMultiplier: 2.0,
 	}
 
-	retryClient := NewRetryClient(mock, config)
+	retryClient, _ := NewRetryClient(mock, config)
 
 	resp, err := retryClient.Chat(context.Background(), []types.Message{{Role: RoleUser, Content: "test"}})
 	if err != nil {
@@ -86,7 +86,7 @@ func TestRetryClient_SuccessAfterRetries(t *testing.T) {
 		BackoffMultiplier: 2.0,
 	}
 
-	retryClient := NewRetryClient(mock, config)
+	retryClient, _ := NewRetryClient(mock, config)
 
 	start := time.Now()
 	resp, err := retryClient.Chat(context.Background(), []types.Message{{Role: RoleUser, Content: "test"}})
@@ -124,7 +124,7 @@ func TestRetryClient_FailAfterMaxRetries(t *testing.T) {
 		BackoffMultiplier: 2.0,
 	}
 
-	retryClient := NewRetryClient(mock, config)
+	retryClient, _ := NewRetryClient(mock, config)
 
 	_, err := retryClient.Chat(context.Background(), []types.Message{{Role: RoleUser, Content: "test"}})
 	if err == nil {
@@ -153,7 +153,7 @@ func TestRetryClient_NonRetryableError(t *testing.T) {
 		BackoffMultiplier: 2.0,
 	}
 
-	retryClient := NewRetryClient(mock, config)
+	retryClient, _ := NewRetryClient(mock, config)
 
 	_, err := retryClient.Chat(context.Background(), []types.Message{{Role: RoleUser, Content: "test"}})
 	if err == nil {
@@ -179,7 +179,7 @@ func TestRetryClient_RateLimitError(t *testing.T) {
 		BackoffMultiplier: 2.0,
 	}
 
-	retryClient := NewRetryClient(mock, config)
+	retryClient, _ := NewRetryClient(mock, config)
 
 	resp, err := retryClient.Chat(context.Background(), []types.Message{{Role: RoleUser, Content: "test"}})
 	if err != nil {
@@ -208,7 +208,7 @@ func TestRetryClient_ContextCancellation(t *testing.T) {
 		BackoffMultiplier: 2.0,
 	}
 
-	retryClient := NewRetryClient(mock, config)
+	retryClient, _ := NewRetryClient(mock, config)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
@@ -263,9 +263,12 @@ func TestRetryClient_ExponentialBackoff(t *testing.T) {
 		InitialDelay:      100 * time.Millisecond,
 		MaxDelay:          1 * time.Second,
 		BackoffMultiplier: 2.0,
+		JitterFraction:    0, // Disable jitter for predictable testing
 	}
 
-	retryClient := NewRetryClient(nil, config)
+	// Use a mock client since NewRetryClient requires non-nil client
+	mock := &mockClient{}
+	retryClient, _ := NewRetryClient(mock, config)
 
 	// Test delay calculation
 	delays := []time.Duration{
@@ -304,7 +307,7 @@ func TestRetryClient_ChatWithStructuredOutput(t *testing.T) {
 		BackoffMultiplier: 2.0,
 	}
 
-	retryClient := NewRetryClient(mock, config)
+	retryClient, _ := NewRetryClient(mock, config)
 
 	result, err := retryClient.ChatWithStructuredOutput(
 		context.Background(),
@@ -342,6 +345,20 @@ func TestDefaultRetryConfig(t *testing.T) {
 
 	if config.BackoffMultiplier != 2.0 {
 		t.Errorf("expected BackoffMultiplier = 2.0, got %f", config.BackoffMultiplier)
+	}
+
+	if config.JitterFraction != 0.1 {
+		t.Errorf("expected JitterFraction = 0.1, got %f", config.JitterFraction)
+	}
+}
+
+func TestNewRetryClient_NilClient(t *testing.T) {
+	_, err := NewRetryClient(nil, nil)
+	if err == nil {
+		t.Error("expected error for nil client, got nil")
+	}
+	if err.Error() != "client cannot be nil" {
+		t.Errorf("unexpected error message: %s", err.Error())
 	}
 }
 

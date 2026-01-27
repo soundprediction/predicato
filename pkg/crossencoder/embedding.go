@@ -3,10 +3,10 @@ package crossencoder
 import (
 	"context"
 	"fmt"
-	"math"
 	"sort"
 
 	"github.com/soundprediction/predicato/pkg/embedder"
+	"github.com/soundprediction/predicato/pkg/utils"
 )
 
 // EmbeddingRerankerClient implements cross-encoder functionality using embeddings
@@ -50,24 +50,28 @@ func (c *EmbeddingRerankerClient) Rank(ctx context.Context, query string, passag
 		return nil, fmt.Errorf("embedder client is nil")
 	}
 
-	// Get query embedding
-	queryEmbedding, err := c.embedder.EmbedSingle(ctx, query)
+	// Create a batch of all texts to embed (query + passages) for efficiency
+	// This makes 1 API call instead of N+1 calls
+	allTexts := make([]string, 0, len(passages)+1)
+	allTexts = append(allTexts, query)
+	allTexts = append(allTexts, passages...)
+
+	// Get all embeddings in a single batch call
+	allEmbeddings, err := c.embedder.Embed(ctx, allTexts)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create query embedding: %w", err)
+		return nil, fmt.Errorf("failed to create embeddings: %w", err)
 	}
+
+	if len(allEmbeddings) != len(allTexts) {
+		return nil, fmt.Errorf("embedding count mismatch: expected %d, got %d", len(allTexts), len(allEmbeddings))
+	}
+
+	// First embedding is the query, rest are passages
+	queryEmbedding := allEmbeddings[0]
+	passageEmbeddings := allEmbeddings[1:]
 
 	if len(queryEmbedding) == 0 {
 		return nil, fmt.Errorf("query embedding is empty")
-	}
-
-	// Get embeddings for all passages
-	passageEmbeddings := make([][]float32, len(passages))
-	for i, passage := range passages {
-		embedding, err := c.embedder.EmbedSingle(ctx, passage)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create embedding for passage %d: %w", i, err)
-		}
-		passageEmbeddings[i] = embedding
 	}
 
 	// Calculate similarities and create results
@@ -75,7 +79,7 @@ func (c *EmbeddingRerankerClient) Rank(ctx context.Context, query string, passag
 	similarities := make([]float64, len(passages))
 
 	for i, passage := range passages {
-		similarity := cosineSimilarity(queryEmbedding, passageEmbeddings[i])
+		similarity := utils.CosineSimilarity(queryEmbedding, passageEmbeddings[i])
 		similarities[i] = similarity
 
 		// Apply threshold if configured
@@ -129,25 +133,4 @@ func (c *EmbeddingRerankerClient) Close() error {
 		return c.embedder.Close()
 	}
 	return nil
-}
-
-// cosineSimilarity calculates the cosine similarity between two vectors
-func cosineSimilarity(a, b []float32) float64 {
-	if len(a) != len(b) {
-		return 0.0
-	}
-
-	var dotProduct, normA, normB float64
-
-	for i := range a {
-		dotProduct += float64(a[i]) * float64(b[i])
-		normA += float64(a[i]) * float64(a[i])
-		normB += float64(b[i]) * float64(b[i])
-	}
-
-	if normA == 0 || normB == 0 {
-		return 0.0
-	}
-
-	return dotProduct / (math.Sqrt(normA) * math.Sqrt(normB))
 }

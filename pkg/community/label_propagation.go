@@ -3,6 +3,7 @@ package community
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/soundprediction/predicato/pkg/types"
@@ -53,14 +54,12 @@ func (b *Builder) labelPropagation(projection map[string][]types.Neighbor) [][]s
 			}
 
 			// Sort by count (descending), then by community ID for tie-breaking
-			for i := 0; i < len(scores); i++ {
-				for j := i + 1; j < len(scores); j++ {
-					if scores[j].count > scores[i].count ||
-						(scores[j].count == scores[i].count && scores[j].community > scores[i].community) {
-						scores[i], scores[j] = scores[j], scores[i]
-					}
+			sort.Slice(scores, func(i, j int) bool {
+				if scores[i].count != scores[j].count {
+					return scores[i].count > scores[j].count
 				}
-			}
+				return scores[i].community > scores[j].community
+			})
 
 			if len(scores) > 0 {
 				topScore := scores[0]

@@ -199,3 +199,12 @@ func (g *GeminiClient) ChatWithStructuredOutput(ctx context.Context, messages []
 	// GeminiClient.Chat now returns *types.Response
 	return resp, nil
 }
+
+// Close releases any resources held by the client.
+// For GeminiClient, this closes the underlying HTTP client's idle connections.
+func (g *GeminiClient) Close() error {
+	if g.httpClient != nil {
+		g.httpClient.CloseIdleConnections()
+	}
+	return nil
+}

@@ -1,7 +1,18 @@
 package types
 
 import (
+	"errors"
 	"time"
+)
+
+// Validation errors
+var (
+	ErrEmptyName    = errors.New("name cannot be empty")
+	ErrEmptyGroupID = errors.New("group_id cannot be empty")
+	ErrEmptyUUID    = errors.New("uuid cannot be empty")
+	ErrEmptyID      = errors.New("id cannot be empty")
+	ErrEmptyContent = errors.New("content cannot be empty")
+	ErrInvalidLimit = errors.New("limit must be positive")
 )
 
 // Node represents a node in the knowledge graph.
@@ -37,6 +48,25 @@ type Node struct {
 
 	// Source tracking
 	SourceIDs []string `json:"source_ids,omitempty" mapstructure:"source_ids"`
+}
+
+// Validate checks if the Node has all required fields set.
+func (n *Node) Validate() error {
+	if n.Name == "" {
+		return ErrEmptyName
+	}
+	if n.GroupID == "" {
+		return ErrEmptyGroupID
+	}
+	return nil
+}
+
+// ValidateForCreate checks if the Node has all required fields for creation.
+func (n *Node) ValidateForCreate() error {
+	if n.Uuid == "" {
+		return ErrEmptyUUID
+	}
+	return n.Validate()
 }
 
 // Edge is an alias for EntityEdge to maintain backward compatibility
@@ -84,6 +114,25 @@ type Episode struct {
 	ContentEmbedding []float32
 }
 
+// Validate checks if the Episode has all required fields set.
+func (e *Episode) Validate() error {
+	if e.Content == "" {
+		return ErrEmptyContent
+	}
+	if e.GroupID == "" {
+		return ErrEmptyGroupID
+	}
+	return nil
+}
+
+// ValidateForCreate checks if the Episode has all required fields for creation.
+func (e *Episode) ValidateForCreate() error {
+	if e.ID == "" {
+		return ErrEmptyID
+	}
+	return e.Validate()
+}
+
 // SearchConfig holds configuration for search operations.
 type SearchConfig struct {
 	// Limit is the maximum number of results to return.
@@ -102,6 +151,34 @@ type SearchConfig struct {
 	NodeConfig *NodeSearchConfig
 	// EdgeConfig holds configuration for edge search.
 	EdgeConfig *EdgeSearchConfig
+}
+
+// Validate checks if the SearchConfig has valid values.
+func (c *SearchConfig) Validate() error {
+	if c.Limit < 0 {
+		return ErrInvalidLimit
+	}
+	return nil
+}
+
+// WithDefaults returns a copy of the config with default values applied.
+func (c *SearchConfig) WithDefaults() *SearchConfig {
+	if c == nil {
+		return &SearchConfig{
+			Limit:              10,
+			CenterNodeDistance: 2,
+			MinScore:           0.0,
+			IncludeEdges:       true,
+		}
+	}
+	result := *c
+	if result.Limit == 0 {
+		result.Limit = 10
+	}
+	if result.CenterNodeDistance == 0 {
+		result.CenterNodeDistance = 2
+	}
+	return &result
 }
 
 // NodeSearchConfig holds configuration for node search operations.

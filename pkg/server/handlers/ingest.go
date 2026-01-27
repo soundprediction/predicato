@@ -69,8 +69,15 @@ func (h *IngestHandler) AddMessages(w http.ResponseWriter, r *http.Request) {
 	// Generate a process ID for tracking this async operation
 	processID := generateProcessID()
 
-	// Process messages asynchronously in the background
+	// Process messages asynchronously in the background with panic recovery
 	go func() {
+		// Recover from any panics in the background goroutine
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[%s] PANIC recovered in message processing for group %s: %v\n", processID, req.GroupID, r)
+			}
+		}()
+
 		ctx := context.Background()
 		referenceTime := time.Now()
 		if req.Reference != nil {
