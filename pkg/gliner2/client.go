@@ -293,7 +293,25 @@ func (c *Client) handleFactExtraction(ctx context.Context, userMsg string) (*typ
 }
 
 func (c *Client) handleTextClassification(ctx context.Context, userMsg string) (*types.Response, error) {
-	// TODO: Implement text classification when needed
-	// For now, return unsupported to focus on entities/facts
-	return nil, fmt.Errorf("GLInER2 text classification not yet implemented in adapter")
+	// Extract schema from the system message
+	schema := extractClassificationSchema(userMsg)
+
+	// Extract text content
+	text := extractTextContent(userMsg)
+
+	// Run text classification
+	result, err := c.ClassifyText(ctx, text, schema, 0.5)
+	if err != nil {
+		return nil, fmt.Errorf("GLInER2 text classification failed: %w", err)
+	}
+
+	// Format as JSON response for Predicato
+	content, err := formatClassificationResult(result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to format classification result: %w", err)
+	}
+
+	return &types.Response{
+		Content: content,
+	}, nil
 }
