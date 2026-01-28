@@ -107,7 +107,7 @@ The decoupled mode enables:
 ### Entity Resolution
 
 When adding episodes, Predicato automatically:
-1. Extracts entities using GLiNER or NLP model prompts
+1. Extracts entities using GLiNER, GLInER2 (API), or NLP model prompts
 2. Generates embeddings for each entity
 3. Compares against existing entities (cosine similarity)
 4. Merges duplicates above a threshold (default: 0.85)
@@ -152,7 +152,7 @@ if !result.Valid {
 | **Embeddings** | go-embedeverything | OpenAI compatible APIs, AWS bedrock, Gemini |
 | **Reranking** | go-embedeverything | Jina, Cohere |
 | **Text Generation** | go-rust-bert (BERT models) | OpenAI compatible APIs |
-| **Entity Extraction** | GLiNER (ONNX) | LLM-based extraction |
+| **Entity Extraction** | GLiNER (ONNX) | GLiNER2 (API) | LLM-based extraction |
 | **Fact Storage** | DoltGres (embedded) | PostgreSQL + VectorChord |
 
 **Why choose Predicato:**
