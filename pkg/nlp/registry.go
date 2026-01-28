@@ -30,7 +30,9 @@ const (
 	ProviderEmbedEverything ProviderID = "embedeverything"
 	// ProviderGLiNER is the ID for the GLiNER local provider.
 	ProviderGLiNER ProviderID = "gliner"
-	// ProviderRustBert is the ID for the RustBert local provider.
+	// ProviderGLiNER2 is the ID for GLiNER2 provider.
+	ProviderGLiNER2 ProviderID = "gliner2"
+	// ProviderRustBert is the ID for RustBert local provider.
 	ProviderRustBert ProviderID = "rustbert"
 	// ProviderOpenAI is the ID for OpenAI.
 	ProviderOpenAI ProviderID = "openai"
@@ -74,8 +76,14 @@ var BuiltInProviders = map[ProviderID]Provider{
 	ProviderGLiNER: {
 		ID:          ProviderGLiNER,
 		Name:        "GLiNER",
-		Description: "Generalist Model for Named Entity Recognition and Relation Extraction",
+		Description: "Local GLiNER models for zero-shot NER and Relation Extraction",
 		IsLocal:     true,
+	},
+	ProviderGLiNER2: {
+		ID:          ProviderGLiNER2,
+		Name:        "GLiNER2",
+		Description: "GLiNER2 models for entity extraction, fact extraction, text classification, and structured data extraction",
+		IsLocal:     false, // Can be local API or remote Fastino
 	},
 	ProviderRustBert: {
 		ID:          ProviderRustBert,
@@ -154,6 +162,24 @@ var BuiltInModels = []Model{
 		ProviderID:   ProviderGLiNER,
 		Capabilities: []TaskCapability{TaskNamedEntityRecognition},
 		Description:  "Lightweight multilingual GLiNER model",
+	},
+
+	// --- GLiNER2 ---
+	{
+		ID:           "fastino/gliner2-base-v1",
+		Name:         "GLiNER2 Base v1",
+		ProviderID:   ProviderGLiNER2,
+		Capabilities: []TaskCapability{TaskNamedEntityRecognition, TaskRelationExtraction},
+		Description:  "Fastino GLiNER2 base model for entity and relation extraction",
+		Family:       "gliner2",
+	},
+	{
+		ID:           "fastino/gliner2-large-v1",
+		Name:         "GLiNER2 Large v1",
+		ProviderID:   ProviderGLiNER2,
+		Capabilities: []TaskCapability{TaskNamedEntityRecognition, TaskRelationExtraction},
+		Description:  "Fastino GLiNER2 large model for enhanced entity and relation extraction",
+		Family:       "gliner2",
 	},
 
 	// --- RustBert ---
