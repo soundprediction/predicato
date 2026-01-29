@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -727,23 +726,6 @@ func (k *LadybugDriver) Provider() GraphProvider {
 // GetAossClient returns nil for ladybug (matching Python implementation)
 func (k *LadybugDriver) GetAossClient() interface{} {
 	return nil // aoss_client: None = None
-}
-
-// flatTupleToDict converts a Ladybug FlatTuple to a map to simulate Python's rows_as_dict()
-func (k *LadybugDriver) flatTupleToDict(tuple *ladybug.FlatTuple) (map[string]interface{}, error) {
-	values, err := tuple.GetAsSlice()
-	if err != nil {
-		return nil, err
-	}
-
-	// For now, create generic column names since ladybug Go doesn't expose column names easily
-	// In a full implementation, this would need proper column name extraction
-	result := make(map[string]interface{})
-	for i, value := range values {
-		result[fmt.Sprintf("col_%d", i)] = value
-	}
-
-	return result, nil
 }
 
 // === Backward compatibility methods for existing interface ===
@@ -2702,26 +2684,6 @@ func convertToFloat32Slice(data interface{}) []float32 {
 		return floatSlice
 	}
 	return nil
-}
-
-// cosineSimilarity computes the cosine similarity between two vectors
-func (k *LadybugDriver) cosineSimilarity(a, b []float32) float32 {
-	if len(a) != len(b) {
-		return 0.0
-	}
-
-	var dotProduct, normA, normB float32
-	for i := 0; i < len(a); i++ {
-		dotProduct += a[i] * b[i]
-		normA += a[i] * a[i]
-		normB += b[i] * b[i]
-	}
-
-	if normA == 0.0 || normB == 0.0 {
-		return 0.0
-	}
-
-	return dotProduct / (float32(math.Sqrt(float64(normA))) * float32(math.Sqrt(float64(normB))))
 }
 
 // LadybugDriverSession implements GraphDriverSession for ladybug exactly like Python
