@@ -312,13 +312,10 @@ func (su *SearchUtilities) GetEpisodesByMentions(ctx context.Context, nodes []*t
 		}
 	}
 
-	// Limit the episode UUIDs
-	if len(episodeUUIDs) > limit {
-		episodeUUIDs = episodeUUIDs[:limit]
-	}
-
 	// For now, return empty slice as this would require direct database queries
 	// In a full implementation, this would query episodic nodes by UUIDs
+	// and limit the results based on the 'limit' parameter and 'episodeUUIDs'.
+	_ = episodeUUIDs // Acknowledge the variable for future implementation
 	return []*types.Node{}, nil
 }
 
@@ -442,15 +439,14 @@ func MMRRerank(entities []*types.Node, queryEmbedding []float32, lambdaParam flo
 		for i, entity := range remaining {
 			// Calculate relevance score (similarity to query)
 			var relevanceScore float64
-			if entity.Embedding != nil && len(entity.Embedding) > 0 {
+			if len(entity.Embedding) > 0 {
 				relevanceScore = CalculateCosineSimilarity(queryEmbedding, entity.Embedding)
 			}
 
 			// Calculate diversity score (maximum similarity to already selected items)
 			var maxSimilarity float64
 			for _, selectedEntity := range selected {
-				if selectedEntity.Embedding != nil && len(selectedEntity.Embedding) > 0 &&
-					entity.Embedding != nil && len(entity.Embedding) > 0 {
+				if len(selectedEntity.Embedding) > 0 && len(entity.Embedding) > 0 {
 					similarity := CalculateCosineSimilarity(entity.Embedding, selectedEntity.Embedding)
 					if similarity > maxSimilarity {
 						maxSimilarity = similarity

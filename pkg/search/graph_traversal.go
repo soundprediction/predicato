@@ -54,10 +54,10 @@ func (su *SearchUtilities) NodeBFSSearch(ctx context.Context, originNodeUUIDs []
 			filterParams["entity_types"] = options.SearchFilters.EntityTypes
 		}
 
-		// Add time range filters if specified
-		if options.SearchFilters.TimeRange != nil {
-			// Would add temporal filtering here
-		}
+		// TODO: Add time range filters if specified
+		// if options.SearchFilters.TimeRange != nil {
+		// 	// Would add temporal filtering here
+		// }
 	}
 
 	if len(options.GroupIDs) > 0 {

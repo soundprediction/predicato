@@ -874,7 +874,7 @@ func (k *LadybugDriver) DeleteNode(ctx context.Context, nodeID, groupID string) 
 			DELETE r
 		`, table)
 
-		k.ExecuteQuery(ctx, deleteRelsQuery, params) // Ignore errors for missing relationships
+		_, _, _, _ = k.ExecuteQuery(ctx, deleteRelsQuery, params) // Ignore errors for missing relationships
 
 		// Delete the node using parameterized query
 		deleteNodeQuery := fmt.Sprintf(`
@@ -883,7 +883,7 @@ func (k *LadybugDriver) DeleteNode(ctx context.Context, nodeID, groupID string) 
 			DELETE n
 		`, table)
 
-		k.ExecuteQuery(ctx, deleteNodeQuery, params) // Ignore errors for nodes not in this table
+		_, _, _, _ = k.ExecuteQuery(ctx, deleteNodeQuery, params) // Ignore errors for nodes not in this table
 	}
 
 	return nil
@@ -1704,12 +1704,11 @@ func (k *LadybugDriver) SearchNodesByVector(ctx context.Context, vector []float3
 	}
 
 	// Note: MinScore filtering is already handled in SearchNodesByEmbedding via the WHERE score > 0.0 clause
-	// Additional filtering by options.MinScore could be added here if needed
-	if options != nil && options.MinScore > 0 {
-		// The score is already computed in SearchNodesByEmbedding, but we need to recompute
-		// for filtering since we don't store it in the Node struct
-		// For now, we rely on the database-level filtering
-	}
+	// Additional filtering by options.MinScore could be added here if needed in the future.
+	// The score is already computed in SearchNodesByEmbedding, but we need to recompute
+	// for filtering since we don't store it in the Node struct.
+	// For now, we rely on the database-level filtering.
+	_ = options // Acknowledge options for future MinScore filtering
 
 	return nodes, nil
 }
@@ -1733,12 +1732,11 @@ func (k *LadybugDriver) SearchEdgesByVector(ctx context.Context, vector []float3
 	}
 
 	// Note: MinScore filtering is already handled in SearchEdgesByEmbedding via the WHERE score > 0.0 clause
-	// Additional filtering by options.MinScore could be added here if needed
-	if options != nil && options.MinScore > 0 {
-		// The score is already computed in SearchEdgesByEmbedding, but we need to recompute
-		// for filtering since we don't store it in the Edge struct
-		// For now, we rely on the database-level filtering
-	}
+	// Additional filtering by options.MinScore could be added here if needed in the future.
+	// The score is already computed in SearchEdgesByEmbedding, but we need to recompute
+	// for filtering since we don't store it in the Edge struct.
+	// For now, we rely on the database-level filtering.
+	_ = options // Acknowledge options for future MinScore filtering
 
 	return edges, nil
 }

@@ -41,7 +41,7 @@ func generateProcessID() string {
 func writeErrorJSON(w http.ResponseWriter, status int, errCode, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(dto.ErrorResponse{
+	_ = json.NewEncoder(w).Encode(dto.ErrorResponse{
 		Error:   errCode,
 		Message: message,
 	})
